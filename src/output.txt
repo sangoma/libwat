@@ -1,0 +1,2432 @@
+
+k_standard.o:
+         U _LIB_VERSION
+         U __errno_location
+00000000 T __kernel_standard
+         U __rint
+         U fputs
+         U fwrite
+         U matherr
+         U stderr
+
+s_lib_version.o:
+00000000 D _LIB_VERSION
+
+s_matherr.o:
+00000000 W __matherr
+00000000 W matherr
+
+s_signgam.o:
+00000004 C signgam
+
+fclrexcpt.o:
+00000000 T __feclearexcept
+         U _dl_hwcap
+00000000 W feclearexcept
+
+fgetexcptflg.o:
+00000000 T __fegetexceptflag
+00000000 W fegetexceptflag
+
+fraiseexcpt.o:
+00000000 T __feraiseexcept
+00000000 W feraiseexcept
+
+fsetexcptflg.o:
+00000000 T __fesetexceptflag
+         U _dl_hwcap
+00000000 W fesetexceptflag
+
+ftestexcept.o:
+         U _dl_hwcap
+00000000 T fetestexcept
+
+fegetround.o:
+00000000 T fegetround
+
+fesetround.o:
+         U _dl_hwcap
+00000000 T fesetround
+
+fegetenv.o:
+00000000 T __fegetenv
+00000000 W fegetenv
+
+feholdexcpt.o:
+         U _dl_hwcap
+00000000 T feholdexcept
+
+fesetenv.o:
+00000000 T __fesetenv
+00000000 W fesetenv
+
+feupdateenv.o:
+00000000 T __feupdateenv
+         U feraiseexcept
+         U fesetenv
+00000000 W feupdateenv
+
+t_exp.o:
+
+fedisblxcpt.o:
+         U _dl_hwcap
+00000000 T fedisableexcept
+
+feenablxcpt.o:
+         U _dl_hwcap
+00000000 T feenableexcept
+
+fegetexcept.o:
+00000000 T fegetexcept
+
+e_acos.o:
+00000000 T __ieee754_acos
+
+e_acosh.o:
+00000000 T __ieee754_acosh
+00000008 r limit
+00000000 r one
+
+e_asin.o:
+00000000 T __ieee754_asin
+
+e_atan2.o:
+00000000 T __ieee754_atan2
+
+e_atanh.o:
+00000000 T __ieee754_atanh
+00000000 r half
+00000010 r limit
+00000018 r ln2_2
+00000008 r one
+
+e_cosh.o:
+         U __expm1
+00000000 T __ieee754_cosh
+         U __ieee754_exp
+
+e_exp.o:
+00000000 T __ieee754_exp
+
+e_fmod.o:
+00000000 T __ieee754_fmod
+
+e_hypot.o:
+00000000 T __ieee754_hypot
+
+e_j0.o:
+         U __cos
+00000000 T __ieee754_j0
+         U __ieee754_log
+000003d0 T __ieee754_y0
+         U __sincos
+00000180 r pR2
+00000100 r pR3
+00000080 r pR5
+00000000 r pR8
+000001c0 r pS2
+00000140 r pS3
+000000c0 r pS5
+00000040 r pS8
+00000380 r qR2
+00000300 r qR3
+00000280 r qR5
+00000200 r qR8
+000003c0 r qS2
+00000340 r qS3
+000002c0 r qS5
+00000240 r qS8
+
+e_j1.o:
+         U __cos
+00000000 T __ieee754_j1
+         U __ieee754_log
+00000390 T __ieee754_y1
+         U __sincos
+00000180 r pr2
+00000100 r pr3
+00000080 r pr5
+00000000 r pr8
+000001c0 r ps2
+00000140 r ps3
+000000c0 r ps5
+00000040 r ps8
+00000380 r qr2
+00000300 r qr3
+00000280 r qr5
+00000200 r qr8
+000003c0 r qs2
+00000340 r qs3
+000002c0 r qs5
+00000240 r qs8
+
+e_jn.o:
+         U __ieee754_j0
+         U __ieee754_j1
+00000240 T __ieee754_jn
+         U __ieee754_log
+         U __ieee754_y0
+         U __ieee754_y1
+00000000 T __ieee754_yn
+         U __sincos
+
+e_lgamma_r.o:
+         U __cos
+         U __floor
+00000000 T __ieee754_lgamma_r
+         U __ieee754_log
+         U __sin
+
+e_log.o:
+00000000 T __ieee754_log
+00000008 r limit
+00000000 r one
+
+e_log10.o:
+00000000 T __ieee754_log10
+00000008 r limit
+00000000 r one
+
+e_pow.o:
+00000000 T __ieee754_pow
+00000000 r inf_zero
+00000000 r infinity
+00000028 r limit
+00000010 r minf_mzero
+00000010 r minfinity
+00000018 r mzero
+00000020 r one
+00000030 r p63
+00000008 r zero
+
+e_rem_pio2.o:
+
+e_remainder.o:
+00000000 T __ieee754_remainder
+
+e_scalb.o:
+00000000 T __ieee754_scalb
+00000010 r minus_zero
+00000008 r nan
+00000000 r zero_nan
+
+e_sinh.o:
+         U __expm1
+         U __ieee754_exp
+00000000 T __ieee754_sinh
+
+e_sqrt.o:
+00000000 T __ieee754_sqrt
+
+e_gamma_r.o:
+         U __ieee754_exp
+00000000 T __ieee754_gamma_r
+         U __ieee754_lgamma_r
+         U __rint
+
+k_cos.o:
+
+k_rem_pio2.o:
+
+k_sin.o:
+
+k_tan.o:
+00000000 T __kernel_tan
+
+s_asinh.o:
+00000000 T __asinh
+00000000 W asinh
+00000000 r huge
+00000010 r limit
+00000008 r one
+
+s_atan.o:
+00000000 T __atan
+00000000 W atan
+
+s_cbrt.o:
+00000000 T __cbrt
+00000000 W cbrt
+00000030 r f1
+00000028 r f2
+00000020 r f3
+00000018 r f4
+00000010 r f5
+00000008 r f6
+00000000 r f7
+00000038 r factor
+00000060 r two54
+
+s_ceil.o:
+00000000 T __ceil
+00000000 W ceil
+
+s_cos.o:
+00000000 T __cos
+00000000 W cos
+
+s_erf.o:
+00000410 T __erf
+00000000 T __erfc
+         U __ieee754_exp
+00000410 W erf
+00000000 W erfc
+
+s_expm1.o:
+00000000 T __expm1
+00000000 W expm1
+00000010 r l2e
+00000000 r minus1
+00000008 r one
+
+s_fabs.o:
+00000000 T __fabs
+00000000 W fabs
+
+s_floor.o:
+00000000 T __floor
+00000000 W floor
+
+s_ilogb.o:
+00000000 T __ilogb
+00000000 W ilogb
+
+s_log1p.o:
+00000000 T __log1p
+00000000 r limit
+00000000 W log1p
+00000008 r one
+
+s_logb.o:
+00000000 T __logb
+00000000 W logb
+
+s_nextafter.o:
+00000000 T __nextafter
+00000000 W nextafter
+
+s_nexttoward.o:
+00000000 T __nexttoward
+00000000 W nexttoward
+
+s_rint.o:
+00000000 T __rint
+00000000 W rint
+
+s_scalbln.o:
+
+s_significand.o:
+00000000 T __significand
+00000000 W significand
+
+s_sin.o:
+00000000 T __sin
+00000000 W sin
+
+s_tan.o:
+00000000 T __tan
+00000000 W tan
+
+s_tanh.o:
+         U __expm1
+00000000 T __tanh
+00000000 W tanh
+
+w_acos.o:
+         U _LIB_VERSION
+00000000 T __acos
+         U __ieee754_acos
+         U __isnan
+         U __kernel_standard
+00000000 W acos
+
+w_acosh.o:
+         U _LIB_VERSION
+00000000 T __acosh
+         U __ieee754_acosh
+         U __isnan
+         U __kernel_standard
+00000000 W acosh
+
+w_asin.o:
+         U _LIB_VERSION
+00000000 T __asin
+         U __ieee754_asin
+         U __isnan
+         U __kernel_standard
+00000000 W asin
+
+w_atan2.o:
+         U _LIB_VERSION
+00000000 T __atan2
+         U __isnan
+         U __kernel_standard
+00000000 W atan2
+
+w_atanh.o:
+         U _LIB_VERSION
+00000000 T __atanh
+         U __ieee754_atanh
+         U __isnan
+         U __kernel_standard
+00000000 W atanh
+
+w_cosh.o:
+         U _LIB_VERSION
+00000000 T __cosh
+         U __finite
+         U __ieee754_cosh
+         U __isnan
+         U __kernel_standard
+00000000 W cosh
+
+w_drem.o:
+00000000 T __drem
+         U __remainder
+00000000 W drem
+
+w_exp.o:
+         U _LIB_VERSION
+00000000 T __exp
+         U __finite
+         U __ieee754_exp
+         U __kernel_standard
+00000000 W exp
+
+w_exp2.o:
+         U _LIB_VERSION
+00000000 T __exp2
+         U __finite
+         U __ieee754_exp2
+         U __kernel_standard
+00000000 W exp2
+
+w_exp10.o:
+         U _LIB_VERSION
+00000000 T __exp10
+         U __finite
+         U __ieee754_exp10
+         U __kernel_standard
+00000000 T __pow10
+00000000 W exp10
+00000000 W pow10
+
+w_fmod.o:
+         U _LIB_VERSION
+00000000 T __fmod
+         U __ieee754_fmod
+         U __isnan
+         U __kernel_standard
+00000000 W fmod
+
+w_tgamma.o:
+         U _LIB_VERSION
+         U __finite
+         U __floor
+         U __ieee754_gamma_r
+         U __kernel_standard
+00000000 T __tgamma
+00000000 W tgamma
+
+w_hypot.o:
+         U _LIB_VERSION
+         U __finite
+00000000 T __hypot
+         U __ieee754_hypot
+         U __kernel_standard
+00000000 W hypot
+
+w_j0.o:
+         U _LIB_VERSION
+         U __ieee754_j0
+         U __ieee754_y0
+         U __isnan
+         U __kernel_standard
+000000c0 T j0
+00000000 T y0
+
+w_j1.o:
+         U _LIB_VERSION
+         U __ieee754_j1
+         U __ieee754_y1
+         U __isnan
+         U __kernel_standard
+000000c0 T j1
+00000000 T y1
+
+w_jn.o:
+         U _LIB_VERSION
+         U __ieee754_jn
+         U __ieee754_yn
+         U __isnan
+         U __kernel_standard
+000000c0 T jn
+00000000 T yn
+
+w_lgamma.o:
+         U _LIB_VERSION
+         U __finite
+         U __floor
+00000000 T __gamma
+         U __ieee754_lgamma_r
+         U __kernel_standard
+00000000 T __lgamma
+00000000 W gamma
+00000000 W lgamma
+         U signgam
+
+w_lgamma_r.o:
+         U _LIB_VERSION
+         U __finite
+         U __floor
+         U __ieee754_lgamma_r
+         U __kernel_standard
+00000000 T __lgamma_r
+00000000 W lgamma_r
+
+w_log.o:
+         U _LIB_VERSION
+         U __ieee754_log
+         U __isnan
+         U __kernel_standard
+00000000 T __log
+00000000 W log
+
+w_log10.o:
+         U _LIB_VERSION
+         U __ieee754_log10
+         U __isnan
+         U __kernel_standard
+00000000 T __log10
+00000000 W log10
+
+w_pow.o:
+         U _LIB_VERSION
+         U __finite
+         U __ieee754_pow
+         U __isnan
+         U __kernel_standard
+00000000 T __pow
+00000000 W pow
+
+w_remainder.o:
+         U _LIB_VERSION
+         U __ieee754_remainder
+         U __isnan
+         U __kernel_standard
+00000000 T __remainder
+00000000 W remainder
+
+w_scalb.o:
+         U _LIB_VERSION
+         U __errno_location
+         U __finite
+         U __ieee754_scalb
+         U __isnan
+         U __kernel_standard
+00000000 T __scalb
+00000000 W scalb
+
+w_sinh.o:
+         U _LIB_VERSION
+         U __finite
+         U __ieee754_sinh
+         U __kernel_standard
+00000000 T __sinh
+00000000 W sinh
+
+w_sqrt.o:
+         U _LIB_VERSION
+         U __isnan
+         U __kernel_standard
+00000000 T __sqrt
+00000000 W sqrt
+
+s_fpclassify.o:
+00000000 T __fpclassify
+
+s_fmax.o:
+00000000 T __fmax
+00000000 W fmax
+
+s_fmin.o:
+00000000 T __fmin
+00000000 W fmin
+
+s_fdim.o:
+00000000 T __fdim
+00000000 W fdim
+
+s_nan.o:
+00000000 T __nan
+         U __strtod_internal
+00000000 W nan
+         U sprintf
+         U strlen
+
+s_trunc.o:
+00000000 T __trunc
+00000000 W trunc
+
+s_remquo.o:
+00000000 T __remquo
+00000000 W remquo
+
+e_log2.o:
+00000000 T __ieee754_log2
+00000008 r limit
+00000000 r one
+
+e_exp2.o:
+00000000 T __ieee754_exp2
+
+s_round.o:
+00000000 T __round
+00000000 W round
+
+s_nearbyint.o:
+00000000 T __nearbyint
+00000000 W nearbyint
+
+s_sincos.o:
+00000000 T __sincos
+00000000 W sincos
+
+conj.o:
+00000000 T __conj
+00000000 W conj
+
+cimag.o:
+00000000 T __cimag
+00000000 W cimag
+
+creal.o:
+00000000 T __creal
+00000000 W creal
+
+cabs.o:
+00000000 T __cabs
+         U __hypot
+00000000 W cabs
+
+carg.o:
+         U __atan2
+00000000 T __carg
+00000000 W carg
+
+s_cexp.o:
+00000000 T __cexp
+00000000 W cexp
+00000000 r huge_nan_null_null
+00000020 r infinity
+00000050 r l2e
+00000060 r one
+00000040 r twopi
+00000018 r zero
+
+s_csinh.o:
+00000000 T __csinh
+         U __fpclassify
+         U __ieee754_cosh
+         U __ieee754_sinh
+         U __nan
+         U __sincos
+00000000 W csinh
+         U feraiseexcept
+
+s_ccosh.o:
+00000000 T __ccosh
+         U __fpclassify
+         U __ieee754_cosh
+         U __ieee754_sinh
+         U __nan
+         U __sincos
+00000000 W ccosh
+         U feraiseexcept
+
+s_clog.o:
+00000000 T __clog
+         U __fpclassify
+         U __ieee754_hypot
+         U __ieee754_log
+         U __nan
+00000000 W clog
+
+s_catan.o:
+00000000 T __catan
+         U __fpclassify
+         U __ieee754_log
+         U __nan
+00000000 W catan
+
+s_casin.o:
+00000000 T __casin
+         U __casinh
+         U __copysign
+         U __isinf
+         U __isnan
+         U __nan
+00000000 W casin
+
+s_ccos.o:
+00000000 T __ccos
+         U __ccosh
+         U __finite
+         U __isinf
+         U __isnan
+         U __nan
+00000000 W ccos
+         U feraiseexcept
+
+s_csin.o:
+00000000 T __csin
+         U __fpclassify
+         U __ieee754_cosh
+         U __ieee754_sinh
+         U __nan
+         U __sincos
+00000000 W csin
+         U feraiseexcept
+
+s_ctan.o:
+         U __cexp
+00000000 T __ctan
+         U __divdc3
+         U __finite
+         U __ieee754_cosh
+         U __ieee754_sinh
+         U __isinf
+         U __muldc3
+         U __nan
+         U __sincos
+00000000 W ctan
+         U feraiseexcept
+
+s_ctanh.o:
+         U __cexp
+00000000 T __ctanh
+         U __divdc3
+         U __finite
+         U __ieee754_cosh
+         U __ieee754_sinh
+         U __isinf
+         U __nan
+         U __sincos
+00000000 W ctanh
+         U feraiseexcept
+
+s_cacos.o:
+00000000 T __cacos
+         U __casin
+00000000 W cacos
+
+s_casinh.o:
+00000000 T __casinh
+         U __clog
+         U __copysign
+         U __csqrt
+         U __fpclassify
+         U __nan
+00000000 W casinh
+
+s_cacosh.o:
+00000000 T __cacosh
+         U __clog
+         U __copysign
+         U __csqrt
+         U __fpclassify
+         U __nan
+00000000 W cacosh
+
+s_catanh.o:
+00000000 T __catanh
+         U __fpclassify
+         U __ieee754_log
+         U __nan
+00000000 W catanh
+
+s_csqrt.o:
+00000000 T __csqrt
+         U __fpclassify
+         U __ieee754_hypot
+         U __nan
+00000000 W csqrt
+
+s_cpow.o:
+         U __cexp
+         U __clog
+00000000 T __cpow
+         U __muldc3
+00000000 W cpow
+
+s_cproj.o:
+         U __copysign
+00000000 T __cproj
+         U __finite
+         U __isnan
+00000000 W cproj
+
+s_clog10.o:
+00000000 T __clog10
+         U __fpclassify
+         U __ieee754_hypot
+         U __ieee754_log10
+         U __nan
+00000000 W clog10
+
+s_fma.o:
+00000000 T __fma
+00000000 W fma
+
+s_lrint.o:
+00000000 T __lrint
+00000000 W lrint
+
+s_llrint.o:
+00000000 T __llrint
+00000000 W llrint
+
+s_lround.o:
+00000000 T __lround
+00000000 W lround
+
+s_llround.o:
+00000000 T __llround
+00000000 W llround
+
+e_exp10.o:
+00000000 T __ieee754_exp10
+
+w_log2.o:
+         U _LIB_VERSION
+         U __ieee754_log2
+         U __isnan
+         U __kernel_standard
+00000000 T __log2
+00000000 W log2
+
+m_isinf.o:
+00000000 T __isinf
+00000000 W isinf
+
+m_isnan.o:
+00000000 T __isnan
+00000000 W isnan
+
+m_finite.o:
+00000000 T __finite
+00000000 W finite
+
+m_copysign.o:
+00000000 T __copysign
+00000000 W copysign
+
+m_modf.o:
+00000000 T __modf
+00000000 W modf
+
+m_scalbn.o:
+00000000 T __scalbln
+00000000 T __scalbn
+00000000 W scalbln
+00000000 W scalbn
+
+m_frexp.o:
+00000000 T __frexp
+00000000 W frexp
+00000000 r two54
+
+m_ldexp.o:
+         U __errno_location
+         U __finite
+00000000 T __ldexp
+         U __scalbn
+00000000 W ldexp
+
+m_signbit.o:
+00000000 T __signbit
+
+e_acosf.o:
+00000000 T __ieee754_acosf
+
+e_acoshf.o:
+00000000 T __ieee754_acoshf
+00000008 r limit
+00000000 r one
+
+e_asinf.o:
+00000000 T __ieee754_asinf
+
+e_atan2f.o:
+00000000 T __ieee754_atan2f
+
+e_atanhf.o:
+00000000 T __ieee754_atanhf
+00000000 r half
+00000010 r limit
+00000020 r ln2_2
+00000008 r one
+
+e_coshf.o:
+         U __expm1f
+00000000 T __ieee754_coshf
+         U __ieee754_expf
+
+e_expf.o:
+00000000 T __ieee754_expf
+
+e_fmodf.o:
+00000000 T __ieee754_fmodf
+
+e_hypotf.o:
+00000000 T __ieee754_hypotf
+
+e_j0f.o:
+         U __cosf
+00000000 T __ieee754_j0f
+         U __ieee754_logf
+00000390 T __ieee754_y0f
+         U __sincosf
+00000084 r pR2
+00000058 r pR3
+0000002c r pR5
+00000000 r pR8
+0000009c r pS2
+00000070 r pS3
+00000044 r pS5
+00000018 r pS8
+00000140 r qR2
+00000110 r qR3
+000000e0 r qR5
+000000b0 r qR8
+00000158 r qS2
+00000128 r qS3
+000000f8 r qS5
+000000c8 r qS8
+
+e_j1f.o:
+         U __cosf
+00000000 T __ieee754_j1f
+         U __ieee754_logf
+00000330 T __ieee754_y1f
+         U __sincosf
+00000084 r pr2
+00000058 r pr3
+0000002c r pr5
+00000000 r pr8
+0000009c r ps2
+00000070 r ps3
+00000044 r ps5
+00000018 r ps8
+000000e0 r qr2
+000000b0 r qr8
+000000f8 r qs2
+000000c8 r qs8
+
+e_jnf.o:
+         U __ieee754_j0f
+         U __ieee754_j1f
+00000180 T __ieee754_jnf
+         U __ieee754_logf
+         U __ieee754_y0f
+         U __ieee754_y1f
+00000000 T __ieee754_ynf
+
+e_lgammaf_r.o:
+         U __floorf
+00000000 T __ieee754_lgammaf_r
+         U __ieee754_logf
+         U __kernel_cosf
+         U __kernel_sinf
+
+e_logf.o:
+00000000 T __ieee754_logf
+00000008 r limit
+00000000 r one
+
+e_log10f.o:
+00000000 T __ieee754_log10f
+00000008 r limit
+00000000 r one
+
+e_powf.o:
+00000000 T __ieee754_powf
+00000000 r inf_zero
+00000000 r infinity
+00000028 r limit
+00000010 r minf_mzero
+00000010 r minfinity
+00000018 r mzero
+00000020 r one
+00000030 r p31
+00000008 r zero
+
+e_rem_pio2f.o:
+
+e_remainderf.o:
+00000000 T __ieee754_remainderf
+
+e_scalbf.o:
+00000000 T __ieee754_scalbf
+00000010 r minus_zero
+00000008 r nan
+00000000 r zero_nan
+
+e_sinhf.o:
+         U __expm1f
+         U __ieee754_expf
+00000000 T __ieee754_sinhf
+
+e_sqrtf.o:
+00000000 T __ieee754_sqrtf
+
+e_gammaf_r.o:
+         U __ieee754_expf
+00000000 T __ieee754_gammaf_r
+         U __ieee754_lgammaf_r
+         U __rintf
+
+k_cosf.o:
+00000000 T __kernel_cosf
+
+k_rem_pio2f.o:
+
+k_sinf.o:
+00000000 T __kernel_sinf
+
+k_tanf.o:
+00000000 T __kernel_tanf
+
+s_asinhf.o:
+00000000 T __asinhf
+00000000 W asinhf
+00000000 r huge
+00000010 r limit
+00000008 r one
+
+s_atanf.o:
+00000000 T __atanf
+00000000 W atanf
+
+s_cbrtf.o:
+00000000 T __cbrtf
+00000000 W cbrtf
+00000010 r f1
+00000008 r f2
+00000000 r f3
+00000020 r factor
+00000048 r two25
+
+s_ceilf.o:
+00000000 T __ceilf
+00000000 W ceilf
+
+s_cosf.o:
+00000000 T __cosf
+00000000 W cosf
+
+s_erff.o:
+00000000 T __erfcf
+00000390 T __erff
+         U __ieee754_expf
+00000000 W erfcf
+00000390 W erff
+
+s_expm1f.o:
+00000000 T __expm1f
+00000000 W expm1f
+00000010 r l2e
+00000000 r minus1
+00000008 r one
+
+s_fabsf.o:
+00000000 T __fabsf
+00000000 W fabsf
+
+s_floorf.o:
+00000000 T __floorf
+00000000 W floorf
+
+s_ilogbf.o:
+00000000 T __ilogbf
+00000000 W ilogbf
+
+s_log1pf.o:
+00000000 T __log1pf
+00000000 r limit
+00000000 W log1pf
+00000004 r one
+
+s_logbf.o:
+00000000 T __logbf
+00000000 W logbf
+
+s_nextafterf.o:
+00000000 T __nextafterf
+00000000 W nextafterf
+
+s_nexttowardf.o:
+00000000 T __nexttowardf
+00000000 W nexttowardf
+
+s_rintf.o:
+00000000 T __rintf
+00000000 W rintf
+
+s_scalblnf.o:
+
+s_significandf.o:
+00000000 T __significandf
+00000000 W significandf
+
+s_sinf.o:
+00000000 T __sinf
+00000000 W sinf
+
+s_tanf.o:
+00000000 T __tanf
+00000000 W tanf
+
+s_tanhf.o:
+         U __expm1f
+00000000 T __tanhf
+00000000 W tanhf
+
+w_acosf.o:
+         U _LIB_VERSION
+00000000 T __acosf
+         U __ieee754_acosf
+         U __isnanf
+         U __kernel_standard
+00000000 W acosf
+
+w_acoshf.o:
+         U _LIB_VERSION
+00000000 T __acoshf
+         U __ieee754_acoshf
+         U __isnanf
+         U __kernel_standard
+00000000 W acoshf
+
+w_asinf.o:
+         U _LIB_VERSION
+00000000 T __asinf
+         U __ieee754_asinf
+         U __isnanf
+         U __kernel_standard
+00000000 W asinf
+
+w_atan2f.o:
+         U _LIB_VERSION
+00000000 T __atan2f
+         U __isnanf
+         U __kernel_standard
+00000000 W atan2f
+
+w_atanhf.o:
+         U _LIB_VERSION
+00000000 T __atanhf
+         U __ieee754_atanhf
+         U __isnanf
+         U __kernel_standard
+00000000 W atanhf
+
+w_coshf.o:
+         U _LIB_VERSION
+00000000 T __coshf
+         U __finite
+         U __ieee754_coshf
+         U __isnanf
+         U __kernel_standard
+00000000 W coshf
+
+w_dremf.o:
+00000000 T __dremf
+         U __remainderf
+00000000 W dremf
+
+w_expf.o:
+         U _LIB_VERSION
+00000000 T __expf
+         U __finitef
+         U __ieee754_expf
+         U __kernel_standard
+00000000 W expf
+
+w_exp2f.o:
+         U _LIB_VERSION
+00000000 T __exp2f
+         U __finitef
+         U __ieee754_exp2f
+         U __kernel_standard
+00000000 W exp2f
+
+w_exp10f.o:
+         U _LIB_VERSION
+00000000 T __exp10f
+         U __finitef
+         U __ieee754_exp10f
+         U __kernel_standard
+00000000 T __pow10f
+00000000 W exp10f
+00000000 W pow10f
+
+w_fmodf.o:
+         U _LIB_VERSION
+00000000 T __fmodf
+         U __ieee754_fmodf
+         U __isnanf
+         U __kernel_standard
+00000000 W fmodf
+
+w_tgammaf.o:
+         U _LIB_VERSION
+         U __finitef
+         U __floorf
+         U __ieee754_gammaf_r
+         U __kernel_standard
+00000000 T __tgammaf
+00000000 W tgammaf
+
+w_hypotf.o:
+         U _LIB_VERSION
+         U __finitef
+00000000 T __hypotf
+         U __ieee754_hypotf
+         U __kernel_standard
+00000000 W hypotf
+
+w_j0f.o:
+         U _LIB_VERSION
+         U __ieee754_j0f
+         U __ieee754_y0f
+         U __isnanf
+         U __kernel_standard
+000000b0 T j0f
+00000000 T y0f
+
+w_j1f.o:
+         U _LIB_VERSION
+         U __ieee754_j1f
+         U __ieee754_y1f
+         U __isnanf
+         U __kernel_standard
+000000b0 T j1f
+00000000 T y1f
+
+w_jnf.o:
+         U _LIB_VERSION
+         U __ieee754_jnf
+         U __ieee754_ynf
+         U __isnanf
+         U __kernel_standard
+000000c0 T jnf
+00000000 T ynf
+
+w_lgammaf.o:
+         U _LIB_VERSION
+         U __finitef
+         U __floorf
+00000000 T __gammaf
+         U __ieee754_lgammaf_r
+         U __kernel_standard
+00000000 T __lgammaf
+00000000 W gammaf
+00000000 W lgammaf
+         U signgam
+
+w_lgammaf_r.o:
+         U _LIB_VERSION
+         U __finitef
+         U __floorf
+         U __ieee754_lgammaf_r
+         U __kernel_standard
+00000000 T __lgammaf_r
+00000000 W lgammaf_r
+
+w_logf.o:
+         U _LIB_VERSION
+         U __ieee754_logf
+         U __isnanf
+         U __kernel_standard
+00000000 T __logf
+00000000 W logf
+
+w_log10f.o:
+         U _LIB_VERSION
+         U __ieee754_log10f
+         U __isnanf
+         U __kernel_standard
+00000000 T __log10f
+00000000 W log10f
+
+w_powf.o:
+         U _LIB_VERSION
+         U __finitef
+         U __ieee754_powf
+         U __isnanf
+         U __kernel_standard
+00000000 T __powf
+00000000 W powf
+
+w_remainderf.o:
+         U _LIB_VERSION
+         U __ieee754_remainderf
+         U __isnanf
+         U __kernel_standard
+00000000 T __remainderf
+00000000 W remainderf
+
+w_scalbf.o:
+         U _LIB_VERSION
+         U __errno_location
+         U __finitef
+         U __ieee754_scalbf
+         U __isnanf
+         U __kernel_standard
+00000000 T __scalbf
+00000000 W scalbf
+
+w_sinhf.o:
+         U _LIB_VERSION
+         U __finitef
+         U __ieee754_sinhf
+         U __kernel_standard
+00000000 T __sinhf
+00000000 W sinhf
+
+w_sqrtf.o:
+         U _LIB_VERSION
+         U __isnanf
+         U __kernel_standard
+00000000 T __sqrtf
+00000000 W sqrtf
+
+s_fpclassifyf.o:
+00000000 T __fpclassifyf
+
+s_fmaxf.o:
+00000000 T __fmaxf
+00000000 W fmaxf
+
+s_fminf.o:
+00000000 T __fminf
+00000000 W fminf
+
+s_fdimf.o:
+00000000 T __fdimf
+00000000 W fdimf
+
+s_nanf.o:
+00000000 T __nanf
+         U __strtof_internal
+00000000 W nanf
+         U sprintf
+         U strlen
+
+s_truncf.o:
+00000000 T __truncf
+00000000 W truncf
+
+s_remquof.o:
+00000000 T __remquof
+00000000 W remquof
+
+e_log2f.o:
+00000000 T __ieee754_log2f
+00000008 r limit
+00000000 r one
+
+e_exp2f.o:
+00000000 T __ieee754_exp2f
+
+s_roundf.o:
+00000000 T __roundf
+00000000 W roundf
+
+s_nearbyintf.o:
+00000000 T __nearbyintf
+00000000 W nearbyintf
+
+s_sincosf.o:
+00000000 T __sincosf
+00000000 W sincosf
+
+conjf.o:
+00000000 T __conjf
+00000000 W conjf
+
+cimagf.o:
+00000000 T __cimagf
+00000000 W cimagf
+
+crealf.o:
+00000000 T __crealf
+00000000 W crealf
+
+cabsf.o:
+00000000 T __cabsf
+         U __hypotf
+00000000 W cabsf
+
+cargf.o:
+         U __atan2f
+00000000 T __cargf
+00000000 W cargf
+
+s_cexpf.o:
+00000000 T __cexpf
+00000000 W cexpf
+00000000 r huge_nan_null_null
+00000010 r infinity
+00000030 r l2e
+00000040 r one
+00000020 r twopi
+0000000c r zero
+
+s_csinhf.o:
+00000000 T __csinhf
+         U __fpclassifyf
+         U __ieee754_coshf
+         U __ieee754_sinhf
+         U __nanf
+         U __sincosf
+00000000 W csinhf
+         U feraiseexcept
+
+s_ccoshf.o:
+00000000 T __ccoshf
+         U __fpclassifyf
+         U __ieee754_coshf
+         U __ieee754_sinhf
+         U __nanf
+         U __sincosf
+00000000 W ccoshf
+         U feraiseexcept
+
+s_clogf.o:
+00000000 T __clogf
+         U __fpclassifyf
+         U __ieee754_hypotf
+         U __ieee754_logf
+         U __nanf
+00000000 W clogf
+
+s_catanf.o:
+00000000 T __catanf
+         U __fpclassifyf
+         U __ieee754_logf
+         U __nanf
+00000000 W catanf
+
+s_casinf.o:
+00000000 T __casinf
+         U __casinhf
+         U __copysignf
+         U __isinff
+         U __isnanf
+         U __nanf
+00000000 W casinf
+
+s_ccosf.o:
+00000000 T __ccosf
+         U __ccoshf
+         U __finitef
+         U __isinff
+         U __isnanf
+         U __nanf
+00000000 W ccosf
+         U feraiseexcept
+
+s_csinf.o:
+00000000 T __csinf
+         U __fpclassifyf
+         U __ieee754_coshf
+         U __ieee754_sinhf
+         U __nanf
+         U __sincosf
+00000000 W csinf
+         U feraiseexcept
+
+s_ctanf.o:
+         U __cexpf
+00000000 T __ctanf
+         U __divsc3
+         U __finitef
+         U __ieee754_coshf
+         U __ieee754_sinhf
+         U __isinff
+         U __muldc3
+         U __nanf
+         U __sincosf
+00000000 W ctanf
+         U feraiseexcept
+
+s_ctanhf.o:
+         U __cexpf
+00000000 T __ctanhf
+         U __divsc3
+         U __finitef
+         U __ieee754_coshf
+         U __ieee754_sinhf
+         U __isinff
+         U __nanf
+         U __sincosf
+00000000 W ctanhf
+         U feraiseexcept
+
+s_cacosf.o:
+00000000 T __cacosf
+         U __casinf
+00000000 W cacosf
+
+s_casinhf.o:
+00000000 T __casinhf
+         U __clogf
+         U __copysignf
+         U __csqrtf
+         U __fpclassifyf
+         U __nanf
+00000000 W casinhf
+
+s_cacoshf.o:
+00000000 T __cacoshf
+         U __clogf
+         U __csqrtf
+         U __fpclassifyf
+         U __nanf
+00000000 W cacoshf
+
+s_catanhf.o:
+00000000 T __catanhf
+         U __fpclassifyf
+         U __ieee754_logf
+         U __nanf
+00000000 W catanhf
+
+s_csqrtf.o:
+00000000 T __csqrtf
+         U __fpclassifyf
+         U __ieee754_hypotf
+         U __nanf
+00000000 W csqrtf
+
+s_cpowf.o:
+         U __cexpf
+         U __clogf
+00000000 T __cpowf
+         U __mulsc3
+00000000 W cpowf
+
+s_cprojf.o:
+         U __copysignf
+00000000 T __cprojf
+         U __finitef
+         U __isnanf
+00000000 W cprojf
+
+s_clog10f.o:
+00000000 T __clog10f
+         U __fpclassifyf
+         U __ieee754_hypotf
+         U __ieee754_log10f
+         U __nanf
+00000000 W clog10f
+
+s_fmaf.o:
+00000000 T __fmaf
+00000000 W fmaf
+
+s_lrintf.o:
+00000000 T __lrintf
+00000000 W lrintf
+
+s_llrintf.o:
+00000000 T __llrintf
+00000000 W llrintf
+
+s_lroundf.o:
+00000000 T __lroundf
+00000000 W lroundf
+
+s_llroundf.o:
+00000000 T __llroundf
+00000000 W llroundf
+
+e_exp10f.o:
+00000000 T __ieee754_exp10f
+
+w_log2f.o:
+         U _LIB_VERSION
+         U __ieee754_log2f
+         U __isnanf
+         U __kernel_standard
+00000000 T __log2f
+00000000 W log2f
+
+m_isinff.o:
+00000000 T __isinff
+00000000 W isinff
+
+m_isnanf.o:
+00000000 T __isnanf
+00000000 W isnanf
+
+m_finitef.o:
+00000000 T __finitef
+00000000 W finitef
+
+m_copysignf.o:
+00000000 T __copysignf
+00000000 W copysignf
+
+m_modff.o:
+00000000 T __modff
+00000000 W modff
+
+m_scalbnf.o:
+00000000 T __scalblnf
+00000000 T __scalbnf
+00000000 W scalblnf
+00000000 W scalbnf
+
+m_frexpf.o:
+00000000 T __frexpf
+00000000 W frexpf
+00000000 r two25
+
+m_ldexpf.o:
+         U __errno_location
+         U __finitef
+00000000 T __ldexpf
+         U __scalbnf
+00000000 W ldexpf
+
+m_signbitf.o:
+00000000 T __signbitf
+
+e_acosl.o:
+00000000 T __ieee754_acosl
+
+e_acoshl.o:
+00000000 T __ieee754_acoshl
+00000008 r limit
+00000000 r one
+
+e_asinl.o:
+00000000 T __ieee754_asinl
+
+e_atan2l.o:
+00000000 T __ieee754_atan2l
+
+e_atanhl.o:
+00000000 T __ieee754_atanhl
+00000000 r half
+00000010 r limit
+00000020 r ln2_2
+00000008 r one
+
+e_coshl.o:
+         U __expm1l
+00000000 T __ieee754_coshl
+         U __ieee754_expl
+
+e_expl.o:
+00000000 T __ieee754_expl
+00000000 r c0
+00000010 r c1
+
+e_fmodl.o:
+00000000 T __ieee754_fmodl
+
+e_hypotl.o:
+00000000 T __ieee754_hypotl
+
+e_j0l.o:
+         U __cosl
+00000000 T __ieee754_j0l
+         U __ieee754_logl
+00000490 T __ieee754_y0l
+         U __sincosl
+00000240 r pR2
+00000180 r pR3
+000000c0 r pR5
+00000000 r pR8
+000002a0 r pS2
+000001e0 r pS3
+00000120 r pS5
+00000060 r pS8
+00000540 r qR2
+00000480 r qR3
+000003c0 r qR5
+00000300 r qR8
+000005a0 r qS2
+000004e0 r qS3
+00000420 r qS5
+00000360 r qS8
+
+e_j1l.o:
+         U __cosl
+00000120 T __ieee754_j1l
+         U __ieee754_logl
+000003c0 T __ieee754_y1l
+         U __sincosl
+00000240 r pr2
+00000180 r pr3
+000000c0 r pr5
+00000000 r pr8
+000002a0 r ps2
+000001e0 r ps3
+00000120 r ps5
+00000060 r ps8
+00000000 t qone
+00000540 r qr2
+00000480 r qr3
+000003c0 r qr5
+00000300 r qr8
+000005a0 r qs2
+000004e0 r qs3
+00000420 r qs5
+00000360 r qs8
+00000010 b r.3365
+00000020 b s.3364
+00000000 b z.3366
+
+e_jnl.o:
+         U __ieee754_j0l
+         U __ieee754_j1l
+00000220 T __ieee754_jnl
+         U __ieee754_logl
+         U __ieee754_y0l
+         U __ieee754_y1l
+00000000 T __ieee754_ynl
+         U __sincosl
+
+e_lgammal_r.o:
+         U __cosl
+         U __floorl
+00000000 T __ieee754_lgammal_r
+         U __ieee754_logl
+         U __sinl
+
+e_logl.o:
+00000000 T __ieee754_logl
+00000008 r limit
+00000000 r one
+
+e_log10l.o:
+00000000 T __ieee754_log10l
+00000008 r limit
+00000000 r one
+
+e_powl.o:
+00000000 T __ieee754_powl
+00000000 r inf_zero
+00000000 r infinity
+00000028 r limit
+00000010 r minf_mzero
+00000010 r minfinity
+00000018 r mzero
+00000020 r one
+00000030 r p63
+00000008 r zero
+
+e_rem_pio2l.o:
+
+e_remainderl.o:
+00000000 T __ieee754_remainderl
+
+e_scalbl.o:
+00000000 T __ieee754_scalbl
+00000010 r minus_zero
+00000008 r nan
+00000000 r zero_nan
+
+e_sinhl.o:
+         U __expm1l
+         U __ieee754_expl
+00000000 T __ieee754_sinhl
+
+e_sqrtl.o:
+00000000 T __ieee754_sqrtl
+
+e_gammal_r.o:
+         U __ieee754_expl
+00000000 T __ieee754_gammal_r
+         U __ieee754_lgammal_r
+         U __rintl
+
+k_cosl.o:
+         U __errno_location
+00000000 n __evoke_link_warning___kernel_cosl
+00000000 T __kernel_cosl
+         U fwrite
+         U stderr
+
+k_rem_pio2l.o:
+
+k_sinl.o:
+         U __errno_location
+00000000 n __evoke_link_warning___kernel_sinl
+00000000 T __kernel_sinl
+         U fwrite
+         U stderr
+
+k_tanl.o:
+         U __errno_location
+00000000 n __evoke_link_warning___kernel_tanl
+00000000 T __kernel_tanl
+         U fwrite
+         U stderr
+
+s_asinhl.o:
+00000000 T __asinhl
+00000000 W asinhl
+00000000 r huge
+00000018 r limit
+00000010 r one
+
+s_atanl.o:
+00000000 T __atanl
+00000000 W atanl
+
+s_cbrtl.o:
+00000000 T __cbrtl
+00000000 W cbrtl
+00000070 r f1
+00000060 r f2
+00000050 r f3
+00000040 r f4
+00000030 r f5
+00000020 r f6
+00000010 r f7
+00000000 r f8
+00000080 r factor
+000000d0 r two64
+
+s_ceill.o:
+00000000 T __ceill
+00000000 W ceill
+
+s_cosl.o:
+00000000 T __cosl
+00000000 W cosl
+
+s_erfl.o:
+00000000 T __erfcl
+00000490 T __erfl
+         U __ieee754_expl
+00000000 W erfcl
+00000490 W erfl
+
+s_expm1l.o:
+00000000 T __expm1l
+00000000 W expm1l
+00000010 r l2e
+00000000 r minus1
+00000008 r one
+
+s_fabsl.o:
+00000000 T __fabsl
+00000000 W fabsl
+
+s_floorl.o:
+00000000 T __floorl
+00000000 W floorl
+
+s_ilogbl.o:
+00000000 T __ilogbl
+00000000 W ilogbl
+
+s_log1pl.o:
+00000000 T __log1pl
+00000000 r limit
+00000000 W log1pl
+0000000a r one
+
+s_logbl.o:
+00000000 T __logbl
+00000000 W logbl
+
+s_nextafterl.o:
+00000000 T __nextafterl
+00000000 T __nexttowardl
+00000000 W nextafterl
+00000000 W nexttowardl
+
+s_nexttowardl.o:
+
+s_rintl.o:
+00000000 T __rintl
+00000000 W rintl
+
+s_scalblnl.o:
+
+s_significandl.o:
+00000000 T __significandl
+00000000 W significandl
+
+s_sinl.o:
+00000000 T __sinl
+00000000 W sinl
+
+s_tanl.o:
+00000000 T __tanl
+00000000 W tanl
+
+s_tanhl.o:
+         U __expm1l
+00000000 T __tanhl
+00000000 W tanhl
+
+w_acosl.o:
+         U _LIB_VERSION
+00000000 T __acosl
+         U __ieee754_acosl
+         U __isnanl
+         U __kernel_standard
+00000000 W acosl
+
+w_acoshl.o:
+         U _LIB_VERSION
+00000000 T __acoshl
+         U __ieee754_acoshl
+         U __isnanl
+         U __kernel_standard
+00000000 W acoshl
+
+w_asinl.o:
+         U _LIB_VERSION
+00000000 T __asinl
+         U __ieee754_asinl
+         U __isnanl
+         U __kernel_standard
+00000000 W asinl
+
+w_atan2l.o:
+         U _LIB_VERSION
+00000000 T __atan2l
+         U __isnanl
+         U __kernel_standard
+00000000 W atan2l
+
+w_atanhl.o:
+         U _LIB_VERSION
+00000000 T __atanhl
+         U __ieee754_atanhl
+         U __isnanl
+         U __kernel_standard
+00000000 W atanhl
+
+w_coshl.o:
+         U _LIB_VERSION
+00000000 T __coshl
+         U __finite
+         U __ieee754_coshl
+         U __isnanl
+         U __kernel_standard
+00000000 W coshl
+
+w_dreml.o:
+00000000 T __dreml
+         U __remainderl
+00000000 W dreml
+
+w_expl.o:
+         U _LIB_VERSION
+00000000 T __expl
+         U __finitel
+         U __ieee754_expl
+         U __kernel_standard
+00000000 W expl
+
+w_exp2l.o:
+         U _LIB_VERSION
+00000000 T __exp2l
+         U __finitel
+         U __ieee754_exp2l
+         U __kernel_standard
+00000000 W exp2l
+
+w_exp10l.o:
+         U _LIB_VERSION
+00000000 T __exp10l
+         U __finitel
+         U __ieee754_exp10l
+         U __kernel_standard
+00000000 T __pow10l
+00000000 W exp10l
+00000000 W pow10l
+
+w_fmodl.o:
+         U _LIB_VERSION
+00000000 T __fmodl
+         U __ieee754_fmodl
+         U __isnanl
+         U __kernel_standard
+00000000 W fmodl
+
+w_tgammal.o:
+         U _LIB_VERSION
+         U __finitel
+         U __floorl
+         U __ieee754_gammal_r
+         U __kernel_standard
+00000000 T __tgammal
+00000000 W tgammal
+
+w_hypotl.o:
+         U _LIB_VERSION
+         U __finitel
+00000000 T __hypotl
+         U __ieee754_hypotl
+         U __kernel_standard
+00000000 W hypotl
+
+w_j0l.o:
+         U _LIB_VERSION
+         U __ieee754_j0l
+         U __ieee754_y0l
+         U __isnanl
+000000e0 T __j0l
+         U __kernel_standard
+00000000 T __y0l
+000000e0 W j0l
+00000000 W y0l
+
+w_j1l.o:
+         U _LIB_VERSION
+         U __ieee754_j1l
+         U __ieee754_y1l
+         U __isnanl
+000000e0 T __j1l
+         U __kernel_standard
+00000000 T __y1l
+000000e0 W j1l
+00000000 W y1l
+
+w_jnl.o:
+         U _LIB_VERSION
+         U __ieee754_jnl
+         U __ieee754_ynl
+         U __isnanl
+000000e0 T __jnl
+         U __kernel_standard
+00000000 T __ynl
+000000e0 W jnl
+00000000 W ynl
+
+w_lgammal.o:
+         U _LIB_VERSION
+         U __finitel
+         U __floorl
+00000000 T __gammal
+         U __ieee754_lgammal_r
+         U __kernel_standard
+00000000 T __lgammal
+00000000 W gammal
+00000000 W lgammal
+         U signgam
+
+w_lgammal_r.o:
+         U _LIB_VERSION
+         U __finitel
+         U __floorl
+         U __ieee754_lgammal_r
+         U __kernel_standard
+00000000 T __lgammal_r
+00000000 W lgammal_r
+
+w_logl.o:
+         U _LIB_VERSION
+         U __ieee754_logl
+         U __isnanl
+         U __kernel_standard
+00000000 T __logl
+00000000 W logl
+
+w_log10l.o:
+         U _LIB_VERSION
+         U __ieee754_log10l
+         U __isnanl
+         U __kernel_standard
+00000000 T __log10l
+00000000 W log10l
+
+w_powl.o:
+         U _LIB_VERSION
+         U __finitel
+         U __ieee754_powl
+         U __isnanl
+         U __kernel_standard
+00000000 T __powl
+00000000 W powl
+
+w_remainderl.o:
+         U _LIB_VERSION
+         U __ieee754_remainderl
+         U __isnanl
+         U __kernel_standard
+00000000 T __remainderl
+00000000 W remainderl
+
+w_scalbl.o:
+         U _LIB_VERSION
+         U __errno_location
+         U __finitel
+         U __ieee754_scalbl
+         U __isnanl
+         U __kernel_standard
+00000000 T __scalbl
+00000000 W scalbl
+
+w_sinhl.o:
+         U _LIB_VERSION
+         U __finitel
+         U __ieee754_sinhl
+         U __kernel_standard
+00000000 T __sinhl
+00000000 W sinhl
+
+w_sqrtl.o:
+         U _LIB_VERSION
+         U __isnanl
+         U __kernel_standard
+00000000 T __sqrtl
+00000000 W sqrtl
+
+s_fpclassifyl.o:
+00000000 T __fpclassifyl
+
+s_fmaxl.o:
+00000000 T __fmaxl
+00000000 W fmaxl
+
+s_fminl.o:
+00000000 T __fminl
+00000000 W fminl
+
+s_fdiml.o:
+00000000 T __fdiml
+00000000 W fdiml
+
+s_nanl.o:
+00000000 T __nanl
+         U __strtold_internal
+00000000 W nanl
+         U sprintf
+         U strlen
+
+s_truncl.o:
+00000000 T __truncl
+00000000 W truncl
+
+s_remquol.o:
+00000000 T __remquol
+00000000 W remquol
+
+e_log2l.o:
+00000000 T __ieee754_log2l
+00000008 r limit
+00000000 r one
+
+e_exp2l.o:
+00000000 T __ieee754_exp2l
+
+s_roundl.o:
+00000000 T __roundl
+00000000 W roundl
+
+s_nearbyintl.o:
+00000000 T __nearbyintl
+00000000 W nearbyintl
+
+s_sincosl.o:
+00000000 T __sincosl
+00000000 W sincosl
+
+conjl.o:
+00000000 T __conjl
+00000000 W conjl
+
+cimagl.o:
+00000000 T __cimagl
+00000000 W cimagl
+
+creall.o:
+00000000 T __creall
+00000000 W creall
+
+cabsl.o:
+00000000 T __cabsl
+         U __hypotl
+00000000 W cabsl
+
+cargl.o:
+         U __atan2l
+00000000 T __cargl
+00000000 W cargl
+
+s_cexpl.o:
+00000000 T __cexpl
+00000000 W cexpl
+00000000 r huge_nan_null_null
+00000020 r infinity
+00000050 r l2e
+00000060 r one
+00000040 r twopi
+00000018 r zero
+
+s_csinhl.o:
+00000000 T __csinhl
+         U __fpclassifyl
+         U __ieee754_coshl
+         U __ieee754_sinhl
+         U __nanl
+         U __sincosl
+00000000 W csinhl
+         U feraiseexcept
+
+s_ccoshl.o:
+00000000 T __ccoshl
+         U __fpclassifyl
+         U __ieee754_coshl
+         U __ieee754_sinhl
+         U __nanl
+         U __sincosl
+00000000 W ccoshl
+         U feraiseexcept
+
+s_clogl.o:
+00000000 T __clogl
+         U __fpclassifyl
+         U __ieee754_hypotl
+         U __ieee754_logl
+         U __nanl
+00000000 W clogl
+
+s_catanl.o:
+00000000 T __catanl
+         U __fpclassifyl
+         U __ieee754_logl
+         U __nanl
+00000000 W catanl
+
+s_casinl.o:
+         U __casinhl
+00000000 T __casinl
+         U __copysignl
+         U __isinfl
+         U __isnanl
+         U __nanl
+00000000 W casinl
+
+s_ccosl.o:
+         U __ccoshl
+00000000 T __ccosl
+         U __finitel
+         U __isinfl
+         U __isnanl
+         U __nanl
+00000000 W ccosl
+         U feraiseexcept
+
+s_csinl.o:
+00000000 T __csinl
+         U __fpclassifyl
+         U __ieee754_coshl
+         U __ieee754_sinhl
+         U __nanl
+         U __sincosl
+00000000 W csinl
+         U feraiseexcept
+
+s_ctanl.o:
+         U __cexpl
+00000000 T __ctanl
+         U __divxc3
+         U __finitel
+         U __ieee754_coshl
+         U __ieee754_sinhl
+         U __isinfl
+         U __mulxc3
+         U __nanl
+         U __sincosl
+00000000 W ctanl
+         U feraiseexcept
+
+s_ctanhl.o:
+         U __cexpl
+00000000 T __ctanhl
+         U __divxc3
+         U __finitel
+         U __ieee754_coshl
+         U __ieee754_sinhl
+         U __isinfl
+         U __nanl
+         U __sincosl
+00000000 W ctanhl
+         U feraiseexcept
+
+s_cacosl.o:
+00000000 T __cacosl
+         U __casinl
+00000000 W cacosl
+
+s_casinhl.o:
+00000000 T __casinhl
+         U __clogl
+         U __copysignl
+         U __csqrtl
+         U __fpclassifyl
+         U __nanl
+00000000 W casinhl
+
+s_cacoshl.o:
+00000000 T __cacoshl
+         U __clogl
+         U __copysignl
+         U __csqrtl
+         U __fpclassifyl
+         U __nanl
+00000000 W cacoshl
+
+s_catanhl.o:
+00000000 T __catanhl
+         U __fpclassifyl
+         U __ieee754_logl
+         U __nanl
+00000000 W catanhl
+
+s_csqrtl.o:
+00000000 T __csqrtl
+         U __fpclassifyl
+         U __ieee754_hypotl
+         U __nanl
+00000000 W csqrtl
+
+s_cpowl.o:
+         U __cexpl
+         U __clogl
+00000000 T __cpowl
+         U __mulxc3
+00000000 W cpowl
+
+s_cprojl.o:
+         U __copysignl
+00000000 T __cprojl
+         U __finitel
+         U __isnanl
+00000000 W cprojl
+
+s_clog10l.o:
+00000000 T __clog10l
+         U __fpclassifyl
+         U __ieee754_hypotl
+         U __ieee754_log10l
+         U __nanl
+00000000 W clog10l
+
+s_fmal.o:
+00000000 T __fmal
+00000000 W fmal
+
+s_lrintl.o:
+00000000 T __lrintl
+00000000 W lrintl
+
+s_llrintl.o:
+00000000 T __llrintl
+00000000 W llrintl
+
+s_lroundl.o:
+00000000 T __lroundl
+00000000 W lroundl
+
+s_llroundl.o:
+00000000 T __llroundl
+00000000 W llroundl
+
+e_exp10l.o:
+00000000 T __ieee754_exp10l
+
+w_log2l.o:
+         U _LIB_VERSION
+         U __ieee754_log2l
+         U __isnanl
+         U __kernel_standard
+00000000 T __log2l
+00000000 W log2l
+
+m_isinfl.o:
+00000000 T __isinfl
+00000000 W isinfl
+
+m_isnanl.o:
+00000000 T __isnanl
+00000000 W isnanl
+
+m_finitel.o:
+00000000 T __finitel
+00000000 W finitel
+
+m_copysignl.o:
+00000000 T __copysignl
+00000000 W copysignl
+
+m_modfl.o:
+00000000 T __modfl
+00000000 W modfl
+
+m_scalbnl.o:
+00000000 T __scalblnl
+00000000 T __scalbnl
+00000000 W scalblnl
+00000000 W scalbnl
+
+m_frexpl.o:
+00000000 T __frexpl
+00000000 W frexpl
+00000000 r two64
+
+m_ldexpl.o:
+         U __errno_location
+         U __finitel
+00000000 T __ldexpl
+         U __scalbnl
+00000000 W ldexpl
+
+m_signbitl.o:
+00000000 T __signbitl
+
+t_sincosl.o:
+
+k_sincosl.o:
+
+branred.o:
+
+doasin.o:
+
+dosincos.o:
+
+halfulp.o:
+
+mpa.o:
+
+mpatan2.o:
+
+mpatan.o:
+
+mpexp.o:
+
+mplog.o:
+
+mpsqrt.o:
+
+mptan.o:
+
+sincos32.o:
+
+slowexp.o:
+
+slowpow.o:

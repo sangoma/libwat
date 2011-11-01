@@ -1,0 +1,6 @@
+//Configured options and settings for libwat
+
+#define wat_VERSION_LT_CURRENT @wat_VERSION_LT_CURRENT@
+#define wat_VERSION_LT_REVISION @wat_VERSION_LT_REVISION@
+#define wat_VERSION_LT_AGE @wat_VERSION_LT_AGE@
+
