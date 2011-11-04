@@ -141,7 +141,7 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 	
 	if (span->configured) {
-		wat_log(WAT_LOG_ERROR, "s%d:Span was already configured\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Span was already configured\n");
 		return WAT_FAIL;
 	}
 
@@ -152,7 +152,7 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 			}
 			break;
 		default:
-			wat_log(WAT_LOG_ERROR, "s%d:Invalid module type\n", span_config->moduletype);
+			wat_log_span(span, WAT_LOG_ERROR, "Invalid module type\n", span_config->moduletype);
 			return WAT_EINVAL;
 	}
 	
@@ -161,12 +161,12 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	memcpy(&span->config, span_config, sizeof(*span_config));
 
 	span->state = WAT_SPAN_STATE_DOWN;
-	wat_log(WAT_LOG_DEBUG, "s%d:Configured span for %s module\n", span_id, wat_moduletype2str(span_config->moduletype));
+	wat_log_span(span, WAT_LOG_DEBUG, "Configured span for %s module\n", wat_moduletype2str(span_config->moduletype));
 	return WAT_SUCCESS;
 
 failed:
 
-	wat_log(WAT_LOG_ERROR, "s%d:Failed to configure span for %s module\n", span_id, wat_moduletype2str(span_config->moduletype));
+	wat_log_span(span, WAT_LOG_ERROR, "Failed to configure span for %s module\n", span_id, wat_moduletype2str(span_config->moduletype));
 
 	return WAT_FAIL;
 }
@@ -179,11 +179,11 @@ WAT_DECLARE(wat_status_t) wat_span_unconfig(uint8_t span_id)
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 	
 	if (span->configured) {
-		wat_log(WAT_LOG_ERROR, "s%d:Span was not configured\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Span was not configured\n");
 		return WAT_FAIL;
 	}
 	if (span->running) {
-		wat_log(WAT_LOG_ERROR, "s%d:Cannot unconfig running span. Please stop span first\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Cannot unconfig running span. Please stop span first\n");
 		return WAT_FAIL;
 	}
 
@@ -199,7 +199,7 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 	
 	if (span->running) {
-		wat_log(WAT_LOG_ERROR, "s%d:Span was already started\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Span was already started\n");
 		return WAT_FAIL;
 	}
 	/* TODO: use span states instead */
@@ -210,26 +210,26 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	memset(span->notifys, 0, sizeof(span->notifys));
 	
 	if (wat_queue_create(&span->event_queue, WAT_EVENT_QUEUE_SZ) != WAT_SUCCESS) {
-		wat_log(WAT_LOG_CRIT, "s%d:Failed to create queue\n", span_id);
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to create queue\n");
 		return WAT_FAIL;
 	}
 
 	if (wat_queue_create(&span->cmd_queue, WAT_CMD_QUEUE_SZ) != WAT_SUCCESS) {
-		wat_log(WAT_LOG_CRIT, "s%d:Failed to create queue\n", span_id);
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to create queue\n");
 		return WAT_FAIL;
 	}
 
 	if (wat_buffer_create(&span->buffer, WAT_BUFFER_SZ) != WAT_SUCCESS) {
-		wat_log(WAT_LOG_CRIT, "s%d:Failed to create buffer\n", span_id);
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to create buffer\n");
 		return WAT_FAIL;
 	}
 
 	if (wat_sched_create(&span->sched, "span_schedule") != WAT_SUCCESS) {
-		wat_log(WAT_LOG_CRIT, "s%d:Failed to create scheduler\n", span_id);
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to create scheduler\n");
 		return WAT_FAIL;
 	}
 
-	wat_log(WAT_LOG_DEBUG, "s%d:Starting span\n", span_id);
+	wat_log_span(span, WAT_LOG_DEBUG, "Starting span\n");
 
 	wat_cmd_register(span, "+CRING", wat_notify_cring);
 
@@ -300,7 +300,7 @@ WAT_DECLARE(wat_status_t) wat_span_stop(uint8_t span_id)
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 	
 	if (!span->running) {
-		wat_log(WAT_LOG_ERROR, "s%d:Span was not running\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Span was not running\n");
 		return WAT_FAIL;
 	}
 
@@ -345,7 +345,7 @@ WAT_DECLARE(uint32_t) wat_span_schedule_next(uint8_t span_id)
 	}
 
 	if (wat_sched_get_time_to_next_timer(span->sched, &timeto) != WAT_SUCCESS) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to get time to next event\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to get time to next event\n", span->id);
 		timeto = -1;
 	}
 	return timeto;
@@ -378,11 +378,11 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 
 	if (g_debug & WAT_DEBUG_UART_RAW) {
 		char mydata[WAT_MAX_CMD_SZ];
-		wat_log(WAT_LOG_DEBUG, "s%d:[RX RAW] %s (len:%d)\n", span_id, format_at_data(mydata, data, len), len);
+		wat_log_span(span, WAT_LOG_DEBUG, "[RX RAW] %s (len:%d)\n", span_id, format_at_data(mydata, data, len), len);
 	}
 
 	if (wat_buffer_enqueue(span->buffer, data, len) != WAT_SUCCESS) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to enqueue\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enqueue\n", span_id);
 	}
 	return;
 }
@@ -410,7 +410,7 @@ WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, wat_net_info_t *
 
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log(WAT_LOG_ERROR, "s%d:Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n", span_id);
 		return WAT_FAIL;
 	}
 
@@ -429,7 +429,7 @@ WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
 
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log(WAT_LOG_ERROR, "s%d:Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n", span_id);
 		return WAT_FAIL;
 	}
 
@@ -455,13 +455,14 @@ WAT_DECLARE(wat_status_t) wat_con_req(uint8_t span_id, uint8_t call_id, wat_con_
 	wat_span_t *span;
 	wat_event_t event;
 
-	if (!(call_id & ~(0x8)) || call_id >= WAT_MAX_CALLS_PER_SPAN) {
-		wat_log(WAT_LOG_ERROR, "s%d:[id:%d]Invalid outbound call_id\n", span_id, call_id);
-		return WAT_FAIL;
-	}
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log(WAT_LOG_ERROR, "s%d:Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span\n");
+		return WAT_FAIL;
+	}
+
+	if ((call_id < 8) || call_id >= WAT_MAX_CALLS_PER_SPAN) {
+		wat_log_span(span, WAT_LOG_ERROR, "[id:%d]Invalid outbound call_id\n", call_id);
 		return WAT_FAIL;
 	}
 
@@ -490,7 +491,7 @@ WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id)
 
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log(WAT_LOG_ERROR, "s%d:Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span\n");
 		return WAT_FAIL;
 	}
 
@@ -518,7 +519,7 @@ WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id)
 
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log(WAT_LOG_ERROR, "s%d:Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span\n");
 		return WAT_FAIL;
 	}
 
@@ -614,7 +615,7 @@ wat_bool_t wat_sig_status_up(wat_net_stat_t stat)
 
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 {
-	wat_log(WAT_LOG_INFO, "s%d:Signalling status changed to %s\n", span->id, up ? "Up": "Down");
+	wat_log_span(span, WAT_LOG_NOTICE, "Signalling status changed to %s\n", up ? "Up": "Down");
 
 	span->sigstatus = up ? WAT_SIGSTATUS_UP: WAT_SIGSTATUS_DOWN;
 
@@ -635,12 +636,12 @@ wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat)
 		case WAT_NET_REGISTERED_ROAMING:
 			break;
 		default:
-			wat_log(WAT_LOG_CRIT, "Invalid network status:%s\n", stat);
+			wat_log_span(span, WAT_LOG_CRIT, "Invalid network status:%s\n", stat);
 			return WAT_FAIL;
 	}
 
 	if (span->net_info.stat != stat) {
-		wat_log(WAT_LOG_INFO, "s%d:Network status changed from \"%s\" to \"%s\"\n", span->id, wat_net_stat2str(span->net_info.stat), wat_net_stat2str(stat));
+		wat_log_span(span, WAT_LOG_NOTICE, "Network status changed to \"%s\"\n", wat_net_stat2str(stat));
 
 		if (wat_sig_status_up(span->net_info.stat) != wat_sig_status_up(stat)) {
 			wat_span_update_sig_status(span, wat_sig_status_up(stat));

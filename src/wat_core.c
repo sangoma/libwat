@@ -100,7 +100,7 @@ wat_event_t *wat_event_dequeue(wat_span_t *span)
 wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event)
 {
 	int i = 0;
-	wat_log(WAT_LOG_DEBUG, "s%d:Processing event \"%s\"\n", span->id, wat_event2str(event->id));
+	wat_log_span(span, WAT_LOG_DEBUG, "Processing event \"%s\"\n", wat_event2str(event->id));
 	
 	while(event_handlers[i].func != NULL) {
 		if (event_handlers[i].event_id == event->id) {
@@ -109,8 +109,7 @@ wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event)
 		}
 		i++;
 	}
-
-	wat_log(WAT_LOG_CRIT, "s%d:No handler for event \"%s\"\n", span->id, wat_event2str(event->id));
+	wat_log_span(span, WAT_LOG_ERROR, "No handler for event \"%s\"\n", wat_event2str(event->id));
 	return WAT_FAIL;
 done:
 	return WAT_SUCCESS;
@@ -118,7 +117,7 @@ done:
 
 static wat_status_t wat_span_set_state(wat_span_t *span, wat_span_state_t new_state)
 {
-	wat_log(WAT_LOG_DEBUG, "s%d:Changing state from %s to %s\n", span->id, wat_span_state2str(span->state), wat_span_state2str(new_state));
+	wat_log_span(span, WAT_LOG_DEBUG, "Changing state from %s to %s\n", wat_span_state2str(span->state), wat_span_state2str(new_state));
 
 	span->state = new_state;
 	return WAT_SUCCESS;
@@ -139,13 +138,13 @@ void wat_span_run_cmds(wat_span_t *span)
 			span->cmd_busy = 1;
 
 			if (g_debug & WAT_DEBUG_UART_DUMP) {
-				wat_log(WAT_LOG_DEBUG, "s%d:[TX AT] %s\n", span->id, span->cmd->cmd);
+				wat_log_span(span, WAT_LOG_DEBUG, "[TX AT] %s\n", span->cmd->cmd);
 			}
 
 			sprintf(command, "%s\r\n ", span->cmd->cmd);
 
 			if (wat_cmd_write(span, command) != WAT_SUCCESS) {
-				wat_log(WAT_LOG_ERROR, "s%d:Failed to write to span\n", span->id);
+				wat_log_span(span, WAT_LOG_DEBUG, "Failed to write to span\n");
 			}
 		}
 	}
@@ -162,12 +161,12 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	wat_assert_return(span->cmd_queue, WAT_FAIL, "No command queue!\n");
 
 	if (!strlen(incommand)) {
-		wat_log(WAT_LOG_ERROR, "s%d:Invalid cmd to enqueue \"%s\"\n", span->id, incommand);
+		wat_log_span(span, WAT_LOG_DEBUG, "Invalid cmd to enqueue \"%s\"\n", incommand);
 		return WAT_FAIL;
 	}
 
 	if (g_debug & WAT_DEBUG_AT_HANDLE) {
-		wat_log(WAT_LOG_DEBUG, "s%d:Enqueued command \"%s\"\n", span->id, incommand);
+		wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n", incommand);
 	}
 
 	/* Add a \r to finish the command */
@@ -211,7 +210,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 
 		if (g_debug & WAT_DEBUG_UART_DUMP) {
 			char mydata[WAT_MAX_CMD_SZ];
-			wat_log(WAT_LOG_DEBUG, "s%d:[RX AT] %s (len:%d)\n", span->id, format_at_data(mydata, data, len), len);
+			wat_log_span(span, WAT_LOG_DEBUG, "[RX AT] %s (len:%d)\n", format_at_data(mydata, data, len), len);
 		}
 
 		status = wat_tokenize_line(tokens, (char*)data, len, &consumed);
@@ -261,7 +260,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 						continue;
 					} else {
 						char mydata[WAT_MAX_CMD_SZ];
-						wat_log(WAT_LOG_ERROR, "s%d:Failed to parse AT commands %s (len:%d)\n", span->id, format_at_data(mydata, data, len), len);
+						wat_log_span(span, WAT_LOG_DEBUG, "Failed to parse AT commands %s (len:%d)\n", format_at_data(mydata, data, len), len);
 					}
 				}
 				if (handled == WAT_TRUE) {
@@ -273,7 +272,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 			if (1) {
 			if (wat_buffer_peep(span->buffer, data, &len) == WAT_SUCCESS) {
 				char mydata[WAT_MAX_CMD_SZ];
-				wat_log(WAT_LOG_DEBUG, "s%d:peeped AFTER: [%s] len:%d\n", span->id, format_at_data(mydata, data, len), len);
+				wat_log_span(span, WAT_LOG_DEBUG, "peeped AFTER: [%s] len:%d\n", format_at_data(mydata, data, len), len);
 			}
 		}
 #endif	
@@ -292,7 +291,7 @@ wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_
 	
 	cmd = span->cmd;
 	if (g_debug & WAT_DEBUG_AT_HANDLE) {
-		wat_log(WAT_LOG_DEBUG, "s%d:Handling response for cmd:%s\n", span->id, cmd->cmd);
+		wat_log_span(span, WAT_LOG_DEBUG, "Handling response for cmd:%s\n", cmd->cmd);
 	}
 	
 	if (cmd->cb) {
@@ -312,7 +311,7 @@ wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 	int i;
 	/* For notifications, the first token contains the AT command prefix */
 	if (g_debug & WAT_DEBUG_AT_HANDLE) {
-		wat_log(WAT_LOG_DEBUG, "s%d:Handling notify for cmd:%s\n", span->id, tokens[0]);
+		wat_log_span(span, WAT_LOG_DEBUG, "Handling notify for cmd:%s\n", tokens[0]);
 	}
 
 	for (i = 0; i < sizeof(span->notifys)/sizeof(span->notifys[0]); i++) {
@@ -325,7 +324,7 @@ wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 		}
 	}
 
-	wat_log(WAT_LOG_DEBUG, "s%d:No handler for unsollicited notify \"%s\"\n", span->id, tokens[0]);
+	wat_log_span(span, WAT_LOG_ERROR, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
 	return WAT_BREAK;
 }
 
@@ -424,7 +423,7 @@ wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_noti
 		wat_notify_t *notify = wat_iterator_current(curr);
 		if (!strcmp(notify->prefix, prefix)) {
 			/* Overwrite existing notify */
-			wat_log(WAT_LOG_INFO, "s%d:Already had a notifier for prefix %s\n", span->id, prefix);
+			wat_log_span(span, WAT_LOG_INFO, "Already had a notifier for prefix %s\n", prefix);
 
 			notify->func = func;
 			status = WAT_SUCCESS;
@@ -655,7 +654,7 @@ WAT_DECLARE(wat_status_t) wat_span_call_create(wat_span_t *span, wat_call_t **in
 			}
 		}
 
-		wat_log(WAT_LOG_CRIT, "s%d:Could not allocate a new call id\n", span->id);
+		wat_log_span(span, WAT_LOG_CRIT, "Could not allocate a new call id\n");
 		return WAT_FAIL;
 	}
 done:
@@ -664,7 +663,7 @@ done:
 	wat_assert_return(call, WAT_FAIL, "Could not allocate memory for new call\n");
 
 	if (g_debug & WAT_DEBUG_CALL_STATE) {
-		wat_log(WAT_LOG_DEBUG, "s%d:[id:%d]Created new call p:%p\n", span->id, id, call);
+		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d]Created new call p:%p\n", id, call);
 	}
 
 	span->calls[id] = call;
@@ -689,13 +688,13 @@ WAT_DECLARE(void) wat_span_call_destroy(wat_call_t **incall)
 	span = call->span;
 
 	if (!span->calls[call->id]) {
-		wat_log(WAT_LOG_CRIT, "s%d:Could not find call to destroy inside span (id:%d)\n", call->id);
+		wat_log_span(span, WAT_LOG_CRIT, "Could not find call to destroy inside span (id:%d)\n", call->id);
 	} else {
 		span->calls[call->id] = NULL;
 	}
 
 	if (g_debug & WAT_DEBUG_CALL_STATE) {
-		wat_log(WAT_LOG_DEBUG, "s%d:Destroyed call with id:%d p:%p\n", span->id, call->id, call);
+		wat_log_span(span, WAT_LOG_DEBUG, "Destroyed call with id:%d p:%p\n", call->id, call);
 	}
 
 	wat_safe_free(call);
@@ -727,7 +726,7 @@ WAT_DECLARE(wat_status_t) wat_call_set_state(wat_call_t *call, wat_call_state_t 
 
 	/* TODO: Implement state table for allowable state changes */
 	if (g_debug & WAT_DEBUG_CALL_STATE) {
-		wat_log(WAT_LOG_DEBUG, "s%d:[id:%d]State change from %s to %s\n", span->id, call->id, wat_call_state2str(call->state), wat_call_state2str(new_state));
+		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d]State change from %s to %s\n", call->id, wat_call_state2str(call->state), wat_call_state2str(new_state));
 	}
 	call->state = new_state;
 

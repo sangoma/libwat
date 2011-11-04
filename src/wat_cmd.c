@@ -102,7 +102,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmm)
 {
 	WAT_RESPONSE_FUNC_DBG_START	
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain module manufacturer name\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer name\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -117,7 +117,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain module manufacturer id\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer id\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -133,7 +133,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmr)
 	unsigned start = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain module revision identification\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module revision identification\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -152,7 +152,7 @@ WAT_RESPONSE_FUNC(wat_response_cgsn)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain module serial number\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module serial number\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -167,7 +167,7 @@ WAT_RESPONSE_FUNC(wat_response_cimi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain module International Subscriber Identify\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module International Subscriber Identify\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -183,7 +183,7 @@ WAT_RESPONSE_FUNC(wat_response_clip)
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		span->clip = WAT_FALSE;
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to enable Calling Line Presentation (%s)\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Calling Line Presentation\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -205,7 +205,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 	WAT_RESPONSE_FUNC_DBG_START
 	
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain Network Registration Report\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Network Registration Report\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -230,7 +230,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 			wat_span_update_net_status(span, stat);
 			break;	
 		default:
-			wat_log(WAT_LOG_ERROR, "s%d:Failed to parse CREG Response %s\n", span->id, tokens[0]);
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CREG Response %s\n", tokens[0]);
 	}
 	
 	wat_free_tokens(cmdtokens);	
@@ -244,7 +244,7 @@ WAT_RESPONSE_FUNC(wat_response_cnmi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to enable New Messages Indications to TE\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable New Messages Indications to TE\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -257,7 +257,7 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to enable Operator Selection\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Operator Selection\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -269,7 +269,7 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain own number\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -305,7 +305,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 	WAT_RESPONSE_FUNC_DBG_START
 
 	if (success != WAT_TRUE) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to obtain own number\n", span->id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Signal Strength\n");
 		WAT_FUNC_DBG_END
 		return;
 	}
@@ -320,9 +320,9 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		char dest[30];
 		span->net_info.rssi = rssi;
 		span->net_info.ber = ber;
-		wat_log(WAT_LOG_INFO, "s%d:Signal strength:%s (BER:%s)\n", span->id, wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
+		wat_log_span(span, WAT_LOG_ERROR, "Signal strength:%s (BER:%s)\n", wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to parse CSQ %s\n", span->id, tokens[0]);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSQ %s\n", tokens[0]);
 	}
 	WAT_FUNC_DBG_END
 	return;
@@ -336,7 +336,7 @@ WAT_RESPONSE_FUNC(wat_response_ata)
 	if (success) {		
 		wat_call_set_state(call, WAT_CALL_STATE_UP);
 	} else {
-		wat_log(WAT_LOG_INFO, "s%d:[id:%d] Failed to answer call\n", span->id, call->id);
+		wat_log_span(span, WAT_LOG_INFO, "[id:%d] Failed to answer call\n", call->id);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
 	}
@@ -353,7 +353,7 @@ WAT_RESPONSE_FUNC(wat_response_ath)
 	if (success) {
 		wat_call_set_state(call, WAT_CALL_STATE_HANGUP_CMPL);
 	} else {
-		wat_log(WAT_LOG_INFO, "s%d:[id:%d] Failed to hangup call\n", span->id, call->id);
+		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to hangup call\n", call->id);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
 	}
@@ -370,7 +370,7 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 	if (success) {
 		wat_call_set_state(call, WAT_CALL_STATE_DIALED);
 	} else {
-		wat_log(WAT_LOG_INFO, "s%d:[id:%d] Failed to make outbound call\n", span->id, call->id);
+		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to make outbound call\n", call->id);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
 	}
@@ -382,7 +382,6 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 WAT_RESPONSE_FUNC(wat_response_clcc)
 {
 	int i;
-	wat_call_t *call = (wat_call_t *) obj;
 	unsigned num_clcc_entries = 0;
 	clcc_entry_t entries[10];
 	wat_iterator_t *iter, *curr;
@@ -434,30 +433,29 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		memset(cmdtokens, 0, sizeof(cmdtokens));
 
 		if (wat_cmd_entry_tokenize(tokens[i], cmdtokens) < 8) {
-			wat_log(WAT_LOG_ERROR, "s%d:Failed to parse CLCC entry:%s\n", span->id, tokens[i]);
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLCC entry:%s\n", tokens[i]);
 			wat_free_tokens(cmdtokens);
 		}
 		id = atoi(cmdtokens[0]);
 		if (id <= 0) {
-			wat_log(WAT_LOG_ERROR, "s%d:Failed to parse call ID from CLCC entry:%s\n", span->id, tokens[i]);
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call ID from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			return;
 		}
 		dir = atoi(cmdtokens[1]);
 		if (dir < 0) {
-			wat_log(WAT_LOG_ERROR, "s%d:Failed to parse call direction from CLCC entry:%s\n", span->id, tokens[i]);
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call direction from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			return;
 		}
 		stat = atoi(cmdtokens[2]);
 		if (stat <= 0) {
-			wat_log(WAT_LOG_ERROR, "s%d:Failed to parse call state from CLCC entry:%s\n", span->id, tokens[i]);
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call state from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			return;
 		}
 
-		wat_log(WAT_LOG_DEBUG, "s%d:CLCC entry (id:%d dir:%s stat:%s)\n",
-													span->id,
+		wat_log_span(span, WAT_LOG_DEBUG, "CLCC entry (id:%d dir:%s stat:%s)\n",
 													id,
 													wat_call_direction2str(dir),
 													wat_clcc_stat2str(stat));
@@ -470,31 +468,6 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		wat_free_tokens(cmdtokens);
 	}
 
-#if 0	
-	if (call) {
-		/* Try to synchronize this call with one of the entries */
-		switch (call->state) {
-			case WAT_CALL_STATE_DIALING:
-				for (i = 0; i < num_clcc_entries; i++) {
-					if (call->dir == WAT_CALL_DIRECTION_OUTGOING) {
-						if (entries[i].stat == 4) {
-							/* Save the module ID for this call */
-							call->modid = entries[i].id;
-
-							wat_log(WAT_LOG_DEBUG, "s%d:[id:%d] module call id:%d\n", call->modid);
-							wat_call_set_state(call, WAT_CALL_STATE_DIALED);
-							return;
-						}
-					}
-				}
-				break;
-			default:
-				wat_log(WAT_LOG_ERROR, "Don't know how to match call in state %s\n", wat_call_state2str(call->state));
-		}
-	}
-#endif
-
-	/* No call, sync all calls on this span with CLCC */
 	iter = wat_span_get_call_iterator(span, NULL);
 	if (!iter) {
 		WAT_FUNC_DBG_END
@@ -503,9 +476,9 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 
 	for (curr = iter; curr; curr = wat_iterator_next(curr)) {
 		wat_bool_t matched = WAT_FALSE;
-		wat_call_t *curr_call = wat_iterator_current(curr);
+		wat_call_t *call = wat_iterator_current(curr);
 		
-		switch (curr_call->state) {
+		switch (call->state) {
 			case WAT_CALL_STATE_DIALING:
 				if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
 					for (i = 0; i < num_clcc_entries; i++) {					
@@ -513,14 +486,14 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 							/* Save the module ID for this call */
 							call->modid = entries[i].id;
 
-							wat_log(WAT_LOG_DEBUG, "s%d:[id:%d] module call id:%d\n", call->modid);
+							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] module call id:%d\n", call->modid);
 							wat_call_set_state(call, WAT_CALL_STATE_DIALED);
 							matched = WAT_TRUE;
 						}
 					}
 				} else {
 					for (i = 0; i < num_clcc_entries; i++) {
-						if (entries[i].id == curr_call->modid) {
+						if (entries[i].id == call->modid) {
 							matched = WAT_TRUE;
 						}
 					}
@@ -528,7 +501,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 				break;
 			default:
 				for (i = 0; i < num_clcc_entries; i++) {
-					if (entries[i].id == curr_call->modid) {
+					if (entries[i].id == call->modid) {
 						matched = WAT_TRUE;
 					}
 				}
@@ -537,9 +510,9 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		
 		if (matched == WAT_FALSE) {
 			if (g_debug & WAT_DEBUG_CALL_STATE) {
-				wat_log(WAT_LOG_DEBUG, "s%d:[id:%d]No CLCC entries for call, hanging up\n", span->id, curr_call->id);
+				wat_log_span(span, WAT_LOG_DEBUG, "[id:%d]No CLCC entries for call, hanging up\n", call->id);
 			}
-			wat_call_set_state(curr_call, WAT_CALL_STATE_TERMINATING);
+			wat_call_set_state(call, WAT_CALL_STATE_TERMINATING);
 		}
 	}
 
@@ -563,7 +536,7 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
 	}
 
-	wat_log(WAT_LOG_DEBUG, "s%d:Incoming CRING:%s\n", span->id, token);
+	wat_log_span(span, WAT_LOG_DEBUG, "Incoming CRING:%s\n", token);
 
 	/* TODO: We can receive CRING multiple times, check that we did not already create a call for this event */
 
@@ -584,7 +557,7 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 
 	/* Create new call */
 	if (wat_span_call_create(span, &call, 0) != WAT_SUCCESS) {
-		wat_log(WAT_LOG_CRIT, "s%d:Failed to create new call\n", span->id);
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to create new call\n");
 		WAT_FUNC_DBG_END
 		return WAT_SUCCESS;
 	}
@@ -592,7 +565,7 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 	call->dir	= WAT_CALL_DIRECTION_INCOMING;
 	
 	call->type = wat_str2wat_call_type(token);
-	wat_log(WAT_LOG_DEBUG, "s%d:Call Type:%s(%d)\n", span->id, wat_call_type2str(call->type), call->type);
+	wat_log_span(span, WAT_LOG_DEBUG, "Call Type:%s(%d)\n", wat_call_type2str(call->type), call->type);
 
 	wat_call_set_state(call, WAT_CALL_STATE_DIALING);
 	WAT_FUNC_DBG_END
@@ -621,7 +594,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
 	}
 
-	wat_log(WAT_LOG_DEBUG, "s%d:Incoming CLIP:%s\n", span->id, tokens[0]);
+	wat_log_span(span, WAT_LOG_DEBUG, "Incoming CLIP:%s\n", tokens[0]);
 
 	/* TODO: We can receive CLIP multiple times, check if this is not the first CLIP */
 
@@ -631,7 +604,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 		if (!wat_test_flag(call, WAT_CALL_FLAG_RCV_CLIP)) {
 			/* We already processed a CLIP - do nothing */
 			/* Too late, we already notified the user */
-			wat_log(WAT_LOG_CRIT, "s%d:Received CLIP after CLIP timeout:%d\n", span->id, span->config.timeout_cid_num);
+			wat_log_span(span, WAT_LOG_CRIT, "Received CLIP after CLIP timeout:%d\n", span->config.timeout_cid_num);
 		}
 		WAT_FUNC_DBG_END
 		return WAT_SUCCESS;
@@ -639,7 +612,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 
 	call = wat_span_get_call_by_state(span, WAT_CALL_STATE_DIALING);
 	if (!call) {
-		wat_log(WAT_LOG_CRIT, "s%d:Received CLIP without CRING\n", span->id);
+		wat_log_span(span, WAT_LOG_CRIT, "Received CLIP without CRING\n");
 		WAT_FUNC_DBG_END
 		return WAT_SUCCESS;
 	}
@@ -668,12 +641,12 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 
 	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 5) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to parse CLIP entry:%s\n", span->id, tokens[0]);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLIP entry:%s\n", tokens[0]);
 		wat_free_tokens(cmdtokens);
 	}
 
 	if (strlen(cmdtokens[0]) < 0) {
-		wat_log(WAT_LOG_DEBUG, "s%d:Calling Number not available\n", span->id);
+		wat_log_span(span, WAT_LOG_DEBUG, "Calling Number not available\n");
 		goto done;
 	}
 
@@ -698,7 +671,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 			call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
 			break;
 		default:
-			wat_log(WAT_LOG_ERROR, "s%d:Invalid number type from CLIP:%s\n", span->id, tokens[0]);
+			wat_log_span(span, WAT_LOG_ERROR, "Invalid number type from CLIP:%s\n", tokens[0]);
 			call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
 			call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
 			break;
@@ -715,13 +688,13 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 			call->calling_num.validity = WAT_NUMBER_VALIDITY_UNAVAILABLE;
 			break;
 		default:
-			wat_log(WAT_LOG_ERROR, "s%d:Invalid number validity from CLIP:%s\n", span->id, tokens[0]);
+			wat_log_span(span, WAT_LOG_ERROR, "Invalid number validity from CLIP:%s\n", tokens[0]);
 			call->calling_num.validity = WAT_NUMBER_VALIDITY_INVALID;
 			break;
 	}
 
-	wat_log(WAT_LOG_DEBUG, "s%d:Calling Number:%s type:%s(%d) plan:%s(%d) validity:%s(%d)\n",
-										span->id,
+	
+	wat_log_span(span, WAT_LOG_DEBUG, "Calling Number:%s type:%s(%d) plan:%s(%d) validity:%s(%d)\n",
 										call->calling_num.digits,
 										wat_number_type2str(call->calling_num.type), call->calling_num.type,
 										wat_number_plan2str(call->calling_num.plan), call->calling_num.plan,
@@ -751,12 +724,12 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
 
 	if (count < 0) {
-		wat_log(WAT_LOG_ERROR, "s%d:Failed to parse CREG Response %s\n", span->id, tokens[0]);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CREG Response %s\n", tokens[0]);
 		status = WAT_SUCCESS;
 	} else if (count == 1) {
 		stat = atoi(cmdtokens[0]);
 		if (stat < 0) {
-			wat_log(WAT_LOG_ERROR, "s%d:Failed to parse CREG Response %s\n", span->id, tokens[0]);
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CREG Response %s\n", tokens[0]);
 			status = WAT_SUCCESS;
 		} else {
 			wat_span_update_net_status(span, stat);

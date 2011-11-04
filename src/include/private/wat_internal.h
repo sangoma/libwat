@@ -47,13 +47,14 @@
 #define WAT_BUFFER_SZ					500
 #define WAT_TOKENS_SZ					20
 #define WAT_TIMEOUTS_SZ					30
-#define WAT_MAX_CALLS_PER_SPAN			16
-#define WAT_MAX_SMSS_PER_SPAN			16
 #define WAT_MAX_NOTIFYS_PER_SPAN		100
 
 #define WAT_SCHEDULE_NEXT_DEFAULT_TIME	1000 /* TODO: May not need this */
 
-#define wat_log(level,a,...) if (g_interface.wat_log) g_interface.wat_log(level,a,##__VA_ARGS__)
+#define wat_log_span(span, level, a, ...) if (g_interface.wat_log_span) g_interface.wat_log_span(span->id, level,a, ##__VA_ARGS__)
+
+#define wat_log(level,a,...) if (g_interface.wat_log) g_interface.wat_log(level, a, ##__VA_ARGS__)
+
 #define wat_assert(msg) if (g_interface.wat_assert) g_interface.wat_assert(msg)
 
 #define wat_assert_return(assertion, retval, msg) \
@@ -364,7 +365,7 @@ WAT_DECLARE(wat_status_t) wat_call_set_state(wat_call_t *call, wat_call_state_t 
 			wat_log(WAT_LOG_DEBUG, "Entering function %s \n", __FUNCTION__); \
 			WAT_PRINT_TOKENS(tokens)
 
-#define WAT_SPAN_FUNC_DBG_START	wat_log(WAT_LOG_DEBUG, "s%d:Entering function %s\n", span->id, __FUNCTION__);
+#define WAT_SPAN_FUNC_DBG_START	wat_log_span(span, WAT_LOG_DEBUG, "Entering function %s\n", __FUNCTION__);
 
 #else
 

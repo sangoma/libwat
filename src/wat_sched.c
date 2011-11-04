@@ -66,12 +66,6 @@ int gettimeofday(struct timeval *tv, struct wat_timezone *tz)
 
 typedef struct wat_timer wat_timer_t;
 
-static struct {
-	wat_sched_t *freeruns;
-	wat_mutex_t *mutex;
-	wat_bool_t running;
-} sched_globals;
-
 struct wat_sched {
 	char name[80];
 	wat_timer_id_t currid;
@@ -91,16 +85,6 @@ struct wat_timer {
 	wat_timer_t *next;
 	wat_timer_t *prev;
 };
-
-WAT_DECLARE(wat_status_t) wat_sched_global_init()
-{
-	wat_log(WAT_LOG_DEBUG, "Initializing scheduling API\n");
-	memset(&sched_globals, 0, sizeof(sched_globals));
-	if (wat_mutex_create(&sched_globals.mutex) == WAT_SUCCESS) {
-		return WAT_SUCCESS;
-	}
-	return WAT_FAIL;
-}
 
 WAT_DECLARE(wat_status_t) wat_sched_create(wat_sched_t **sched, const char *name)
 {
@@ -397,13 +381,6 @@ WAT_DECLARE(wat_status_t) wat_sched_destroy(wat_sched_t **insched)
 
 	sched = *insched;
 
-	/* since destroying a sched may affect the global list, we gotta check */	
-	wat_mutex_lock(sched_globals.mutex);
-
-	/* if we're head, replace head with our next (whatever our next is, even null will do) */
-	if (sched == sched_globals.freeruns) {
-		sched_globals.freeruns = sched->next;
-	}
 	/* if we have a previous member (then we were not head) set our previous next to our next */
 	if (sched->prev) {
 		sched->prev->next = sched->next;
@@ -412,8 +389,6 @@ WAT_DECLARE(wat_status_t) wat_sched_destroy(wat_sched_t **insched)
 	if (sched->next) {
 		sched->next->prev = sched->prev;
 	}
-
-	wat_mutex_unlock(sched_globals.mutex);
 
 	/* now grab the sched mutex */
 	wat_mutex_lock(sched->mutex);

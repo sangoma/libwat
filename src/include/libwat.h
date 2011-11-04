@@ -54,6 +54,9 @@
 #define WAT_MAX_SMS_SZ		1024 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_CMD_SZ		512 /* DAVIDY TODO: Find real max sizes based on specs */
 
+#define WAT_MAX_CALLS_PER_SPAN			16
+#define WAT_MAX_SMSS_PER_SPAN			16
+
 typedef size_t wat_size_t;
 
 typedef enum {
@@ -231,6 +234,7 @@ typedef struct _wat_interface {
 
 	/* Logging */
 	void (*wat_log)(uint8_t level, char *fmt, ...);
+	void (*wat_log_span)(uint8_t span_id, uint8_t level, char *fmt, ...);
 
 	/* Assert */
 	void (*wat_assert)(char *message);
