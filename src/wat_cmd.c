@@ -320,7 +320,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		char dest[30];
 		span->net_info.rssi = rssi;
 		span->net_info.ber = ber;
-		wat_log_span(span, WAT_LOG_ERROR, "Signal strength:%s (BER:%s)\n", wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
+		wat_log_span(span, WAT_LOG_DEBUG, "Signal strength:%s (BER:%s)\n", wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSQ %s\n", tokens[0]);
 	}
@@ -486,7 +486,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 							/* Save the module ID for this call */
 							call->modid = entries[i].id;
 
-							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] module call id:%d\n", call->modid);
+							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] module call (modid:%d)\n", call->id, call->modid);
 							wat_call_set_state(call, WAT_CALL_STATE_DIALED);
 							matched = WAT_TRUE;
 						}
@@ -494,6 +494,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 				} else {
 					for (i = 0; i < num_clcc_entries; i++) {
 						if (entries[i].id == call->modid) {
+							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Matched call in CLCC entry (modid:%d)\n", call->id, call->modid);
 							matched = WAT_TRUE;
 						}
 					}
@@ -583,7 +584,7 @@ WAT_NOTIFY_FUNC(wat_notify_ring)
 /* Calling Line Identification Presentation */
 WAT_NOTIFY_FUNC(wat_notify_clip)
 {
-	char *cmdtokens[6];
+	char *cmdtokens[10];
 	wat_call_t *call = NULL;
 
 	WAT_NOTIFY_FUNC_DBG_START
@@ -638,7 +639,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 				2 - CLI is not available due to interworking problems or limitation of originating network.
 	*/
 	
-	memset(cmdtokens, 0, sizeof(cmdtokens));
+	memset(cmdtokens, 0, sizeof(cmdtokens));	
 
 	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 5) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLIP entry:%s\n", tokens[0]);
@@ -677,7 +678,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 			break;
 	}
 
-	switch (atoi(cmdtokens[3])) {
+	switch (atoi(cmdtokens[5])) {
 		case 0:
 			call->calling_num.validity = WAT_NUMBER_VALIDITY_VALID;
 			break;

@@ -38,8 +38,8 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_CALL_STATE;
 
-uint32_t	g_debug = WAT_DEBUG_CALL_STATE;
-//uint32_t	g_debug = WAT_DEBUG_UART_DUMP;
+//uint32_t	g_debug = WAT_DEBUG_CALL_STATE;
+uint32_t	g_debug = WAT_DEBUG_UART_RAW;
 #else
 uint32_t	g_debug = 0;
 #endif
@@ -208,6 +208,8 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	memset(span->calls, 0, sizeof(span->calls));
 	memset(span->smss, 0, sizeof(span->smss));
 	memset(span->notifys, 0, sizeof(span->notifys));
+
+	memset(&span->net_info, 0, sizeof(span->net_info));
 	
 	if (wat_queue_create(&span->event_queue, WAT_EVENT_QUEUE_SZ) != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to create queue\n");
@@ -320,7 +322,8 @@ WAT_DECLARE(wat_status_t) wat_span_stop(uint8_t span_id)
 		wat_safe_free(notify);
 	}
 	wat_iterator_free(iter);
-	
+
+	span->running = 0;
 	return WAT_SUCCESS;
 }
 
@@ -378,11 +381,11 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 
 	if (g_debug & WAT_DEBUG_UART_RAW) {
 		char mydata[WAT_MAX_CMD_SZ];
-		wat_log_span(span, WAT_LOG_DEBUG, "[RX RAW] %s (len:%d)\n", span_id, format_at_data(mydata, data, len), len);
+		wat_log_span(span, WAT_LOG_DEBUG, "[RX RAW] %s (len:%d)\n", format_at_data(mydata, data, len), len);
 	}
 
 	if (wat_buffer_enqueue(span->buffer, data, len) != WAT_SUCCESS) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to enqueue\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enqueue\n");
 	}
 	return;
 }
@@ -410,7 +413,7 @@ WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, wat_net_info_t *
 
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n");
 		return WAT_FAIL;
 	}
 
@@ -429,7 +432,7 @@ WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
 
 	span = wat_get_span(span_id);
 	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n", span_id);
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n");
 		return WAT_FAIL;
 	}
 

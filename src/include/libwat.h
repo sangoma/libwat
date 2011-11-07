@@ -36,7 +36,7 @@
 
 #include "wat_declare.h"
 
-#if 1
+#if 0
 #define WAT_FUNC_DEBUG 1
 #endif
 /* Debugging */
