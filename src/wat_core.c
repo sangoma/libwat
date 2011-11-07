@@ -318,13 +318,14 @@ wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 		if (span->notifys[i]) {
 			wat_notify_t *notify = span->notifys[i];
 			if (!strncasecmp(notify->prefix, tokens[0], strlen(notify->prefix))) {
-				/* Take out the prefix from the first token */
+				/* TODO: Take out the prefix from the first token */
 				return notify->func(span, tokens);
 			}
 		}
 	}
 
-	wat_log_span(span, WAT_LOG_ERROR, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
+	/* This is not an error, as we could be waiting for the command terminator */
+	wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
 	return WAT_BREAK;
 }
 

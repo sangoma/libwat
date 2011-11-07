@@ -240,7 +240,6 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	wat_cmd_register(span, "+CLIP", wat_notify_clip);
 	wat_cmd_register(span, "+CREG", wat_notify_creg);
 #if 0
-	wat_cmd_register(span, "+CLIP", wat_notify_clip);
 	wat_cmd_register(span, "+CDIP", wat_notify_cdip);
 	wat_cmd_register(span, "+CNAP", wat_notify_cnap);
 	wat_cmd_register(span, "+CCWA", wat_notify_ccwa);
@@ -273,11 +272,8 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Enable Calling Line Presentation */
 	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL);
 
-	/* Enable Network Registration Unsolicited result code */
-	wat_cmd_enqueue(span, "AT+CREG=1", NULL, NULL);
-
 	/* Enable New Message Indications To TE */
-	wat_cmd_enqueue(span, "AT+CNMI=1", wat_response_cnmi, NULL);
+	wat_cmd_enqueue(span, "AT+CNMI=2,1", wat_response_cnmi, NULL);
 
 	/* Set Operator mode */
 	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL);
@@ -285,9 +281,14 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Own Number */
 	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
 
-	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);
-
+	/* Signal Quality */
 	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, NULL);
+
+	/* Enable Network Registration Unsolicited result code */
+	wat_cmd_enqueue(span, "AT+CREG=1", NULL, NULL);
+
+	/* Check Registration Status in case module is already registered */
+	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);	
 	
 	return WAT_SUCCESS;
 }
@@ -558,6 +559,10 @@ wat_span_t *wat_get_span(uint8_t span_id)
 
 wat_status_t wat_cmd_write(wat_span_t *span, char *cmd)
 {
+	if (g_debug & WAT_DEBUG_UART_RAW) {
+		char mydata[WAT_MAX_CMD_SZ];
+		wat_log_span(span, WAT_LOG_DEBUG, "[TX RAW] %s (len:%d)\n", format_at_data(mydata, cmd, strlen(cmd)), strlen(cmd));
+	}
 	g_interface.wat_span_write(span->id, cmd, strlen(cmd));
 	return WAT_SUCCESS;
 }
