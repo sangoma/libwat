@@ -55,18 +55,10 @@ WAT_EVENT_FUNC(wat_event_con_req)
 		wat_cmd_status_t cmd_status;
 
 		memset(&cmd_status, 0, sizeof(cmd_status));
-		cmd_status.success = 0;
+		cmd_status.success = WAT_FALSE;
 
-		if (status == WAT_EBUSY) {
-			wat_log(WAT_LOG_CRIT, "s%d:[id:%d]Call with this ID already exists\n", span->id, event->call_id);
-			cmd_status.reason = WAT_STATUS_REASON_CALL_ID_INUSE;
-		} else {
-			wat_log(WAT_LOG_CRIT, "s%d:[id:%d] Failed to allocate new call\n", span->id, event->call_id);
-			cmd_status.reason = WAT_STATUS_REASON_NO_MEM;
-		}
-				
 		if (g_interface.wat_rel_cfm) {
-			g_interface.wat_rel_cfm(span->id, call->id, &cmd_status);
+			g_interface.wat_rel_cfm(span->id, call->id);
 		}
 		return;
 	}

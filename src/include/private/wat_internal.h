@@ -93,6 +93,7 @@ WAT_STR2ENUM_P(wat_str2wat_span_state, wat_span_state2str, wat_span_state_t);
 
 typedef enum {
 	WAT_TIMEOUT_CLIP,
+	WAT_PROGRESS_MONITOR,
 } wat_call_timeout_id_t;
 
 typedef wat_status_t (wat_module_start_func)(wat_span_t *span);
@@ -119,10 +120,11 @@ typedef enum {
 WAT_STR2ENUM_P(wat_str2wat_event, wat_event2str, wat_event_id_t);
 
 typedef enum {
-	WAT_CALL_STATE_IDLE,	/* Initial state */
-	WAT_CALL_STATE_DIALING,	/* We just received a CRING/RING */
-	WAT_CALL_STATE_DIALED,	/* We notified the user of the incoming call */
-	WAT_CALL_STATE_ANSWERED,	/* Inconing Call has been answered by user */ 
+	WAT_CALL_STATE_IDLE,		/* Initial state */
+	WAT_CALL_STATE_DIALING,		/* We just received a CRING/RING */
+	WAT_CALL_STATE_DIALED,		/* We notified the user of the incoming call */
+	WAT_CALL_STATE_RINGING,		/* On outgoing call, remote side is ringing */
+	WAT_CALL_STATE_ANSWERED,	/* Incoming Call has been answered by user */
 	WAT_CALL_STATE_UP,			/* Call is up */
 	WAT_CALL_STATE_TERMINATING,		/* Call has been hung-up on the remote side */
 	WAT_CALL_STATE_TERMINATING_CMPL, /* User has acknowledged remote hang-up */
@@ -131,7 +133,7 @@ typedef enum {
 	WAT_CALL_STATE_INVALID,
 } wat_call_state_t;
 
-#define WAT_CALL_STATE_STRINGS "idle", "dialing", "dialed", "answered", "up", "terminating", "terminating cmpl", "hangup", "hangup cmpl", "invalid"
+#define WAT_CALL_STATE_STRINGS "idle", "dialing", "dialed", "ringing", "answered", "up", "terminating", "terminating cmpl", "hangup", "hangup cmpl", "invalid"
 WAT_STR2ENUM_P(wat_str2wat_call_state, wat_call_state2str, wat_call_state_t);
 
 typedef enum {
@@ -145,7 +147,7 @@ typedef enum {
 	WAT_CALL_DIRECTION_INVALID,
 } wat_call_direction_t;
 
-#define WAT_CALL_DIRECTION_STRINGS "outcoming", "incoming", "invalid"
+#define WAT_CALL_DIRECTION_STRINGS "outgoing", "incoming", "invalid"
 WAT_STR2ENUM_P(wat_str2wat_call_direction, wat_call_direction2str, wat_call_direction_t);
 
 typedef struct {

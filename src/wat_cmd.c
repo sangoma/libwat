@@ -367,9 +367,7 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 	wat_call_t *call = (wat_call_t*) obj;
 	WAT_RESPONSE_FUNC_DBG_START
 
-	if (success) {
-		wat_call_set_state(call, WAT_CALL_STATE_DIALED);
-	} else {
+	if (!success) {
 		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to make outbound call\n", call->id);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
@@ -436,20 +434,23 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLCC entry:%s\n", tokens[i]);
 			wat_free_tokens(cmdtokens);
 		}
+
 		id = atoi(cmdtokens[0]);
 		if (id <= 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call ID from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			return;
 		}
+
 		dir = atoi(cmdtokens[1]);
 		if (dir < 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call direction from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			return;
 		}
+
 		stat = atoi(cmdtokens[2]);
-		if (stat <= 0) {
+		if (stat < 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call state from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			return;
@@ -493,16 +494,74 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 					}
 				} else {
 					for (i = 0; i < num_clcc_entries; i++) {
-						if (entries[i].id == call->modid) {
-							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Matched call in CLCC entry (modid:%d)\n", call->id, call->modid);
-							matched = WAT_TRUE;
+						switch(entries[i].stat) {
+							case 2: /* Dialing */
+							case 3: /* Alerting */
+								/* Save the module ID for this call */
+								call->modid = entries[i].id;
+
+								wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] module call (modid:%d)\n", call->id, call->modid);
+
+								if (entries[i].stat == 2) {
+									wat_call_set_state(call, WAT_CALL_STATE_DIALED);
+								} else {
+									wat_call_set_state(call, WAT_CALL_STATE_RINGING);
+								}
+								matched = WAT_TRUE;
+
+								/* Keep monitoring the call to find out when the call is anwered */
+								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+								break;
+							
 						}
+					}
+				}
+				break;
+			case WAT_CALL_STATE_DIALED:
+				if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
+
+				} else {
+					for (i = 0; i < num_clcc_entries; i++) {
+						switch(entries[i].stat) {
+							case 2: /* Dialing */
+								matched = WAT_TRUE;
+								/* Keep monitoring the call to find out when the call is anwered */
+								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+								break;
+							case 3: /* Alerting */
+								wat_call_set_state(call, WAT_CALL_STATE_RINGING);
+							
+								matched = WAT_TRUE;
+								/* Keep monitoring the call to find out when the call is anwered */
+								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+								break;
+							case 0:
+								matched = WAT_TRUE;
+								wat_call_set_state(call, WAT_CALL_STATE_ANSWERED);
+								break;
+						}
+					}
+				}
+				break;
+			case WAT_CALL_STATE_RINGING:
+				for (i = 0; i < num_clcc_entries; i++) {
+					switch(entries[i].stat) {
+						case 3:
+							matched = WAT_TRUE;
+							/* Keep monitoring the call to find out when the call is anwered */
+							wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+							break;
+						case 0:
+							matched = WAT_TRUE;
+							wat_call_set_state(call, WAT_CALL_STATE_ANSWERED);
+							break;
 					}
 				}
 				break;
 			default:
 				for (i = 0; i < num_clcc_entries; i++) {
 					if (entries[i].id == call->modid) {
+						wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Matched call in CLCC entry (modid:%d)\n", call->id, call->modid);
 						matched = WAT_TRUE;
 					}
 				}
@@ -585,6 +644,7 @@ WAT_NOTIFY_FUNC(wat_notify_ring)
 WAT_NOTIFY_FUNC(wat_notify_clip)
 {
 	char *cmdtokens[10];
+	unsigned numtokens;
 	wat_call_t *call = NULL;
 
 	WAT_NOTIFY_FUNC_DBG_START
@@ -641,7 +701,9 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 	
 	memset(cmdtokens, 0, sizeof(cmdtokens));	
 
-	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 5) {
+	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+
+	if (numtokens < 1) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLIP entry:%s\n", tokens[0]);
 		wat_free_tokens(cmdtokens);
 	}
@@ -653,45 +715,49 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 
 	strncpy(call->calling_num.digits, cmdtokens[0], strlen(cmdtokens[0]));
 
-	switch (atoi(cmdtokens[1])) {
-		case 128:
-			call->calling_num.type = WAT_NUMBER_TYPE_UNKNOWN;
-			call->calling_num.plan = WAT_NUMBER_PLAN_UNKNOWN;
-			break;
-		case 129:
-			call->calling_num.type = WAT_NUMBER_TYPE_UNKNOWN;
-			call->calling_num.plan = WAT_NUMBER_PLAN_ISDN;
-			break;
-		case 145:
-			call->calling_num.type = WAT_NUMBER_TYPE_INTERNATIONAL;
-			call->calling_num.plan = WAT_NUMBER_PLAN_ISDN;
-			break;
-		case 0:
-			/* Calling Number is not available */
-			call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
-			call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
-			break;
-		default:
-			wat_log_span(span, WAT_LOG_ERROR, "Invalid number type from CLIP:%s\n", tokens[0]);
-			call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
-			call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
-			break;
+	if (numtokens >= 1) {
+		switch (atoi(cmdtokens[1])) {
+			case 128:
+				call->calling_num.type = WAT_NUMBER_TYPE_UNKNOWN;
+				call->calling_num.plan = WAT_NUMBER_PLAN_UNKNOWN;
+				break;
+			case 129:
+				call->calling_num.type = WAT_NUMBER_TYPE_UNKNOWN;
+				call->calling_num.plan = WAT_NUMBER_PLAN_ISDN;
+				break;
+			case 145:
+				call->calling_num.type = WAT_NUMBER_TYPE_INTERNATIONAL;
+				call->calling_num.plan = WAT_NUMBER_PLAN_ISDN;
+				break;
+			case 0:
+				/* Calling Number is not available */
+				call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
+				call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
+				break;
+			default:
+				wat_log_span(span, WAT_LOG_ERROR, "Invalid number type from CLIP:%s\n", tokens[0]);
+				call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
+				call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
+				break;
+		}
 	}
 
-	switch (atoi(cmdtokens[5])) {
-		case 0:
-			call->calling_num.validity = WAT_NUMBER_VALIDITY_VALID;
-			break;
-		case 1:
-			call->calling_num.validity = WAT_NUMBER_VALIDITY_WITHELD;
-			break;
-		case 2:
-			call->calling_num.validity = WAT_NUMBER_VALIDITY_UNAVAILABLE;
-			break;
-		default:
-			wat_log_span(span, WAT_LOG_ERROR, "Invalid number validity from CLIP:%s\n", tokens[0]);
-			call->calling_num.validity = WAT_NUMBER_VALIDITY_INVALID;
-			break;
+	if (numtokens >= 6) {
+		switch (atoi(cmdtokens[5])) {
+			case 0:
+				call->calling_num.validity = WAT_NUMBER_VALIDITY_VALID;
+				break;
+			case 1:
+				call->calling_num.validity = WAT_NUMBER_VALIDITY_WITHELD;
+				break;
+			case 2:
+				call->calling_num.validity = WAT_NUMBER_VALIDITY_UNAVAILABLE;
+				break;
+			default:
+				wat_log_span(span, WAT_LOG_ERROR, "Invalid number validity from CLIP:%s\n", tokens[0]);
+				call->calling_num.validity = WAT_NUMBER_VALIDITY_INVALID;
+				break;
+		}
 	}
 
 	

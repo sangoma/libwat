@@ -734,23 +734,22 @@ WAT_DECLARE(wat_status_t) wat_call_set_state(wat_call_t *call, wat_call_state_t 
 	switch(call->state) {
 		case WAT_CALL_STATE_DIALING:
 			{
-				if (call->dir == WAT_CALL_DIRECTION_OUTGOING) {
+				if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
+					/* schedule a CLCC, we may or may not get a CLIP right after CRING */
+					wat_sched_timer(span->sched, "clip_timeout", span->config.timeout_cid_num, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_TIMEOUT_CLIP]);
+				} else {
 					char cmd[40];
 					memset(cmd, 0, sizeof(cmd));
 
 					sprintf(cmd, "ATD%s;", call->called_num.digits);
 					wat_cmd_enqueue(span, cmd, wat_response_atd, call);
-				} else {
-					/* schedule a CLCC, we may or may not get a CLIP right after CRING */
-					wat_sched_timer(span->sched, "clip_timeout", span->config.timeout_cid_num, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_TIMEOUT_CLIP]);
+					wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
 				}
 			}
 			break;
 		case WAT_CALL_STATE_DIALED:
 			{
-				if (call->dir == WAT_CALL_DIRECTION_OUTGOING) {
-					/* Nothing to do */
-				} else {
+				if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
 					/* Notify the user of the call */
 					wat_con_event_t con_event;
 					
@@ -763,11 +762,37 @@ WAT_DECLARE(wat_status_t) wat_call_set_state(wat_call_t *call, wat_call_state_t 
 					if (g_interface.wat_con_ind) {
 						g_interface.wat_con_ind(span->id, call->id, &con_event);
 					}
+				} else {
+					/* Nothing to do */
+				}
+			}
+			break;
+		case WAT_CALL_STATE_RINGING:
+			{
+				wat_con_status_t con_status;
+				memset(&con_status, 0, sizeof(con_status));
+
+				con_status.type = WAT_CON_STATUS_TYPE_RINGING;
+
+				if (g_interface.wat_con_sts) {
+					g_interface.wat_con_sts(span->id, call->id, &con_status);
 				}
 			}
 			break;
 		case WAT_CALL_STATE_ANSWERED:
-			wat_cmd_enqueue(span, "ATA", wat_response_ata, call);
+			if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
+				wat_cmd_enqueue(span, "ATA", wat_response_ata, call);
+			} else {
+				wat_con_status_t con_status;
+				memset(&con_status, 0, sizeof(con_status));
+
+				con_status.type = WAT_CON_STATUS_TYPE_ANSWER;
+
+				if (g_interface.wat_con_sts) {
+					g_interface.wat_con_sts(span->id, call->id, &con_status);
+				}
+				wat_call_set_state(call, WAT_CALL_STATE_UP);
+			}
 			break;
 		case WAT_CALL_STATE_UP:
 			/* Do nothing for now */
@@ -797,10 +822,9 @@ WAT_DECLARE(wat_status_t) wat_call_set_state(wat_call_t *call, wat_call_state_t 
 			{
 				wat_cmd_status_t cmd_status;
 				memset(&cmd_status, 0, sizeof(cmd_status));
-				cmd_status.success = 1;
 				
 				if (g_interface.wat_rel_cfm) {
-					g_interface.wat_rel_cfm(span->id, call->id, &cmd_status);
+					g_interface.wat_rel_cfm(span->id, call->id);
 				}
 				wat_span_call_destroy(&call);
 			}

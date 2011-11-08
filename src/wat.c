@@ -38,8 +38,7 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_CALL_STATE;
 
-//uint32_t	g_debug = WAT_DEBUG_CALL_STATE;
-uint32_t	g_debug = WAT_DEBUG_UART_RAW;
+uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_CALL_STATE;
 #else
 uint32_t	g_debug = 0;
 #endif
@@ -247,6 +246,7 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	
 	/* Call module specific start here */
 	span->module.start(span);
+	wat_cmd_enqueue(span, "ATX4", NULL, NULL);
 
 	/* Enable Mobile Equipment Error Reporting, numeric mode */
 	wat_cmd_enqueue(span, "AT+CMEE=1", NULL, NULL);

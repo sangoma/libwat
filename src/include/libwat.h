@@ -201,25 +201,29 @@ typedef struct _wat_rel_event {
 } wat_rel_event_t;
 
 typedef enum {
-	WAT_STATUS_REASON_CALL_ID_INUSE = 1,
-	WAT_STATUS_REASON_NO_MEM,
-} wat_cmd_status_reason_t;
+	WAT_CON_STATUS_TYPE_RINGING = 1,
+	WAT_CON_STATUS_TYPE_ANSWER,
+} wat_con_status_type_t;
+
+typedef struct _wat_con_status {
+	wat_con_status_type_t type;
+} wat_con_status_t;
+
+typedef struct _wat_sms_status {
+	wat_bool_t success;
+} wat_sms_status_t;
 
 typedef struct _wat_cmd_status {
-	int success:1;					/* Set to 1 if command was successful */
-	wat_cmd_status_reason_t reason;	/* Reason for failure */
-
-	/* Command specific information */
-	union {
-	} info;
+	wat_bool_t success;
 } wat_cmd_status_t;
 
 typedef struct _wat_span_config_t {
-	wat_moduletype_t moduletype;
-	uint32_t signal_poll_interval;
+	wat_moduletype_t moduletype;	
 
 	/* Timeouts */
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
+	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
+	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 } wat_span_config_t;
 
 typedef struct _wat_interface {
@@ -241,12 +245,12 @@ typedef struct _wat_interface {
 
 	/* Events */
 	void (*wat_con_ind)(uint8_t span_id, uint8_t call_id, wat_con_event_t *con_event);
-	void (*wat_con_cfm)(uint8_t span_id, uint8_t call_id, wat_cmd_status_t *status);
+ 	void (*wat_con_sts)(uint8_t span_id, uint8_t call_id, wat_con_status_t *con_status);
 	void (*wat_rel_ind)(uint8_t span_id, uint8_t call_id, wat_rel_event_t *rel_event);
-	void (*wat_rel_cfm)(uint8_t span_id, uint8_t call_id, wat_cmd_status_t *status);
+	void (*wat_rel_cfm)(uint8_t span_id, uint8_t call_id);
 	void (*wat_sms_ind)(uint8_t span_id, uint8_t call_id, wat_sms_event_t *sms_event);
-	void (*wat_sms_cfm)(uint8_t span_id, uint8_t sms_id, wat_cmd_status_t *status);
-	void (*wat_cmd_cfm)(uint8_t span_id, wat_cmd_status_t *status);
+	void (*wat_sms_sts)(uint8_t span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
+	void (*wat_cmd_sts)(uint8_t span_id, wat_cmd_status_t *status);
 	void (*wat_span_write)(uint8_t span_id, void *data, uint32_t len);
 } wat_interface_t;
 

@@ -74,12 +74,12 @@ void on_assert(char *message);
 void on_span_write(unsigned char span_id, void *buffer, unsigned len);
 
 void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event);
-void on_con_cfm(unsigned char span_id, uint8_t call_id, wat_cmd_status_t *status);
+void on_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *status);
 void on_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_event);
-void on_rel_cfm(unsigned char span_id, uint8_t call_id, wat_cmd_status_t *status);
+void on_rel_cfm(unsigned char span_id, uint8_t call_id);
 void on_sms_ind(unsigned char span_id, uint8_t call_id, wat_sms_event_t *sms_event);
-void on_sms_cfm(unsigned char span_id, uint8_t sms_id, wat_cmd_status_t *status);
-void on_cmd_cfm(unsigned char span_id, wat_cmd_status_t *status);
+void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status);
+void on_cmd_sts(unsigned char span_id, wat_cmd_status_t *status);
 
 void on_span_write(unsigned char span_id, void *buffer, unsigned len)
 {
@@ -176,7 +176,7 @@ void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_eve
 	return;
 }
 
-void on_con_cfm(unsigned char span_id, uint8_t call_id, wat_cmd_status_t *status)
+void on_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *status)
 {
 	return;
 }
@@ -188,7 +188,7 @@ void on_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_eve
 	return;
 }
 
-void on_rel_cfm(unsigned char span_id, uint8_t call_id, wat_cmd_status_t *status)
+void on_rel_cfm(unsigned char span_id, uint8_t call_id)
 {
 	fprintf(stdout, "s%d: Call hangup complete (id:%d)\n", span_id, call_id);
 	return;
@@ -199,12 +199,12 @@ void on_sms_ind(unsigned char span_id, uint8_t call_id, wat_sms_event_t *sms_eve
 	return;
 }
 
-void on_sms_cfm(unsigned char span_id, uint8_t sms_id, wat_cmd_status_t *status)
+void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status)
 {
 	return;
 }
 
-void on_cmd_cfm(unsigned char span_id, wat_cmd_status_t *status)
+void on_cmd_sts(unsigned char span_id, wat_cmd_status_t *status)
 {
 	return;
 }
@@ -275,12 +275,12 @@ int main (int argc, char *argv[])
 	
 	gen_interface.wat_alarm = on_alarm;
 	gen_interface.wat_con_ind = on_con_ind;
-	gen_interface.wat_con_cfm = on_con_cfm;
+	gen_interface.wat_con_sts = on_con_sts;
 	gen_interface.wat_rel_ind = on_rel_ind;
 	gen_interface.wat_rel_cfm = on_rel_cfm;
 	gen_interface.wat_sms_ind = on_sms_ind;
-	gen_interface.wat_sms_cfm = on_sms_cfm;
-	gen_interface.wat_cmd_cfm = on_cmd_cfm;
+	gen_interface.wat_sms_sts = on_sms_sts;
+	gen_interface.wat_cmd_sts = on_cmd_sts;
 	
 	if (wat_register(&gen_interface)) {
 		fprintf(stderr, "Failed to register WAT Library !!!\n");
