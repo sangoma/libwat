@@ -42,7 +42,7 @@
 
 #include "libwat.h"
 
-#define POLL_INTERVAL 1000 /* 1000 millisecond */
+#define POLL_INTERVAL 10 /* 10 millisecond */
 #define BLOCK_SIZE 3000
 
 typedef struct _wat_span {
@@ -414,15 +414,11 @@ int main (int argc, char *argv[])
 			gsm_spans[0].make_call = 0;
 			memset(&con_event, 0, sizeof(con_event));
 			
-			sprintf(con_event.called_num.digits, "6474024627");
+			sprintf(con_event.called_num.digits, "6472671197");
 			gsm_spans[0].wat_call_id = (g_outbound_call_id++) | 0x8;
 
 			wat_con_req(gsm_spans[0].wat_span_id, gsm_spans[0].wat_call_id, &con_event);
 		}
-		
-#if 1 /* DAVIDY REMOVE THIS LATER */
-		usleep(100);
-#endif
 	}
 
 	fprintf(stdout, "Exiting...\n");
