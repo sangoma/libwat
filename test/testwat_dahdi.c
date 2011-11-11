@@ -71,17 +71,17 @@ void *on_calloc(size_t nmemb, size_t size);
 void on_free(void *ptr);
 void on_log(unsigned char loglevel, char *fmt, ...);
 void on_assert(char *message);
-void on_span_write(unsigned char span_id, void *buffer, unsigned len);
+int on_span_write(unsigned char span_id, void *buffer, unsigned len);
 
 void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event);
 void on_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *status);
 void on_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_event);
 void on_rel_cfm(unsigned char span_id, uint8_t call_id);
-void on_sms_ind(unsigned char span_id, uint8_t call_id, wat_sms_event_t *sms_event);
+void on_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event);
 void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status);
 void on_cmd_sts(unsigned char span_id, wat_cmd_status_t *status);
 
-void on_span_write(unsigned char span_id, void *buffer, unsigned len)
+int on_span_write(unsigned char span_id, void *buffer, unsigned len)
 {
 	int res;
 	uint8_t writebuf[BLOCK_SIZE];
@@ -93,7 +93,7 @@ void on_span_write(unsigned char span_id, void *buffer, unsigned len)
 	if (res != len) {
 		fprintf(stdout, "Failed to write to dahdi device (res:%u len:%u)\n", res, len);
 	}
-	return;
+	return res;
 }
 
 void on_sigstatus_change(unsigned char span_id, wat_sigstatus_t sigstatus)
@@ -194,7 +194,7 @@ void on_rel_cfm(unsigned char span_id, uint8_t call_id)
 	return;
 }
 
-void on_sms_ind(unsigned char span_id, uint8_t call_id, wat_sms_event_t *sms_event)
+void on_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event)
 {
 	return;
 }
@@ -361,25 +361,6 @@ int main (int argc, char *argv[])
 		count++;
 		if (!(count % 1000)) {
 			fprintf(stdout, ".\n");
-		}
-		if (count == 70) {
-			char name[30];
-			char id[30];
-			char revision[30];
-			char serial[30];
-			char imsi[30];
-			char subscriber[30];
-			
-			wat_span_get_chip_info(gsm_spans[0].wat_span_id, name, id, revision, serial, imsi, subscriber);
-
-			fprintf(stdout, "Printing Chip Info \n\
-							\n  Manufacturer Name:%s\
-							\n  Manufacturer Id:%s\
-							\n  Revision:%s\
-							\n  S/N:%s\
-							\n  IMSI:%s\
-							\n  Subscriber:%s\n\n",
-							name, id, revision, serial, imsi, subscriber);
 		}
 
 		wat_span_run(gsm_spans[0].wat_span_id);

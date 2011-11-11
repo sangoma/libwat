@@ -30,6 +30,7 @@ SET(wat_SOURCES
 	        wat.c
 			wat_core.c
 			wat_call.c
+			wat_sms.c
 			wat_event.c
 			wat_cmd.c
 			wat_queue.c

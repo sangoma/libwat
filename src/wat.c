@@ -33,7 +33,7 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_CALL_STATE;
 
-uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_CALL_STATE;
+uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE;
 #else
 uint32_t	g_debug = 0;
 #endif
@@ -50,8 +50,8 @@ WAT_STR2ENUM(wat_str2wat_event, wat_event2str, wat_event_id_t, WAT_EVENT_NAMES, 
 WAT_ENUM_NAMES(WAT_NET_STAT_NAMES, WAT_NET_STAT_STRINGS)
 WAT_STR2ENUM(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t, WAT_NET_STAT_NAMES, WAT_NET_INVALID)
 
-WAT_ENUM_NAMES(WAT_SPAN_STATE_NAMES, WAT_SPAN_STATE_STRINGS)
-WAT_STR2ENUM(wat_str2wat_span_state, wat_span_state2str, wat_span_state_t, WAT_SPAN_STATE_NAMES, WAT_SPAN_STATE_INVALID)
+WAT_ENUM_NAMES(WAT_CSQ_BER_NAMES, WAT_CSQ_BER_STRINGS)
+WAT_STR2ENUM(wat_str2wat_csq_ber, wat_csq_ber2str, wat_csq_ber_t, WAT_CSQ_BER_NAMES, WAT_CSQ_BER_NOT_DETECTABLE)
 
 WAT_ENUM_NAMES(WAT_CALL_TYPE_NAMES, WAT_CALL_TYPE_STRINGS)
 WAT_STR2ENUM(wat_str2wat_call_type, wat_call_type2str, wat_call_type_t, WAT_CALL_TYPE_NAMES, WAT_CALL_TYPE_INVALID)
@@ -71,18 +71,13 @@ WAT_STR2ENUM(wat_str2wat_number_validity, wat_number_validity2str, wat_number_va
 WAT_ENUM_NAMES(WAT_CALL_STATE_NAMES, WAT_CALL_STATE_STRINGS)
 WAT_STR2ENUM(wat_str2wat_call_state, wat_call_state2str, wat_call_state_t, WAT_CALL_STATE_NAMES, WAT_CALL_STATE_INVALID)
 
-WAT_ENUM_NAMES(WAT_CALL_DIRECTION_NAMES, WAT_CALL_DIRECTION_STRINGS)
-WAT_STR2ENUM(wat_str2wat_call_direction, wat_call_direction2str, wat_call_direction_t, WAT_CALL_DIRECTION_NAMES, WAT_CALL_DIRECTION_INVALID)
+WAT_ENUM_NAMES(WAT_SMS_STATE_NAMES, WAT_SMS_STATE_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_state, wat_sms_state2str, wat_sms_state_t, WAT_SMS_STATE_NAMES, WAT_SMS_STATE_INVALID)
 
-WAT_ENUM_NAMES(WAT_CALL_HANGUP_CAUSE_NAMES, WAT_CALL_HANGUP_CAUSE_STRINGS)
-WAT_STR2ENUM(wat_str2wat_call_hangup_cause, wat_call_hangup_cause2str, wat_call_hangup_cause_t, WAT_CALL_HANGUP_CAUSE_NAMES, WAT_CALL_HANGUP_CAUSE_INVALID)
+WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
+WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
 
 static wat_span_t *wat_get_span(uint8_t span_id);
-wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up);
-wat_bool_t wat_sig_status_up(wat_net_stat_t stat);
-
-WAT_DECLARE_NONSTD(uint32_t) wat_hash_hashfromid(void *id);
-WAT_DECLARE_NONSTD(int) wat_hash_equalids(void *id1, void *id2);
 
 WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age)
 {
@@ -154,7 +149,6 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	span->configured = 1;
 	memcpy(&span->config, span_config, sizeof(*span_config));
 
-	span->state = WAT_SPAN_STATE_DOWN;
 	wat_log_span(span, WAT_LOG_DEBUG, "Configured span for %s module\n", wat_moduletype2str(span_config->moduletype));
 	return WAT_SUCCESS;
 
@@ -196,11 +190,10 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 		wat_log_span(span, WAT_LOG_ERROR, "Span was already started\n");
 		return WAT_FAIL;
 	}
-	/* TODO: use span states instead */
+
 	span->running = 1;
 
 	memset(span->calls, 0, sizeof(span->calls));
-	memset(span->smss, 0, sizeof(span->smss));
 	memset(span->notifys, 0, sizeof(span->notifys));
 
 	memset(&span->net_info, 0, sizeof(span->net_info));
@@ -211,6 +204,11 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	}
 
 	if (wat_queue_create(&span->cmd_queue, WAT_CMD_QUEUE_SZ) != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to create queue\n");
+		return WAT_FAIL;
+	}
+
+	if (wat_queue_create(&span->sms_queue, WAT_SMS_QUEUE_SZ) != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to create queue\n");
 		return WAT_FAIL;
 	}
@@ -229,18 +227,21 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 
 	wat_cmd_register(span, "+CRING", wat_notify_cring);
 
-	/* We are enabling extended formatting (AT+CRC), so we should never get RING, but leave it here, just in case */
-	wat_cmd_register(span, "+RING", wat_notify_ring);
 	wat_cmd_register(span, "+CLIP", wat_notify_clip);
 	wat_cmd_register(span, "+CREG", wat_notify_creg);
+
 #if 0
 	wat_cmd_register(span, "+CDIP", wat_notify_cdip);
 	wat_cmd_register(span, "+CNAP", wat_notify_cnap);
 	wat_cmd_register(span, "+CCWA", wat_notify_ccwa);
 #endif
-	
-	/* Call module specific start here */
-	span->module.start(span);
+
+	/* Module soft reset */
+	wat_cmd_enqueue(span, "ATZ", wat_response_atz, NULL);
+
+	/* Disable echo mode */
+	wat_cmd_enqueue(span, "ATE0", wat_response_ate, NULL);
+
 	wat_cmd_enqueue(span, "ATX4", NULL, NULL);
 
 	/* Enable Mobile Equipment Error Reporting, numeric mode */
@@ -249,6 +250,20 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Enable extended format reporting */
 	wat_cmd_enqueue(span, "AT+CRC=1", NULL, NULL);
 
+	/* Enable Calling Line Presentation */
+	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL);
+
+	/* Enable New Message Indications To TE */
+	wat_cmd_enqueue(span, "AT+CNMI=2,1", wat_response_cnmi, NULL);
+
+	/* Set Operator mode */
+	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL);
+
+	/* Call module specific start here */
+	span->module.start(span);
+
+	/* Get some information about the chip */
+	
 	/* Get Module Manufacturer Name */
 	wat_cmd_enqueue(span, "AT+CGMM", wat_response_cgmm, NULL);
 
@@ -264,15 +279,6 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Get Module IMSI */
 	wat_cmd_enqueue(span, "AT+CIMI", wat_response_cimi, NULL);
 
-	/* Enable Calling Line Presentation */
-	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL);
-
-	/* Enable New Message Indications To TE */
-	wat_cmd_enqueue(span, "AT+CNMI=2,1", wat_response_cnmi, NULL);
-
-	/* Set Operator mode */
-	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL);
-
 	/* Own Number */
 	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
 
@@ -283,7 +289,7 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	wat_cmd_enqueue(span, "AT+CREG=1", NULL, NULL);
 
 	/* Check Registration Status in case module is already registered */
-	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);	
+	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);
 	
 	return WAT_SUCCESS;
 }
@@ -304,10 +310,9 @@ WAT_DECLARE(wat_status_t) wat_span_stop(uint8_t span_id)
 
 	span->module.shutdown(span);
 
-	/* TODO: set span->running = 0 at the end of the shutdown */
-
 	wat_sched_destroy(&span->sched);
 	wat_buffer_destroy(&span->buffer);
+	wat_queue_destroy(&span->sms_queue);
 	wat_queue_destroy(&span->event_queue);
 	wat_queue_destroy(&span->cmd_queue);
 
@@ -343,6 +348,10 @@ WAT_DECLARE(uint32_t) wat_span_schedule_next(uint8_t span_id)
 		return 0;
 	}
 
+	if (wat_queue_empty(span->sms_queue) == WAT_FALSE) {
+		return 0;
+	}
+
 	if (wat_sched_get_time_to_next_timer(span->sched, &timeto) != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to get time to next event\n", span->id);
 		timeto = -1;
@@ -364,7 +373,10 @@ WAT_DECLARE(void) wat_span_run(uint8_t span_id)
 	wat_span_run_cmds(span);
 
 	/* Check if there are any timeouts */
-	wat_sched_run(span->sched);
+	wat_span_run_sched(span);
+
+	/* Check if there are pending sms's requested by the user */
+	wat_span_run_smss(span);
 	return;
 }
 
@@ -386,38 +398,67 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 	return;
 }
 
-WAT_DECLARE(void) wat_span_get_chip_info(uint8_t span_id, char *manufacturer_name, char *manufacturer_id, char *revision_id, char *serial_number, char *imsi, char *subscriber_number)
+WAT_DECLARE(wat_status_t) wat_span_get_chip_info(uint8_t span_id,
+					char *manufacturer_name, wat_size_t len_manufacturer_name,
+					char *manufacturer_id, wat_size_t len_manufacturer_id,
+					char *revision_id, wat_size_t len_revision_id,
+					char *serial_number, wat_size_t len_serial_number,
+					char *imsi, wat_size_t len_imsi,
+					char *subscriber_number, wat_size_t len_subscriber_number)
 {
 	wat_span_t *span;
 
 	span = wat_get_span(span_id);
-	wat_assert_return_void(span, "Invalid span");
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
 
-	strcpy(manufacturer_name, span->manufacturer_name);
-	strcpy(manufacturer_id, span->manufacturer_id);
-	strcpy(revision_id, span->revision_id);
-	strcpy(serial_number, span->serial_number);
-	strcpy(imsi, span->imsi);
-	strcpy(subscriber_number, span->subscriber_number);
+	strncpy(manufacturer_name, span->manufacturer_name, len_manufacturer_name);
+	strncpy(manufacturer_id, span->manufacturer_id, len_manufacturer_id);
+	strncpy(revision_id, span->revision_id, len_revision_id);
+	strncpy(serial_number, span->serial_number, len_serial_number);
+	strncpy(imsi, span->imsi, len_imsi);
+	strncpy(subscriber_number, span->subscriber_number, len_subscriber_number);
 
-	return;
+	return WAT_SUCCESS;
 }
 
-WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, wat_net_info_t *net_info)
+WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, char *net_info, wat_size_t len)
 {
 	wat_span_t *span;
 
 	span = wat_get_span(span_id);
-	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n");
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
+			
+	if (!span->running) {
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
+
+	snprintf(net_info, len, "%s", wat_net_stat2str(span->net_info.stat));
+	WAT_FUNC_DBG_END
+	return WAT_SUCCESS;
+}
+
+WAT_DECLARE(wat_status_t) wat_span_get_signal_quality(uint8_t span_id, char *strength, wat_size_t len_strength, char *ber, wat_size_t len_ber)
+{
+	char dest[30];
+	wat_span_t *span;
+
+	span = wat_get_span(span_id);
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
 
 	if (!span->running) {
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
 
-	memcpy(net_info, &span->net_info, sizeof(span->net_info));
+	snprintf(ber, len_ber, wat_csq_ber2str(span->net_info.ber));
+	snprintf(strength, len_strength, "%s", wat_decode_csq_rssi(dest, span->net_info.rssi));
+
+	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
 }
 
@@ -427,16 +468,17 @@ WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
 	wat_event_t event;
 
 	span = wat_get_span(span_id);
-	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span_id\n");
-		return WAT_FAIL;
-	}
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+	
+	WAT_SPAN_FUNC_DBG_START
 
 	if(!call_id) {
+		WAT_FUNC_DBG_END
 		return WAT_EINVAL;
 	}
 
 	if (!span->running) {
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
 
@@ -446,6 +488,7 @@ WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
 	event.call_id = call_id;
 
 	wat_event_enqueue(span, &event);
+	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
 }
 
@@ -455,21 +498,23 @@ WAT_DECLARE(wat_status_t) wat_con_req(uint8_t span_id, uint8_t call_id, wat_con_
 	wat_event_t event;
 
 	span = wat_get_span(span_id);
-	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span\n");
-		return WAT_FAIL;
-	}
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
 
 	if ((call_id < 8) || call_id >= WAT_MAX_CALLS_PER_SPAN) {
 		wat_log_span(span, WAT_LOG_ERROR, "[id:%d]Invalid outbound call_id\n", call_id);
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
 
 	if(!call_id) {
+		WAT_FUNC_DBG_END
 		return WAT_EINVAL;
 	}
 
 	if (!span->running) {
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
 
@@ -480,6 +525,7 @@ WAT_DECLARE(wat_status_t) wat_con_req(uint8_t span_id, uint8_t call_id, wat_con_
 
 	memcpy(&event.data.con_event, con_event, sizeof(*con_event));
 	wat_event_enqueue(span, &event);
+	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
 }
 
@@ -489,16 +535,17 @@ WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id)
 	wat_event_t event;
 
 	span = wat_get_span(span_id);
-	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span\n");
-		return WAT_FAIL;
-	}
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
 
 	if(!call_id) {
+		WAT_FUNC_DBG_END
 		return WAT_EINVAL;
 	}
 
 	if (!span->running) {
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
 
@@ -508,6 +555,7 @@ WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id)
 	event.call_id = call_id;
 
 	wat_event_enqueue(span, &event);
+	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
 }
 
@@ -517,16 +565,17 @@ WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id)
 	wat_event_t event;
 
 	span = wat_get_span(span_id);
-	if (!span) {
-		wat_log_span(span, WAT_LOG_ERROR, "Invalid span\n");
-		return WAT_FAIL;
-	}
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
 
 	if(!call_id) {
+		WAT_FUNC_DBG_END
 		return WAT_EINVAL;
 	}
 
 	if (!span->running) {
+		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
 
@@ -536,6 +585,38 @@ WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id)
 	event.call_id = call_id;
 
 	wat_event_enqueue(span, &event);
+	WAT_FUNC_DBG_END
+	return WAT_SUCCESS;
+}
+
+WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_event_t *sms_event)
+{
+	wat_span_t *span;
+	wat_event_t event;
+
+	span = wat_get_span(span_id);
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
+
+	if(!sms_id) {
+		WAT_FUNC_DBG_END
+		return WAT_EINVAL;
+	}
+
+	if (!span->running) {
+		WAT_FUNC_DBG_END
+		return WAT_FAIL;
+	}
+
+	memset(&event, 0, sizeof(event));
+	
+	event.id = WAT_EVENT_SMS_REQ;
+	event.sms_id = sms_id;
+	memcpy(&event.data.sms_event, sms_event, sizeof(*sms_event));
+
+	wat_event_enqueue(span, &event);
+	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
 }
 
@@ -552,16 +633,23 @@ wat_span_t *wat_get_span(uint8_t span_id)
 	return span;
 }
 
-wat_status_t wat_cmd_write(wat_span_t *span, char *cmd)
+int wat_span_write(wat_span_t *span, void *data, uint32_t len)
 {
-	if (g_debug & WAT_DEBUG_UART_RAW) {
+	int res;
+	
+	if (g_debug & WAT_DEBUG_UART_RAW) {		
 		char mydata[WAT_MAX_CMD_SZ];
+		char *cmd = (char *)data;
 		wat_log_span(span, WAT_LOG_DEBUG, "[TX RAW] %s (len:%d)\n", format_at_data(mydata, cmd, strlen(cmd)), strlen(cmd));
 	}
-	g_interface.wat_span_write(span->id, cmd, strlen(cmd));
-	return WAT_SUCCESS;
-}
 
+	res = g_interface.wat_span_write(span->id, data, len);
+	if (res < len) {
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to write to span (wrote:%d len:%d)\n", res, len);
+		return WAT_FAIL;
+	}
+	return res;
+}
 
 wat_status_t wat_module_register(wat_span_t *span, wat_module_t *module)
 {
@@ -569,25 +657,25 @@ wat_status_t wat_module_register(wat_span_t *span, wat_module_t *module)
 	return WAT_SUCCESS;
 }
 
-WAT_DECLARE(void *) wat_malloc(wat_size_t size)
+void *wat_malloc(wat_size_t size)
 {
 	wat_assert_return(g_interface.wat_malloc, NULL, "No callback for malloc specified\n");
 	return g_interface.wat_malloc(size);
 }
 
-WAT_DECLARE(void *) wat_calloc(wat_size_t nmemb, wat_size_t size)
+void *wat_calloc(wat_size_t nmemb, wat_size_t size)
 {
 	wat_assert_return(g_interface.wat_calloc, NULL, "No callback for calloc specified\n");
 	return g_interface.wat_calloc(nmemb, size);
 }
 
-WAT_DECLARE(void) wat_free(void *ptr)
+void wat_free(void *ptr)
 {
 	wat_assert_return(g_interface.wat_free, , "No callback for free specified\n");
 	g_interface.wat_free(ptr);
 }
 
-WAT_DECLARE(char *) wat_strdup(const char *str)
+char *wat_strdup(const char *str)
 {
 	wat_size_t len = strlen(str) + 1;
 	void *new = wat_calloc(1, len);
@@ -597,59 +685,14 @@ WAT_DECLARE(char *) wat_strdup(const char *str)
 	return (char *) memcpy(new, str, len);
 }
 
-wat_bool_t wat_sig_status_up(wat_net_stat_t stat)
-{
-	switch(stat) {
-		case WAT_NET_NOT_REGISTERED:
-		case WAT_NET_NOT_REGISTERED_SEARCHING:
-		case WAT_NET_REGISTRATION_DENIED:
-		case WAT_NET_UNKNOWN:
-			return WAT_FALSE;
-		case WAT_NET_REGISTERED_HOME:
-		case WAT_NET_REGISTERED_ROAMING:
-			return WAT_TRUE;
-		case WAT_NET_INVALID:
-			wat_log(WAT_LOG_CRIT, "Invalid network status\n");
-			return WAT_FALSE;
-	}
-	/* Should never reach here */
-	return WAT_FALSE;
-}
-
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 {
-	wat_log_span(span, WAT_LOG_NOTICE, "Signalling status changed to %s\n", up ? "Up": "Down");
+	wat_log_span(span, WAT_LOG_DEBUG, "Signalling status changed to %s\n", up ? "Up": "Down");
 
 	span->sigstatus = up ? WAT_SIGSTATUS_UP: WAT_SIGSTATUS_DOWN;
 
 	if (g_interface.wat_sigstatus_change) {
 		g_interface.wat_sigstatus_change(span->id, span->sigstatus);
-	}
-	return WAT_SUCCESS;
-}
-
-wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat)
-{
-	switch (stat) {
-		case WAT_NET_NOT_REGISTERED:
-		case WAT_NET_REGISTERED_HOME:
-		case WAT_NET_NOT_REGISTERED_SEARCHING:
-		case WAT_NET_REGISTRATION_DENIED:
-		case WAT_NET_UNKNOWN:
-		case WAT_NET_REGISTERED_ROAMING:
-			break;
-		default:
-			wat_log_span(span, WAT_LOG_CRIT, "Invalid network status:%s\n", stat);
-			return WAT_FAIL;
-	}
-
-	if (span->net_info.stat != stat) {
-		wat_log_span(span, WAT_LOG_NOTICE, "Network status changed to \"%s\"\n", wat_net_stat2str(stat));
-
-		if (wat_sig_status_up(span->net_info.stat) != wat_sig_status_up(stat)) {
-			wat_span_update_sig_status(span, wat_sig_status_up(stat));
-		}
-		span->net_info.stat = stat;
 	}
 	return WAT_SUCCESS;
 }

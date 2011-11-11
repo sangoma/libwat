@@ -11,7 +11,7 @@ PROJECT(libwat)
 #ADD_DEFINITIONS(-ggdb3 -O0 -Wall -Wshadow -Wcast-qual -Wcast-align -Wchar-subscripts -Wmissing-prototypes -Wmissing-declarations)
 
 ADD_DEFINITIONS(-ggdb3 -O0 )
-FOREACH(TEST testwat_dahdi)
+FOREACH(TEST testwat_dahdi testwat_dahdi_sms)
 	ADD_EXECUTABLE(${TEST}
 	${PROJECT_SOURCE_DIR}/test/${TEST}.c)
 	TARGET_LINK_LIBRARIES(${TEST} wat)

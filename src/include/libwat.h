@@ -29,7 +29,7 @@
 
 #include "wat_declare.h"
 
-#if 0
+#if 1
 #define WAT_FUNC_DEBUG 1
 #endif
 /* Debugging */
@@ -45,10 +45,11 @@
 #define WAT_MAX_NUMBER_SZ	32 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_NAME_SZ		24 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_SMS_SZ		1024 /* DAVIDY TODO: Find real max sizes based on specs */
-#define WAT_MAX_CMD_SZ		512 /* DAVIDY TODO: Find real max sizes based on specs */
+#define WAT_MAX_CMD_SZ		64 /* DAVIDY TODO: Find real max sizes based on specs */
 
 #define WAT_MAX_CALLS_PER_SPAN			16
 #define WAT_MAX_SMSS_PER_SPAN			16
+#define WAT_MAX_ERROR_SZ				40
 
 typedef size_t wat_size_t;
 
@@ -63,9 +64,18 @@ typedef enum {
 } wat_alarm_t;
 
 typedef enum {
-	WAT_SMS_TXT,
 	WAT_SMS_PDU,
+	WAT_SMS_TXT,
 } wat_sms_type_t;
+
+typedef enum {
+	WAT_SMS_CAUSE_QUEUE_FULL = 1,
+	WAT_SMS_CAUSE_MODE_NOT_SUPPORTED,
+	WAT_SMS_CAUSE_NO_RESPONSE,
+	WAT_SMS_CAUSE_NO_NETWORK,
+	WAT_SMS_CAUSE_NETWORK_REJECT,
+	WAT_SMS_CAUSE_UNKNOWN,
+} wat_sms_cause_t;
 
 typedef enum {
 	WAT_MODULE_TELIT,
@@ -74,20 +84,6 @@ typedef enum {
 
 #define WAT_MODULETYPE_STRINGS "telit", "invalid"
 WAT_STR2ENUM_P(wat_str2wat_moduletype, wat_moduletype2str, wat_moduletype_t);
-
-typedef enum {
-	WAT_NET_NOT_REGISTERED = 0,				/* Initial state */
-	WAT_NET_REGISTERED_HOME,				/* Registered to home network */
-	WAT_NET_NOT_REGISTERED_SEARCHING,		/* Not Registered, searching for an operator */
-	WAT_NET_REGISTRATION_DENIED,			/* Registration denied */
-	WAT_NET_UNKNOWN,						/* Unknown */
-	WAT_NET_REGISTERED_ROAMING,				/* Registered, roaming */
-	WAT_NET_INVALID,
-} wat_net_stat_t;
-
-#define WAT_NET_STAT_STRINGS "Not Registered", "Registered Home", "Not Registered, Searching", "Registration Denied", "Unknown", "Registered Roaming", "Invalid"
-
-WAT_STR2ENUM_P(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t);
 
 typedef enum {
 	WAT_NUMBER_TYPE_UNKNOWN,
@@ -148,23 +144,6 @@ typedef enum {
 WAT_STR2ENUM_P(wat_str2wat_call_sub, wat_call_sub2str, wat_call_sub_t);
 
 typedef enum {
-	WAT_CALL_HANGUP_CAUSE_NORMAL,
-	WAT_CALL_HANGUP_CAUSE_INVALID,
-} wat_call_hangup_cause_t;
-
-#define WAT_CALL_HANGUP_CAUSE_STRINGS "normal", "invalid"
-WAT_STR2ENUM_P(wat_str2wat_call_hangup_cause, wat_call_hangup_cause2str, wat_call_hangup_cause_t);
-
-typedef struct {
-	wat_net_stat_t stat;
-	uint8_t lac;	/* Local Area Code for the currently registered on cell */
-	uint8_t ci;		/* Cell Id for currently registered on cell */
-
-	uint8_t rssi;
-	uint8_t ber;
-} wat_net_info_t;
-
-typedef enum {
 	WAT_LOG_CRIT,
 	WAT_LOG_ERROR,
 	WAT_LOG_WARNING,
@@ -183,14 +162,16 @@ typedef struct _wat_con_event {
 } wat_con_event_t;
 
 typedef struct _wat_sms_event {
-	
+	wat_number_t calling_num;
+	wat_number_t called_num;
 	wat_sms_type_t type;				/* PDU or Plain Text */
-	uint32_t len;				/* Length of message */
-	char message[WAT_MAX_SMS_SZ];	/* Message */
+	uint32_t len;						/* Length of message */
+	char message[WAT_MAX_SMS_SZ];		/* Message */
 } wat_sms_event_t;
 
 typedef struct _wat_rel_event {
 	uint32_t cause;
+	const char *error;
 } wat_rel_event_t;
 
 typedef enum {
@@ -204,10 +185,13 @@ typedef struct _wat_con_status {
 
 typedef struct _wat_sms_status {
 	wat_bool_t success;
+	wat_sms_cause_t cause;
+	const char *error;
 } wat_sms_status_t;
 
 typedef struct _wat_cmd_status {
 	wat_bool_t success;
+	const char *error;
 } wat_cmd_status_t;
 
 typedef struct _wat_span_config_t {
@@ -241,10 +225,10 @@ typedef struct _wat_interface {
  	void (*wat_con_sts)(uint8_t span_id, uint8_t call_id, wat_con_status_t *con_status);
 	void (*wat_rel_ind)(uint8_t span_id, uint8_t call_id, wat_rel_event_t *rel_event);
 	void (*wat_rel_cfm)(uint8_t span_id, uint8_t call_id);
-	void (*wat_sms_ind)(uint8_t span_id, uint8_t call_id, wat_sms_event_t *sms_event);
+	void (*wat_sms_ind)(uint8_t span_id, wat_sms_event_t *sms_event);
 	void (*wat_sms_sts)(uint8_t span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
 	void (*wat_cmd_sts)(uint8_t span_id, wat_cmd_status_t *status);
-	void (*wat_span_write)(uint8_t span_id, void *data, uint32_t len);
+	int (*wat_span_write)(uint8_t span_id, void *data, uint32_t len);
 } wat_interface_t;
 
 /* Functions  *********************************************************************/
@@ -259,14 +243,23 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 WAT_DECLARE(uint32_t) wat_span_schedule_next(uint8_t span_id);
 WAT_DECLARE(void) wat_span_run(uint8_t span_id);
 
-WAT_DECLARE(void) wat_span_get_chip_info(uint8_t span_id, char *manufacturer_name, char *manufacturer_id, char *revision_id, char *serial_number, char *imsi, char *subscriber_number);
-WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, wat_net_info_t *net_info);
+WAT_DECLARE(wat_status_t) wat_span_get_chip_info(uint8_t span_id,
+													char *manufacturer_name, wat_size_t len_manufacturer_name,
+													char *manufacturer_id, wat_size_t len_manufacturer_id,
+													char *revision_id, wat_size_t len_revision_id,
+													char *serial_number, wat_size_t len_serial_number,
+													char *imsi, wat_size_t len_imsi,
+													char *subscriber_number, wat_size_t len_subscriber_number);
+
+WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, char *net_info, wat_size_t len);
+WAT_DECLARE(wat_status_t) wat_span_get_signal_quality(uint8_t span_id, char *strength, wat_size_t len_strength, char *ber, wat_size_t len_ber);
 
 
 WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_con_req(uint8_t span_id, uint8_t call_id, wat_con_event_t *con_event);
 WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id);
+WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_event_t *sms_event);
 
 #endif /* _LIBWAT_H */
 

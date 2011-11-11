@@ -51,33 +51,586 @@ WAT_STR2ENUM_P(wat_str2wat_clcc_stat, wat_clcc_stat2str, wat_clcc_stat_t);
 WAT_ENUM_NAMES(WAT_CLCC_STAT_NAMES, WAT_CLCC_STAT_STRINGS)
 WAT_STR2ENUM(wat_str2wat_clcc_stat, wat_clcc_stat2str, wat_clcc_stat_t, WAT_CLCC_STAT_NAMES, WAT_CLCC_STAT_INVALID)
 
-typedef enum {
-	WAT_CSQ_BER_0,
-	WAT_CSQ_BER_1,
-	WAT_CSQ_BER_2,
-	WAT_CSQ_BER_3,
-	WAT_CSQ_BER_4,
-	WAT_CSQ_BER_5,
-	WAT_CSQ_BER_6,
-	WAT_CSQ_BER_7,
-	WAT_CSQ_BER_NOT_DETECTABLE,
-} wat_csq_ber_t;
-
-#define WAT_CSQ_BER_STRINGS "less than 0.2%", "0.2 to 0.4%", "0.4 to 0.8%", "0.8 to 1.6%", "1.6 to 3.2%", "3.2 to 6.4%", "6.4 to 12.8%", "more than 12.8%", "not detectable"
-WAT_STR2ENUM_P(wat_str2wat_csq_ber, wat_csq_ber2str, wat_csq_ber_t);
-
-WAT_ENUM_NAMES(WAT_CSQ_BER_NAMES, WAT_CSQ_BER_STRINGS)
-WAT_STR2ENUM(wat_str2wat_csq_ber, wat_csq_ber2str, wat_csq_ber_t, WAT_CSQ_BER_NAMES, WAT_CSQ_BER_NOT_DETECTABLE)
-
 typedef struct {
 	unsigned id;
 	unsigned dir;
 	unsigned stat;
 } clcc_entry_t;
 
-char *wat_decode_csq_rssi(char *in, unsigned rssi);
-static int wat_cmd_entry_tokenize(char *entry, char *tokens[]);
+typedef enum {
+	WAT_TERM_OK,
+	WAT_TERM_CONNECT,
+	WAT_TERM_BUSY,
+	WAT_TERM_ERR,
+	WAT_TERM_NO_DIALTONE,
+	WAT_TERM_NO_ANSWER,
+	WAT_TERM_NO_CARRIER,
+	WAT_TERM_CMS_ERR,
+	WAT_TERM_CME_ERR,
+	WAT_TERM_EXT_ERR,
+} wat_term_t;
 
+struct terminator {
+	char *terminator;
+	wat_bool_t success;
+	wat_term_t term_type;
+};
+
+static struct terminator terminators[] = {
+	{ "OK", WAT_TRUE, WAT_TERM_OK },
+	{ "CONNECT", WAT_TRUE, WAT_TERM_CONNECT },
+	{ "BUSY", WAT_FALSE, WAT_TERM_BUSY },
+	{ "ERROR", WAT_FALSE, WAT_TERM_ERR },
+	{ "NO DIALTONE", WAT_FALSE, WAT_TERM_NO_DIALTONE },
+	{ "NO ANSWER", WAT_FALSE, WAT_TERM_NO_ANSWER },
+	{ "NO CARRIER", WAT_FALSE, WAT_TERM_NO_CARRIER },
+	{ "+CMS ERROR:", WAT_FALSE, WAT_TERM_CMS_ERR },
+	{ "+CME ERROR:", WAT_FALSE, WAT_TERM_CME_ERR },
+	{ "+EXT ERROR:", WAT_FALSE, WAT_TERM_EXT_ERR }
+};
+
+struct error_code {
+	uint32_t code;
+	char *string;
+};
+
+/* GSM Equipment related codes */
+static struct error_code cme_codes[] = {
+	{ 0, "Phone failure" },
+	{ 1, "No connection to phone" },
+	{ 2, "phone-adaptor link reserved" },
+	{ 3, "operation not allowed" },
+	{ 4, "operation not supported" },
+	{ 5, "PH-SIM PIN required" },
+	{ 10, "SIM not inserted" },
+	{ 11, "SIM PIN required" },
+	{ 12, "SIM PUK required" },
+	{ 13, "SIM failure" },
+	{ 14, "SIM busy" },
+	{ 15, "SIM wrong" },
+	{ 16, "incorrect password" },
+	{ 17, "SIM PIN2 required" },
+	{ 18, "SIM PUK2 required" },
+	{ 20, "memory full" },
+	{ 21, "invalid index" },
+	{ 22, "not found" },
+	{ 23, "memory failure" },
+	{ 24, "text string too long" },
+	{ 25, "invalid characters in text string" },
+	{ 26, "dial string too long" },
+	{ 27, "invalid characters in dial string" },
+	{ 30, "no network service" },
+	{ 31, "network time-out" },
+	{ 32, "network not allowed - emergency calls only" },
+	{ 40, "network personalization PIN required" },
+	{ 41, "network personalization PUK required" },
+	{ 42, "network subset personalization PIN required" },
+	{ 43, "network subset personalization PUK required" },
+	{ 44, "service provider personalization PIN required" },
+	{ 45, "service provider personalization PUK required" },
+	{ 46, "corporate personalization PIN required" },
+	{ 47, "corporate personalization PUK required" },
+	{ 100, "unknown" }, /* General purpose error */
+	{ 103, "Illegal MS" },
+	{ 106, "Illegal ME" },
+	{ 107, "GPRS service not allowed" },
+	{ 111, "PLMN not allowed" },
+	{ 112, "Location area not allowed" },
+	{ 113, "Roaming not allowed in this location area" },
+	{ 132, "service option not supported" },
+	{ 133, "requested service option not subscribed" },
+	{ 134, "service option temporarily out of order" },
+	{ 148, "unspecified GPRS error" },
+	{ 149, "PDP authentication failure" },
+	{ 150, "invalid mobile class" },
+	{ 257, "Call barred" },
+	{ 258, "Phone is busy" },
+	{ 259, "User abort" },
+	{ 260, "Invalid dial string" },
+	{ 262, "SIM blocked"},
+	{ 263, "Invalid block"},
+	{ 300, "ME failure" },
+	{ 301, "SMS service of ME reserved" },
+	{ 302, "Operation not allowed" },
+	{ 303, "Operation not supported" },
+	{ 304, "invalid PDU mode parameter" },
+	{ 305, "invalid text mode parameter" },
+	{ 310, "SIM not inserted" },
+	{ 311, "SIM PIN required" },
+	{ 312, "PH-SIM PIN required" },
+	{ 313, "SIM failure" },
+	{ 314, "SIM busy" },
+	{ 315, "SIM wrong" },
+	{ 316, "SIM PUK required" },
+	{ 317, "SIM PIN2 required" },
+	{ 318, "SIM PUK2 required" },
+	{ 320, "memory failure" },
+	{ 321, "invalid memory index" },
+	{ 322, "memory full" },
+	{ 330, "SMSC address unknown" },
+	{ 331, "no network service" },
+	{ 332, "network time-out"},
+	{ 400, "generic undocummented error" },
+	{ 401, "wrong state" },
+	{ 402, "wrong mode" },
+	{ 403, "context already activated" },
+	{ 404, "stack already active" },
+	{ 405, "activation failed" },
+	{ 406, "context not opened" },
+	{ 407, "cannot setup socket" },
+	{ 408, "cannot resolve DN" },
+	{ 409, "time-out in opening socket" },
+	{ 410, "cannot open socket" },
+	{ 411, "remote disconnected or time-out" },
+	{ 412, "connection failed" },
+	{ 413, "tx error" },
+	{ 414, "already listening" },
+	{ 500, "unknown error"},
+	{ 772, "SIM powered down"},
+	{ -1, "invalid"},
+};
+
+/* GSM Network related codes */
+/* From wwww.smssolutions.net/tutorials/gsm/gsmerrorcodes */
+static struct error_code cms_codes[] = {
+	{ 1, "Unassigned number" },
+	{ 8, "Operator determined barring" },
+	{ 10, "Call bared" },
+	{ 21, "Shor message transfer rejected" },
+	{ 27, "Destination out of service" },
+	{ 28, "Unenditified subscriber" },
+	{ 29, "Facility rejected" },
+	{ 30, "Unknown subscriber" },
+	{ 38, "Network out of order" },
+	{ 41, "Temporary failure" },
+	{ 42, "Congestion" },
+	{ 47, "Resources unavailable" },
+	{ 50, "Requested facility not subscribed" },
+	{ 69, "Requested facility not implemented" },
+	{ 81, "Invalid short message transfer reference value" },
+	{ 95, "Invalid message unspecified" },
+	{ 96, "Invalid mandatory information" },
+	{ 97, "Message type non existent or not implemented" },
+	{ 98, "Message not compatible with short message protocol" },
+	{ 99, "Information element non-existent or not implemented" },
+	{ 111, "Protocol error, unspecified"},
+	{ 127, "Internetworking, unspecified"},
+	{ 128, "Telematic internetworking not supported"},
+	{ 129, "Short message type 0 not supported"}, 
+	{ 130, "Cannot replace short message"},
+	{ 143, "Unspecified TP-PID error"},
+	{ 144, "Data code scheme not supported"},
+	{ 145, "Message class not supported"},
+	{ 159, "Unspecified TP-DCS error"},
+	{ 160, "Command cannot be actioned"},
+	{ 161, "Command unsupported"},
+	{ 175, "Unspecified TP-Command error"},
+	{ 176, "TPDU not supported"},
+	{ 192, "SC busy"},
+	{ 193, "No SC subscription"},
+	{ 194, "SC System failure"},
+	{ 195, "Invalid SME address"},
+	{ 196, "Destination SME barred"},
+	{ 197, "SM Rejected-Duplicate SM"},
+	{ 198, "TP-VPF not supported"},
+	{ 199, "TP-VP not supported"},
+	{ 208, "D0 SIM SMS Storage full"},
+	{ 209, "No SMS Storage capability in SIM"},
+	{ 210, "Error in MS"},
+	{ 211, "Memory capacity exceeded"},
+	{ 212, "SIM application toolkit busy"},
+	{ 213, "SIM data download error"},
+	{ 255, "Unspecified error cause"},
+	{ 300, "ME Failure"},
+	{ 301, "SMS service of ME reserved"},
+	{ 302, "Operation not allowed"},
+	{ 303, "Operation not supported"},
+	{ 304, "Invalid PDU mode parameter"},
+	{ 305, "Invalid Text mode parameter"},
+	{ 310, "SIM not inserted"},
+	{ 311, "SIM PIN required"},
+	{ 312, "PH-SIM PIN required"},
+	{ 313, "SIM failure"},
+	{ 314, "SIM busy"},
+	{ 315, "SIM wrong"},
+	{ 316, "SIM PUK required"},
+	{ 317, "SIM PIN2 required"},
+	{ 318, "SIM PUK2 required"},
+	{ 320, "Memory failure"},
+	{ 321, "Invalid memory index"},
+	{ 322, "Memory full"},
+	{ 330, "SMSC address unknown"},
+	{ 331, "No network service"},
+	{ 332, "Network timeout"},
+	{ 340, "No +CNMA expected"},
+	{ 500, "Unknown error"},
+	{ 512, "User abort"},
+	{ 513, "Unable to store"},
+	{ 514, "Invalid status"},
+	{ 515, "Device busy or Invalid Character in string"},
+	{ 516, "Invalid length"},
+	{ 517, "Invalid character in PDU"},
+	{ 518, "Invalid parameter"},
+	{ 519, "Invalid length or character"},
+	{ 520, "Invalid character in text"},
+	{ 521, "Timer expired"},
+	{ 522, "Operation temporary not allowed"},
+	{ 532, "SIM not ready"},
+	{ 534, "Cell Broadcast error unknown"},
+	{ 535, "Protocol stack busy"},
+	{ 538, "Invalid parameter"},
+	{ -1, "invalid"},
+};
+
+/* TODO: Fill in ext error codes */
+static struct error_code ext_codes[] = {
+	{ -1, "invalid" },
+};
+
+static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed);
+static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
+static wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
+static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error);
+
+static char *wat_strerror(int error, struct error_code error_table[])
+{
+	int i = 0;
+
+	while (error_table[i].code != -1) {
+		if (error_table[i].code == error) {
+			return error_table[i].string;
+		}
+		i++;
+	}
+	return "invalid";
+}
+
+wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj)
+{
+	wat_cmd_t *cmd;
+	wat_assert_return(span->cmd_queue, WAT_FAIL, "No command queue!\n");
+
+	if (!strlen(incommand)) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Invalid cmd to enqueue \"%s\"\n", incommand);
+		return WAT_FAIL;
+	}
+
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n", incommand);
+	}
+
+	/* Add a \r to finish the command */
+	cmd = wat_calloc(1, sizeof(*cmd));
+	wat_assert_return(cmd, WAT_FAIL, "Failed to alloc new command\n");
+	
+	cmd->cb = cb;
+	cmd->obj = obj;
+	cmd->cmd = wat_strdup(incommand);
+	wat_queue_enqueue(span->cmd_queue, cmd);
+	return WAT_SUCCESS;
+}
+
+static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error)
+{
+	int i;
+
+	for (i = 0; i < sizeof(terminators)/sizeof(terminators[0]); i++) {
+		if (!strncmp(terminators[i].terminator, token, strlen(terminators[i].terminator))) {
+			*success = terminators[i].success;
+			switch(terminators[i].term_type) {
+				case WAT_TERM_CMS_ERR:					
+					*error = wat_strerror(atoi(&token[strlen(terminators[i].terminator) + 1]), cms_codes);
+					break;
+				case WAT_TERM_CME_ERR:
+					*error = wat_strerror(atoi(&token[strlen(terminators[i].terminator) + 1]), cme_codes);
+					break;
+				case WAT_TERM_EXT_ERR:
+					*error = wat_strerror(atoi(&token[strlen(terminators[i].terminator) + 1]), ext_codes);
+					break;
+				default:
+					break;
+			}
+			return WAT_SUCCESS;
+		}
+	}
+	return WAT_FAIL;
+}
+
+wat_status_t wat_cmd_process(wat_span_t *span)
+{
+	char data[WAT_BUFFER_SZ];	
+	unsigned i = 0;
+	wat_size_t len = 0;
+	wat_status_t status = WAT_FAIL;
+
+	if (wat_buffer_peep(span->buffer, data, &len) == WAT_SUCCESS) {
+		wat_size_t consumed;
+		char *tokens[WAT_TOKENS_SZ];
+		wat_bool_t success = WAT_FALSE;
+
+		memset(tokens, 0, sizeof(tokens));
+
+		if (g_debug & WAT_DEBUG_UART_DUMP) {
+			char mydata[WAT_MAX_CMD_SZ];
+			wat_log_span(span, WAT_LOG_DEBUG, "[RX AT] %s (len:%d)\n", format_at_data(mydata, data, len), len);
+		}
+
+		status = wat_tokenize_line(tokens, (char*)data, len, &consumed);
+		if (status == WAT_SUCCESS) {
+			for (i = 0; tokens[i]; i++) {
+				char *error = NULL;
+				wat_bool_t handled = WAT_FALSE;
+								
+				status = wat_match_terminator(tokens[i], &success, &error);
+				if (status == WAT_SUCCESS) {
+					/* This is a single token response or a call hangup */
+					if (span->cmd_busy) {
+						wat_cmd_handle_response(span, &tokens[i], success, error);
+						handled = WAT_TRUE;
+					} else if (!success) {
+						/* This is a hangup from the remote side, schedule a CLCC to find out which call hung-up */
+
+						wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL);
+						handled = WAT_TRUE;
+					}
+				} else if (tokens[i+1]) {
+					/* There is one more token in the list, check if it is a terminator */
+					if (wat_match_terminator(tokens[i+1], &success, &error) == WAT_SUCCESS) {
+						if (span->cmd_busy) {
+							/* This is a two token response */
+							wat_cmd_handle_response(span, &tokens[i], success, error);
+							i++;
+							handled = WAT_TRUE;
+						}
+					}
+				}
+
+				if (handled == WAT_FALSE) {
+					/* We do not have a terminator */
+					if (!strncmp(tokens[i], "+", 1) ||
+						!strncmp(tokens[i], "#", 1)) {
+						/* This could be an unsollicited notification */
+						status = wat_cmd_handle_notify(span, &tokens[i]);
+						if (status == WAT_BREAK) {
+							/* Some responses contain the command prefix, if we do
+							not have a notify handler, then this could be an
+							incomplete response, so do not flush */
+							continue;
+						} else {
+							handled = WAT_TRUE;
+						}
+					} else if (span->cmd_busy) {
+						if (!strncmp(tokens[i], ">", 1)) {
+							/* We are in SMS mode */
+							wat_cmd_handle_response(span, &tokens[i], WAT_TRUE, error);
+							handled = WAT_TRUE;
+						} else {
+							/* We do not have a full response, wait for the full response */
+							continue;
+						}
+					} else {
+						char mydata[WAT_MAX_CMD_SZ];
+						wat_log_span(span, WAT_LOG_DEBUG, "Failed to parse AT commands %s (len:%d)\n", format_at_data(mydata, data, len), len);
+					}
+				}
+				if (handled == WAT_TRUE) {
+					/* If we handled this token, remove it from the buffer */
+					wat_buffer_flush(span->buffer, consumed);
+				}
+			} /* for (i = 0; tokens[i]; i++) */
+
+			wat_free_tokens(tokens);
+		}
+	}
+	
+	return WAT_SUCCESS;
+}
+
+static wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error)
+{
+	wat_cmd_t *cmd;
+	
+	wat_assert_return(span->cmd, WAT_FAIL, "We did not have a command pending\n");
+	
+	cmd = span->cmd;
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Handling response for cmd:%s\n", cmd->cmd);
+	}
+	
+	if (cmd->cb) {
+		cmd->cb(span, tokens, success, cmd->obj, error);
+	}
+
+	span->cmd = NULL;
+
+	wat_safe_free(cmd->cmd);
+	wat_safe_free(cmd);
+	span->cmd_busy = 0;
+	return WAT_SUCCESS;
+}
+
+static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
+{
+	int i;
+	/* For notifications, the first token contains the AT command prefix */
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Handling notify for cmd:%s\n", tokens[0]);
+	}
+
+	for (i = 0; i < sizeof(span->notifys)/sizeof(span->notifys[0]); i++) {
+		if (span->notifys[i]) {
+			wat_notify_t *notify = span->notifys[i];
+			if (!strncasecmp(notify->prefix, tokens[0], strlen(notify->prefix))) {
+				/* TODO: Take out the prefix from the first token */
+				return notify->func(span, tokens);
+			}
+		}
+	}
+
+	/* This is not an error, sometimes sometimes we have an incomplete response
+	(terminator not received yet), and we think its a notify  */
+	wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
+	return WAT_BREAK;
+}
+
+static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed)
+{
+	int i;
+	int token_index = 0;
+	uint8_t has_token = 0;
+	unsigned token_start_index = 0;
+	unsigned consumed_index = 0;
+
+	char *token_str = NULL;
+	char *p = NULL;
+
+	for (i = 0; i < len; i++) {
+		switch(line[i]) {
+			case '\n':
+				if (has_token) {
+					/* This is the end of a token */
+					has_token = 0;
+
+					tokens[token_index++] = token_str;
+				}
+				break;
+			case '\r':
+				/* Ignore \r */
+				break;
+			case '>':
+				{
+					/* We are in SMS mode */
+
+					/* Save previous token */
+					if (has_token) {
+						/* This is the end of a token */
+						has_token = 0;
+
+						tokens[token_index++] = token_str;
+					}
+					/* Create a new token */
+					tokens[token_index++] = wat_strdup(">\0");
+				}
+				break;
+			default:
+				if (!has_token) {
+					/* This is the start of a new token */
+					has_token = 1;
+					token_start_index = i;
+
+					token_str = wat_calloc(1, 200);
+					wat_assert_return(token_str, WAT_FAIL, "Failed to allocate new token\n");
+
+					p = token_str;
+				}
+				*(p++) = line[i];
+				
+		}
+	}
+
+	/* No more tokens left in buffer */
+	if (token_index) {
+		while (i <  len) {
+			/* Remove remaining \r and \n" */
+			if (line[i] != '\r' && line[i] != '\n') {
+				break;
+			}
+			i++;
+		}
+		consumed_index = i;
+
+		*consumed = consumed_index;
+
+		if (g_debug & WAT_DEBUG_AT_PARSE) {
+			wat_log(WAT_LOG_DEBUG, "Decoded tokens %d consumed:%u len:%u\n", token_index, *consumed, len);
+
+			for (i = 0; i < token_index; i++) {
+				wat_log(WAT_LOG_DEBUG, "  Token[%d]:%s\n", i, tokens[i]);
+			}
+		}
+		return WAT_SUCCESS;
+	}
+
+	if (has_token) {
+		/* We only got half a token, need to free this pointer */
+		wat_safe_free(token_str);
+	}
+
+	return WAT_FAIL;
+}
+
+void wat_free_tokens(char *tokens[])
+{
+	unsigned i;
+	for (i = 0; tokens[i]; i++) {
+		wat_safe_free(tokens[i]);
+	}
+}
+
+wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_notify_func func)
+{
+	int i;
+	wat_status_t status = WAT_FAIL;
+	wat_notify_t *new_notify = NULL;
+	wat_iterator_t *iter = NULL;
+	wat_iterator_t *curr = NULL;
+
+	/* Check if there is already a notify callback set for this prefix first */
+	iter = wat_span_get_notify_iterator(span, iter);
+	for (curr = iter; curr; curr = wat_iterator_next(curr)) {
+		wat_notify_t *notify = wat_iterator_current(curr);
+		if (!strcmp(notify->prefix, prefix)) {
+			/* Overwrite existing notify */
+			wat_log_span(span, WAT_LOG_INFO, "Already had a notifier for prefix %s\n", prefix);
+
+			notify->func = func;
+			status = WAT_SUCCESS;
+		}
+	}
+
+	/* TODO: Create a function: wat_span_get_free_notify that returns a pointer to a
+	free location */
+	for (i = 1; i < sizeof(span->notifys)/sizeof(span->notifys[0]); i++) {
+		if (!span->notifys[i]) {
+			new_notify = wat_calloc(1, sizeof(*new_notify));
+			wat_assert_return(new_notify, WAT_FAIL, "Failed to alloc memory\n");
+
+			new_notify->prefix = wat_strdup(prefix);
+			new_notify->func = func;
+			
+			span->notifys[i] = new_notify;
+			span->notify_count++;
+			status = WAT_SUCCESS;
+			goto done;
+		}
+	}
+
+	wat_log(WAT_LOG_CRIT, "Failed to register new notifier, no space left in notify list\n");
+
+done:
+			wat_iterator_free(iter);
+	return status;
+}
 
 static int wat_cmd_entry_tokenize(char *entry, char *tokens[])
 {
@@ -90,6 +643,30 @@ static int wat_cmd_entry_tokenize(char *entry, char *tokens[])
 		p = strtok(NULL, ",");
 	}
 	return token_count;
+}
+
+WAT_RESPONSE_FUNC(wat_response_atz)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to reset module\n");
+		WAT_FUNC_DBG_END
+		return;
+	}
+	WAT_FUNC_DBG_END
+	return;
+}
+
+WAT_RESPONSE_FUNC(wat_response_ate)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to disable echo mode\n");
+		WAT_FUNC_DBG_END
+		return;
+	}
+	WAT_FUNC_DBG_END
+	return;
 }
 
 /* Get Module Manufacturer Name */
@@ -453,7 +1030,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 
 		wat_log_span(span, WAT_LOG_DEBUG, "CLCC entry (id:%d dir:%s stat:%s)\n",
 													id,
-													wat_call_direction2str(dir),
+													wat_direction2str(dir),
 													wat_clcc_stat2str(stat));
 
 		entries[num_clcc_entries].id = id;
@@ -476,7 +1053,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		
 		switch (call->state) {
 			case WAT_CALL_STATE_DIALING:
-				if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
+				if (call->dir == WAT_DIRECTION_INCOMING) {
 					for (i = 0; i < num_clcc_entries; i++) {					
 						if (entries[i].stat == 4) {
 							/* Save the module ID for this call */
@@ -513,7 +1090,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 				}
 				break;
 			case WAT_CALL_STATE_DIALED:
-				if (call->dir == WAT_CALL_DIRECTION_INCOMING) {
+				if (call->dir == WAT_DIRECTION_INCOMING) {
 
 				} else {
 					for (i = 0; i < num_clcc_entries; i++) {
@@ -577,6 +1154,83 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 	return;
 }
 
+WAT_RESPONSE_FUNC(wat_response_cmgf)
+{
+	wat_sms_t *sms;
+	WAT_RESPONSE_FUNC_DBG_START
+
+	sms = (wat_sms_t *)obj;
+
+	if (success == WAT_FALSE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to switch SMS mode\n");
+		if (sms) {
+			sms->cause = WAT_SMS_CAUSE_MODE_NOT_SUPPORTED;
+			wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
+		}
+		WAT_FUNC_DBG_END
+		return;
+	}
+	if (sms) {
+		span->sms_mode = sms->type;
+		wat_sms_set_state(sms, WAT_SMS_STATE_SEND_HEADER);
+	}
+	WAT_FUNC_DBG_END
+}
+
+
+WAT_RESPONSE_FUNC(wat_response_cmgs_start)
+{
+	wat_sms_t *sms;
+	wat_sms_status_t sms_status;
+
+	WAT_RESPONSE_FUNC_DBG_START
+	sms = (wat_sms_t *)obj;
+
+	if (!sms) {
+		wat_log_span(span, WAT_LOG_CRIT, "Sent a SMS, but we lost pointer\n");
+		WAT_FUNC_DBG_END
+		return;
+	}
+	
+	memset(&sms_status, 0, sizeof(sms_status));
+	
+	if (success == WAT_TRUE) {
+		wat_sms_set_state(sms, WAT_SMS_STATE_SEND_BODY);
+	} else {
+		sms->cause = WAT_SMS_CAUSE_NO_RESPONSE;
+		sms->error = error;
+		wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
+	}
+
+	WAT_FUNC_DBG_END
+	return;
+}
+
+WAT_RESPONSE_FUNC(wat_response_cmgs_end)
+{
+	wat_sms_t *sms;
+	wat_sms_status_t sms_status;
+
+	WAT_RESPONSE_FUNC_DBG_START
+	sms = (wat_sms_t *)obj;
+
+	if (!sms) {
+		wat_log_span(span, WAT_LOG_CRIT, "Sent a SMS, but we lost pointer\n");
+		WAT_FUNC_DBG_END
+		return;
+	}
+	
+	memset(&sms_status, 0, sizeof(sms_status));
+	
+	if (success != WAT_TRUE) {
+		sms->cause = WAT_SMS_CAUSE_NETWORK_REJECT;
+		sms->error = error;
+	}
+	wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
+
+	WAT_FUNC_DBG_END
+	return;
+}
 
 WAT_NOTIFY_FUNC(wat_notify_cring)
 {
@@ -611,14 +1265,12 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 	}
 
 	/* Create new call */
-	if (wat_span_call_create(span, &call, 0) != WAT_SUCCESS) {
+	if (wat_span_call_create(span, &call, 0, WAT_DIRECTION_INCOMING) != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to create new call\n");
 		WAT_FUNC_DBG_END
 		return WAT_SUCCESS;
 	}
-	
-	call->dir	= WAT_CALL_DIRECTION_INCOMING;
-	
+		
 	call->type = wat_str2wat_call_type(token);
 	wat_log_span(span, WAT_LOG_DEBUG, "Call Type:%s(%d)\n", wat_call_type2str(call->type), call->type);
 
@@ -848,6 +1500,10 @@ char* format_at_data(char *dest, void *indata, wat_size_t len)
 			case '\n':
 				sprintf(p, "\\n");
 				p+=2;
+				break;
+			case 0x1a:
+				sprintf(p, "<sub>");
+				p+=5;
 				break;
 			default:
 				*p = data[i];

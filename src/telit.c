@@ -56,12 +56,7 @@ wat_status_t telit_init(wat_span_t *span)
 wat_status_t telit_start(wat_span_t *span)
 {
 	wat_log_span(span, WAT_LOG_DEBUG, "Starting Telit module\n");
-	
 
-	/* TODO: Some of these functions should be moved to the general section */
-	wat_cmd_enqueue(span, "ATZ", wat_response_atz, NULL);
-	wat_cmd_enqueue(span, "ATE0", wat_response_ate, NULL);
-	
 	/* Section 2.1 of Telit AT Commands reference Guide recommends these options to be enabled */
 	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL);
 	wat_cmd_enqueue(span, "AT#SMSMODE=1", wat_response_smsmode, NULL);
@@ -83,31 +78,6 @@ wat_status_t telit_shutdown(wat_span_t *span)
 {
 	wat_log_span(span, WAT_LOG_DEBUG, "Stopping Telit module\n");
 	return WAT_FAIL;
-}
-
-
-WAT_RESPONSE_FUNC(wat_response_atz)
-{
-	WAT_RESPONSE_FUNC_DBG_START
-	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to reset module\n");
-		WAT_FUNC_DBG_END
-		return;
-	}
-	WAT_FUNC_DBG_END	
-	return;
-}
-
-WAT_RESPONSE_FUNC(wat_response_ate)
-{
-	WAT_RESPONSE_FUNC_DBG_START
-	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to disable echo mode\n");
-		WAT_FUNC_DBG_END
-		return;
-	}
-	WAT_FUNC_DBG_END
-	return;
 }
 
 WAT_RESPONSE_FUNC(wat_response_selint)
