@@ -60,6 +60,7 @@ typedef struct _wat_span {
 
 int end = 0;
 int g_make_call = 0;
+char g_called_number[255];
 int g_hangup_call = 0;
 gsm_span_t gsm_spans[32];
 static g_outbound_call_id = 1;
@@ -86,7 +87,8 @@ int on_span_write(unsigned char span_id, void *buffer, unsigned len)
 	int res;
 	uint8_t writebuf[BLOCK_SIZE];
 
-	memcpy(writebuf, buffer, len);
+	/* add 2 bytes of fake CRC */
+	memcpy(writebuf, buffer, len + 2);
 
 	/* fprintf(stdout, "Writing len:%d\n", len); */
 	res = write(gsm_spans[0].fd, writebuf, len);
@@ -240,7 +242,7 @@ int main (int argc, char *argv[])
 	unsigned char inbuf[BLOCK_SIZE];
 
 	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <DAHDI channel number> [make_call, hangup_call]\n\
+		fprintf(stderr, "Usage: %s <DAHDI channel number> [make_call, hangup_call] [number-to-dial]\n\
 							make_call:   Make a call once the link is up\n\
 							hangup_call: Hangup all incoming calls\n\
 							default:     Answer all incoming call\n\n", argv[0]);
@@ -255,7 +257,12 @@ int main (int argc, char *argv[])
 
 	if (argc > 2) {
 		if (!strncasecmp(argv[2], "make_call", 9)) {
+			if (argc < 4) {
+				fprintf(stderr, "Please specify a number to dial\n");
+				exit(1);
+			}
 			g_make_call = 1;
+			snprintf(g_called_number, sizeof(g_called_number)-1, "%s", argv[3]);
 		}
 		if (!strncasecmp(argv[2], "hangup_call", 11)) {
 			g_hangup_call = 1;
@@ -414,9 +421,9 @@ int main (int argc, char *argv[])
 			gsm_spans[0].make_call = 0;
 			memset(&con_event, 0, sizeof(con_event));
 			
-			sprintf(con_event.called_num.digits, "6472671197");
+			sprintf(con_event.called_num.digits, g_called_number);
 			gsm_spans[0].wat_call_id = (g_outbound_call_id++) | 0x8;
-
+			printf("Dialing number %s\n", g_called_number);
 			wat_con_req(gsm_spans[0].wat_span_id, gsm_spans[0].wat_call_id, &con_event);
 		}
 	}
