@@ -227,6 +227,8 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 
 	wat_cmd_register(span, "+CRING", wat_notify_cring);
 
+	wat_cmd_register(span, "+CMT", wat_notify_cmt);
+
 	wat_cmd_register(span, "+CLIP", wat_notify_clip);
 	wat_cmd_register(span, "+CREG", wat_notify_creg);
 
@@ -254,7 +256,8 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL);
 
 	/* Enable New Message Indications To TE */
-	wat_cmd_enqueue(span, "AT+CNMI=2,1", wat_response_cnmi, NULL);
+	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL);
+	//wat_cmd_enqueue(span, "AT+CNMI=2,2,0,0,0", wat_response_cnmi, NULL);
 
 	/* Set Operator mode */
 	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL);

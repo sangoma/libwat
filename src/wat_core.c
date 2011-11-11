@@ -57,10 +57,11 @@ void wat_span_run_cmds(wat_span_t *span)
 	wat_cmd_t *cmd;
 
 	/* Once we are in SMS mode, we have to finish transmitting that SMS before
-	doing anything else */
+	writing any other commands */
 	if (span->sms_write) {
-		wat_sms_send_body(span->sms);
-		return;
+		if (wat_sms_send_body(span->sms) == WAT_BREAK) {
+			return;
+		}
 	}
 
 	if (!span->cmd_busy) {
@@ -153,34 +154,6 @@ wat_iterator_t *wat_span_get_call_iterator(const wat_span_t *span, wat_iterator_
 	return iter;
 }
 
-#if 0
-wat_iterator_t *wat_span_get_sms_iterator(const wat_span_t *span, wat_iterator_t *iter)
-{
-	/* SMS Iterator behaves like a Queue */
-	if (!(iter = wat_get_iterator(WAT_ITERATOR_SMSS, iter))) {
-		return NULL;
-	}
-	iter->index = 1;
-	
-	while(iter->index <= sizeof(span->smss)/sizeof(span->smss[0])) {
-		/* Could have empty pointers in the middle of array, so find the next
-			one that's not empty */
-		if (span->calls[iter->index]) {
-			break;
-		}
-		iter->index++;
-	}
-
-	if (!span->smss[iter->index]) {
-		wat_safe_free(iter);
-		return NULL;
-	}
-	
-	iter->span = span;
-	return iter;
-}
-#endif
-
 wat_iterator_t *wat_span_get_notify_iterator(const wat_span_t *span, wat_iterator_t *iter)
 {
 	if (!(iter = wat_get_iterator(WAT_ITERATOR_NOTIFYS, iter))) {
@@ -212,17 +185,6 @@ wat_iterator_t *wat_iterator_next(wat_iterator_t *iter)
 				}				
 			}
 			return NULL;
-#if 0
-		case WAT_ITERATOR_SMSS:
-			wat_assert_return(iter->index, NULL, "smss iterator index cannot be zero!\n");
-			while (iter->index < sizeof(iter->span->smss)/sizeof(iter->span->smss[0])) {
-				iter->index++;
-				if (iter->span->smss[iter->index]) {
-					return iter;
-				}
-			}
-			return NULL;
-#endif
 		case WAT_ITERATOR_NOTIFYS:
 			wat_assert_return(iter->index, NULL, "notify iterator index cannot be zero!\n");
 			if (iter->index == iter->span->notify_count) {
@@ -250,12 +212,6 @@ void *wat_iterator_current(wat_iterator_t *iter)
 			wat_assert_return(iter->index, NULL, "calls iterator index cannot be zero!\n");
 			wat_assert_return(iter->index <= sizeof(iter->span->calls)/sizeof(iter->span->calls[0]), NULL, "channel iterator index bigger than calls size!\n");
 			return iter->span->calls[iter->index];
-#if 0
-		case WAT_ITERATOR_SMSS:
-			wat_assert_return(iter->index, NULL, "smss iterator index cannot be zero!\n");
-			wat_assert_return(iter->index <= sizeof(iter->span->smss)/sizeof(iter->span->smss[0]), NULL, "channel iterator index bigger than sms size!\n");
-			return iter->span->smss[iter->index];
-#endif
 		case WAT_ITERATOR_NOTIFYS:
 			wat_assert_return(iter->index, NULL, "notify iterator index cannot be zero!\n");
 			wat_assert_return(iter->index <= iter->span->notify_count, NULL, "channel iterator index bigger than notify count!\n");

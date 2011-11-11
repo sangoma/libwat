@@ -400,6 +400,7 @@ int main (int argc, char *argv[])
 			}
 
 		}
+
 		if (gsm_spans[0].answer_call) {
 			gsm_spans[0].answer_call = 0;
 			wat_con_cfm(gsm_spans[0].wat_span_id, gsm_spans[0].wat_call_id);

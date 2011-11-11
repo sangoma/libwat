@@ -365,7 +365,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_end);
 WAT_RESPONSE_FUNC(wat_response_cmgf);
 
 WAT_NOTIFY_FUNC(wat_notify_cring);
-WAT_NOTIFY_FUNC(wat_notify_ring);
+WAT_NOTIFY_FUNC(wat_notify_cmt);
 WAT_NOTIFY_FUNC(wat_notify_clip);
 WAT_NOTIFY_FUNC(wat_notify_creg);
 

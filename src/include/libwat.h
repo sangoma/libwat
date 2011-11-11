@@ -45,7 +45,7 @@
 #define WAT_MAX_NUMBER_SZ	32 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_NAME_SZ		24 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_SMS_SZ		1024 /* DAVIDY TODO: Find real max sizes based on specs */
-#define WAT_MAX_CMD_SZ		64 /* DAVIDY TODO: Find real max sizes based on specs */
+#define WAT_MAX_CMD_SZ		2048 /* DAVIDY TODO: Find real max sizes based on specs */
 
 #define WAT_MAX_CALLS_PER_SPAN			16
 #define WAT_MAX_SMSS_PER_SPAN			16

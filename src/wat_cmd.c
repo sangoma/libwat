@@ -481,7 +481,6 @@ static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 		if (span->notifys[i]) {
 			wat_notify_t *notify = span->notifys[i];
 			if (!strncasecmp(notify->prefix, tokens[0], strlen(notify->prefix))) {
-				/* TODO: Take out the prefix from the first token */
 				return notify->func(span, tokens);
 			}
 		}
@@ -538,7 +537,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 					has_token = 1;
 					token_start_index = i;
 
-					token_str = wat_calloc(1, 200);
+					token_str = wat_calloc(1, WAT_MAX_CMD_SZ);
 					wat_assert_return(token_str, WAT_FAIL, "Failed to allocate new token\n");
 
 					p = token_str;
@@ -1226,6 +1225,8 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_end)
 		sms->cause = WAT_SMS_CAUSE_NETWORK_REJECT;
 		sms->error = error;
 	}
+	span->sms = NULL;
+
 	wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
 
 	WAT_FUNC_DBG_END
@@ -1279,10 +1280,44 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 	return WAT_SUCCESS;
 }
 
-WAT_NOTIFY_FUNC(wat_notify_ring)
+
+/* Incoming SMS */
+WAT_NOTIFY_FUNC(wat_notify_cmt)
 {
+	int len;
+	char *cmdtokens[4];
+	unsigned numtokens;
+
 	WAT_NOTIFY_FUNC_DBG_START
-	/* TODO: Implement me */
+	/* Format +CMT <alpha>, <length> */
+	/* token [1] has PDU data */
+
+	if (!strncmp(tokens[0], "+CMT: ", 5)) {
+		int len = strlen(&(tokens[0])[5]);
+		memmove(tokens[0], &(tokens[0])[5], len);
+		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
+	}
+
+	memset(cmdtokens, 0, sizeof(cmdtokens));
+
+	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+
+	if (numtokens < 2) {
+		wat_log_span(span, WAT_LOG_WARNING, "Failed to parse incoming SMS Header %s (%d)\n", tokens[0], numtokens);
+		goto done;
+	}
+
+	len = atoi(cmdtokens[1]);
+	if (len <= 0) {
+		wat_log_span(span, WAT_LOG_WARNING, "Invalid PDU len in SMS header %s\n", tokens[0]);
+		goto done;
+	}
+
+	wat_log_span(span, WAT_LOG_DEBUG, "[sms] len:%d\n", len);
+
+
+done:
+	wat_free_tokens(cmdtokens);
 	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
 }
