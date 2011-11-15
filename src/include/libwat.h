@@ -161,13 +161,13 @@ typedef struct _wat_con_event {
 	char calling_name[WAT_MAX_NAME_SZ];
 } wat_con_event_t;
 
-typedef struct {
+typedef struct _wat_sms_pdu_number {
 	uint8_t len;
 	uint8_t toa; /* Type of Address */
 	char number[WAT_MAX_NUMBER_SZ];
 } wat_sms_pdu_number_t;
 
-typedef struct {
+typedef struct _wat_sms_pdu_deliver {
 	/* From  www.dreamfabric.com/sms/deliver_fo.html */
 	uint8_t rp:1; /* Reply Path */
 	uint8_t udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
@@ -176,7 +176,7 @@ typedef struct {
 	uint8_t mti:2; /* Message type indicator. 0 => this PDU is an SMS-DELIVER */
 } wat_sms_pdu_deliver_t;
 
-typedef struct timestamp {
+typedef struct _wat_sms_pdu_timestamp {
 	uint8_t year;
 	uint8_t month;
 	uint8_t day;
@@ -186,7 +186,7 @@ typedef struct timestamp {
 	int8_t timezone;
 } wat_sms_pdu_timestamp_t;
 
-typedef struct _wat_sms_event_pdu_t {
+typedef struct _wat_sms_event_pdu {
 	wat_sms_pdu_number_t smsc;	
 	wat_sms_pdu_deliver_t deliver;
 	wat_sms_pdu_number_t sender;
@@ -212,7 +212,7 @@ typedef struct _wat_rel_event {
 	const char *error;
 } wat_rel_event_t;
 
-typedef enum {
+typedef enum _wat_con_status_type {
 	WAT_CON_STATUS_TYPE_RINGING = 1,
 	WAT_CON_STATUS_TYPE_ANSWER,
 } wat_con_status_type_t;
