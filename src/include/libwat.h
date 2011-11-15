@@ -241,32 +241,48 @@ typedef struct _wat_span_config_t {
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 } wat_span_config_t;
 
+typedef void (*wat_sigstatus_change_func_t)(uint8_t span_id, wat_sigstatus_t sigstatus);
+typedef void (*wat_alarm_func_t)(uint8_t span_id, wat_alarm_t alarm);
+typedef void (*wat_log_func_t)(uint8_t level, char *fmt, ...);
+typedef void* (*wat_malloc_func_t)(size_t size);
+typedef void* (*wat_calloc_func_t)(size_t nmemb, size_t size);	
+typedef void (*wat_free_func_t)(void *ptr);
+typedef void (*wat_log_span_func_t)(uint8_t span_id, uint8_t level, char *fmt, ...);
+typedef void (*wat_assert_func_t)(char *message);
+typedef void (*wat_con_ind_func_t)(uint8_t span_id, uint8_t call_id, wat_con_event_t *con_event);
+typedef void (*wat_con_sts_func_t)(uint8_t span_id, uint8_t call_id, wat_con_status_t *con_status);
+typedef void (*wat_rel_ind_func_t)(uint8_t span_id, uint8_t call_id, wat_rel_event_t *rel_event);
+typedef void (*wat_rel_cfm_func_t)(uint8_t span_id, uint8_t call_id);
+typedef void (*wat_sms_ind_func_t)(uint8_t span_id, wat_sms_event_t *sms_event);
+typedef void (*wat_sms_sts_func_t)(uint8_t span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
+typedef void (*wat_cmd_sts_func_t)(uint8_t span_id, wat_cmd_status_t *status);
+typedef int (*wat_span_write_func_t)(uint8_t span_id, void *data, uint32_t len);
 typedef struct _wat_interface {
 	/* Call-backs */
-	void (*wat_sigstatus_change)(uint8_t span_id, wat_sigstatus_t sigstatus);
-	void (*wat_alarm)(uint8_t span_id, wat_alarm_t alarm);
+	wat_sigstatus_change_func_t wat_sigstatus_change;
+	wat_alarm_func_t wat_alarm;
 
 	/* Memory management */
-	void *(*wat_malloc)(size_t size);
-	void *(*wat_calloc)(size_t nmemb, size_t size);	
-	void (*wat_free)(void *ptr);
+	wat_malloc_func_t wat_malloc;
+	wat_calloc_func_t wat_calloc;
+	wat_free_func_t wat_free;
 
 	/* Logging */
-	void (*wat_log)(uint8_t level, char *fmt, ...);
-	void (*wat_log_span)(uint8_t span_id, uint8_t level, char *fmt, ...);
+	wat_log_func_t wat_log;
+	wat_log_span_func_t wat_log_span;
 
 	/* Assert */
-	void (*wat_assert)(char *message);
+	wat_assert_func_t wat_assert;
 
 	/* Events */
-	void (*wat_con_ind)(uint8_t span_id, uint8_t call_id, wat_con_event_t *con_event);
- 	void (*wat_con_sts)(uint8_t span_id, uint8_t call_id, wat_con_status_t *con_status);
-	void (*wat_rel_ind)(uint8_t span_id, uint8_t call_id, wat_rel_event_t *rel_event);
-	void (*wat_rel_cfm)(uint8_t span_id, uint8_t call_id);
-	void (*wat_sms_ind)(uint8_t span_id, wat_sms_event_t *sms_event);
-	void (*wat_sms_sts)(uint8_t span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
-	void (*wat_cmd_sts)(uint8_t span_id, wat_cmd_status_t *status);
-	int (*wat_span_write)(uint8_t span_id, void *data, uint32_t len);
+	wat_con_ind_func_t wat_con_ind;
+ 	wat_con_sts_func_t wat_con_sts;
+	wat_rel_ind_func_t wat_rel_ind;
+	wat_rel_cfm_func_t wat_rel_cfm;
+	wat_sms_ind_func_t wat_sms_ind;
+	wat_sms_sts_func_t wat_sms_sts;
+	wat_cmd_sts_func_t wat_cmd_sts;
+	wat_span_write_func_t wat_span_write;
 } wat_interface_t;
 
 /* Functions  *********************************************************************/
