@@ -59,6 +59,8 @@ int end = 0;
 gsm_span_t gsm_spans[32];
 static g_outbound_sms_id = 1;
 static int g_message_count = 10;
+static int g_message_sent = 0;
+static int g_message_ack = 0;
 
 void on_sigstatus_change(unsigned char span_id, wat_sigstatus_t sigstatus);
 void on_alarm(unsigned char span_id, wat_alarm_t alarm);
@@ -203,6 +205,10 @@ void on_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event)
 void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status)
 {
 	fprintf(stdout, "s%d: [id:%d]SMS status %s cause:%d error:%s \n", span_id, sms_id, (status->success == WAT_TRUE) ? "success": "Fail", status->cause, status->error);
+
+	if (++g_message_ack >= g_message_count) {
+		end = 1;
+	}
 	return;
 }
 
@@ -400,7 +406,7 @@ int main (int argc, char *argv[])
 		if (gsm_spans[0].send_sms) {
 			gsm_spans[0].send_sms = 0;
 
-			while (g_message_count--) {
+			while (g_message_sent++ < g_message_count) {
 				wat_sms_event_t sms_event;
 				memset(&sms_event, 0, sizeof(sms_event));
 

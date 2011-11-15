@@ -68,6 +68,7 @@ typedef enum {
 	WAT_TERM_CMS_ERR,
 	WAT_TERM_CME_ERR,
 	WAT_TERM_EXT_ERR,
+	WAT_TERM_SMS,
 } wat_term_t;
 
 struct terminator {
@@ -86,7 +87,8 @@ static struct terminator terminators[] = {
 	{ "NO CARRIER", WAT_FALSE, WAT_TERM_NO_CARRIER },
 	{ "+CMS ERROR:", WAT_FALSE, WAT_TERM_CMS_ERR },
 	{ "+CME ERROR:", WAT_FALSE, WAT_TERM_CME_ERR },
-	{ "+EXT ERROR:", WAT_FALSE, WAT_TERM_EXT_ERR }
+	{ "+EXT ERROR:", WAT_FALSE, WAT_TERM_EXT_ERR },
+	{ ">", WAT_TRUE, WAT_TERM_SMS }
 };
 
 struct error_code {
@@ -288,9 +290,20 @@ static struct error_code ext_codes[] = {
 };
 
 static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed);
-static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
-static wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
+static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
+static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
 static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error);
+static void wat_remove_prefix(char *string, const char *prefix);
+
+static void wat_remove_prefix(char *string, const char *prefix)
+{
+	int prefix_len = strlen(prefix);
+	if (!strncmp(string, prefix, prefix_len)) {
+		int len = strlen(&string[prefix_len]);
+		memmove(string, &string[prefix_len], len);
+		memset(&string[len], 0, strlen(&string[len]));
+	}
+}
 
 static char *wat_strerror(int error, struct error_code error_table[])
 {
@@ -316,7 +329,7 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	}
 
 	if (g_debug & WAT_DEBUG_AT_HANDLE) {
-		wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n", incommand);
+		wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n\n", incommand);
 	}
 
 	/* Add a \r to finish the command */
@@ -356,17 +369,27 @@ static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success,
 	return WAT_FAIL;
 }
 
+#if 0
+typedef enum {
+	WAT_CMD_PARSE_STATE_INIT,
+	WAT_CMD_PARSE_STATE_HAS_TOKEN, /* We have a token that is not a terminator */
+	
+} wat_cmd_parse_state_t;
+#endif
+
 wat_status_t wat_cmd_process(wat_span_t *span)
 {
 	char data[WAT_BUFFER_SZ];	
 	unsigned i = 0;
-	wat_size_t len = 0;
-	wat_status_t status = WAT_FAIL;
+	wat_size_t len = 0;	
 
 	if (wat_buffer_peep(span->buffer, data, &len) == WAT_SUCCESS) {
 		wat_size_t consumed;
 		char *tokens[WAT_TOKENS_SZ];
+		int tokens_consumed = 0;
+		int tokens_unused = 0;
 		wat_bool_t success = WAT_FALSE;
+		wat_status_t status =- WAT_FAIL;
 
 		memset(tokens, 0, sizeof(tokens));
 
@@ -379,75 +402,40 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 		if (status == WAT_SUCCESS) {
 			for (i = 0; tokens[i]; i++) {
 				char *error = NULL;
-				wat_bool_t handled = WAT_FALSE;
-								
+
 				status = wat_match_terminator(tokens[i], &success, &error);
 				if (status == WAT_SUCCESS) {
-					/* This is a single token response or a call hangup */
-					if (span->cmd_busy) {
-						wat_cmd_handle_response(span, &tokens[i], success, error);
-						handled = WAT_TRUE;
-					} else if (!success) {
-						/* This is a hangup from the remote side, schedule a CLCC to find out which call hung-up */
-
+					if (!tokens_unused && !success && !span->cmd_busy) {
+						/* This could be a hangup from the remote side, schedule a CLCC to find out which call hung-up */
 						wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL);
-						handled = WAT_TRUE;
+						tokens_consumed++;
 					}
-				} else if (tokens[i+1]) {
-					/* There is one more token in the list, check if it is a terminator */
-					if (wat_match_terminator(tokens[i+1], &success, &error) == WAT_SUCCESS) {
-						if (span->cmd_busy) {
-							/* This is a two token response */
-							wat_cmd_handle_response(span, &tokens[i], success, error);
-							i++;
-							handled = WAT_TRUE;
-						}
-					}
-				}
-
-				if (handled == WAT_FALSE) {
-					/* We do not have a terminator */
-					if (!strncmp(tokens[i], "+", 1) ||
-						!strncmp(tokens[i], "#", 1)) {
-						/* This could be an unsollicited notification */
-						status = wat_cmd_handle_notify(span, &tokens[i]);
-						if (status == WAT_BREAK) {
-							/* Some responses contain the command prefix, if we do
-							not have a notify handler, then this could be an
-							incomplete response, so do not flush */
-							continue;
-						} else {
-							handled = WAT_TRUE;
-						}
-					} else if (span->cmd_busy) {
-						if (!strncmp(tokens[i], ">", 1)) {
-							/* We are in SMS mode */
-							wat_cmd_handle_response(span, &tokens[i], WAT_TRUE, error);
-							handled = WAT_TRUE;
-						} else {
-							/* We do not have a full response, wait for the full response */
-							continue;
-						}
+					
+					tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], success, error);
+					tokens_unused = 0;
+				} else {
+					if (!tokens[i+1]) {
+						tokens_consumed += wat_cmd_handle_notify(span, &tokens[i-tokens_unused]);
 					} else {
-						char mydata[WAT_MAX_CMD_SZ];
-						wat_log_span(span, WAT_LOG_DEBUG, "Failed to parse AT commands %s (len:%d)\n", format_at_data(mydata, data, len), len);
+						tokens_unused++;
 					}
 				}
-				if (handled == WAT_TRUE) {
-					/* If we handled this token, remove it from the buffer */
-					wat_buffer_flush(span->buffer, consumed);
-				}
-			} /* for (i = 0; tokens[i]; i++) */
-
+			}
 			wat_free_tokens(tokens);
 		}
+		if (tokens_consumed) {
+			/* If we handled this token, remove it from the buffer */
+
+			wat_buffer_flush(span->buffer, consumed);
+		}
 	}
-	
+
 	return WAT_SUCCESS;
 }
 
-static wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error)
+static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error)
 {
+	int tokens_consumed = 0;
 	wat_cmd_t *cmd;
 	
 	wat_assert_return(span->cmd, WAT_FAIL, "We did not have a command pending\n");
@@ -458,7 +446,9 @@ static wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wa
 	}
 	
 	if (cmd->cb) {
-		cmd->cb(span, tokens, success, cmd->obj, error);
+		tokens_consumed = cmd->cb(span, tokens, success, cmd->obj, error);
+	} else {
+		tokens_consumed = 1;
 	}
 
 	span->cmd = NULL;
@@ -466,12 +456,15 @@ static wat_status_t wat_cmd_handle_response(wat_span_t *span, char *tokens[], wa
 	wat_safe_free(cmd->cmd);
 	wat_safe_free(cmd);
 	span->cmd_busy = 0;
-	return WAT_SUCCESS;
+	wat_log_span(span, WAT_LOG_DEBUG, "Response consumed %d tokens\n", tokens_consumed);
+	return tokens_consumed;
 }
 
-static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
-{
+static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
+{	
 	int i;
+	int tokens_consumed = 0;
+
 	/* For notifications, the first token contains the AT command prefix */
 	if (g_debug & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Handling notify for cmd:%s\n", tokens[0]);
@@ -481,7 +474,8 @@ static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 		if (span->notifys[i]) {
 			wat_notify_t *notify = span->notifys[i];
 			if (!strncasecmp(notify->prefix, tokens[0], strlen(notify->prefix))) {
-				return notify->func(span, tokens);
+				tokens_consumed = notify->func(span, tokens);
+				goto done;
 			}
 		}
 	}
@@ -489,7 +483,9 @@ static wat_status_t wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 	/* This is not an error, sometimes sometimes we have an incomplete response
 	(terminator not received yet), and we think its a notify  */
 	wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
-	return WAT_BREAK;
+done:
+	wat_log_span(span, WAT_LOG_DEBUG, "Notify consumed %d tokens\n", tokens_consumed);
+	return tokens_consumed;
 }
 
 static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed)
@@ -636,6 +632,11 @@ static int wat_cmd_entry_tokenize(char *entry, char *tokens[])
 	int token_count = 0;
 	char *p = NULL;
 
+	if (entry[0] == ',') {
+		/* If the first character is a ',' , this string begins with an empty token,
+		 we still need to count it */
+		tokens[token_count++] = wat_strdup("");
+	}
 	p = strtok(entry, ",");
 	while (p != NULL) {
 		tokens[token_count++] = wat_strdup(p);
@@ -646,26 +647,40 @@ static int wat_cmd_entry_tokenize(char *entry, char *tokens[])
 
 WAT_RESPONSE_FUNC(wat_response_atz)
 {
+	int tokens_consumed = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to reset module\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
+
+	if (!strncmp(tokens[0], "ATZ", 3)) {
+		/* The chip had echo mode turned on, so the command was echo'ed back */
+		++tokens_consumed;
+	}
+	
 	WAT_FUNC_DBG_END
-	return;
+	return ++tokens_consumed;
 }
 
 WAT_RESPONSE_FUNC(wat_response_ate)
 {
+	int tokens_consumed = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to disable echo mode\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
+
+	if (!strncmp(tokens[0], "ATE", 3)) {
+		/* The chip had echo mode turned on, so the command was echo'ed back */
+		++tokens_consumed;
+	}
+
 	WAT_FUNC_DBG_END
-	return;
+	return ++tokens_consumed;
 }
 
 /* Get Module Manufacturer Name */
@@ -675,12 +690,12 @@ WAT_RESPONSE_FUNC(wat_response_cgmm)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer name\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	strncpy(span->manufacturer_name, tokens[0], sizeof(span->manufacturer_name));
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 /* Get Module Manufacturer Identification */
@@ -690,12 +705,12 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer id\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	strncpy(span->manufacturer_id, tokens[0], sizeof(span->manufacturer_id));
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 /* Get Module Revision Identification */
@@ -706,7 +721,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmr)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module revision identification\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	if (!strncmp(tokens[0], "Revision:", 9)) {
@@ -715,7 +730,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmr)
 
 	strncpy(span->revision_id, &((tokens[0])[start]), sizeof(span->revision_id));
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 /* Get Module Serial Number */
@@ -725,12 +740,12 @@ WAT_RESPONSE_FUNC(wat_response_cgsn)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module serial number\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	strncpy(span->serial_number, tokens[0], sizeof(span->serial_number));
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 /* Get Module IMSI */
@@ -740,12 +755,12 @@ WAT_RESPONSE_FUNC(wat_response_cimi)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module International Subscriber Identify\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	strncpy(span->imsi, tokens[0], sizeof(span->imsi));
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 /* Enable Calling Line Presentation  */
@@ -756,12 +771,12 @@ WAT_RESPONSE_FUNC(wat_response_clip)
 		span->clip = WAT_FALSE;
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Calling Line Presentation\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	span->clip = WAT_TRUE;
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 /* Network Registration Report */
@@ -778,14 +793,10 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Network Registration Report\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
-	if (!strncmp(tokens[0], "+CREG: ", 7)) {
-		int len = strlen(&(tokens[0])[7]);
-		memmove(tokens[0], &(tokens[0])[7], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_remove_prefix(tokens[0], "+CREG: ");
 	
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
@@ -807,7 +818,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 	wat_free_tokens(cmdtokens);	
 	
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 /* New Message Indications To Terminal Equipment */
@@ -817,10 +828,10 @@ WAT_RESPONSE_FUNC(wat_response_cnmi)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable New Messages Indications to TE\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 /* Set Operator Selection */
@@ -830,10 +841,10 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Operator Selection\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_cnum)
@@ -842,7 +853,7 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	/* Format +CNUM: <number>, <type> */
 	/* E.g +CNUM: "TELEPHONE","+16473380980",145,7,4 */
@@ -854,20 +865,16 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		*/
 		sprintf(span->subscriber_number, "Not available");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
-	if (!strncmp(tokens[0], "+CNUM: ", 6)) {
-		int len = strlen(&(tokens[0])[6]);
-		memmove(tokens[0], &(tokens[0])[6], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}	
+	wat_remove_prefix(tokens[0], "+CNUM: ");
 
 	/* TODO: Do a complete parsing of the parameters */
 
 	strncpy(span->subscriber_number, tokens[0], sizeof(span->subscriber_number));
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 WAT_RESPONSE_FUNC(wat_response_csq)
@@ -878,14 +885,10 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Signal Strength\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
-	if (!strncmp(tokens[0], "+CSQ: ", 6)) {
-		int len = strlen(&(tokens[0])[6]);
-		memmove(tokens[0], &(tokens[0])[6], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_remove_prefix(tokens[0], "+CSQ: ");
 	
 	if (sscanf(tokens[0], "%d,%d\n", &rssi, &ber) == 2) {
 		char dest[30];
@@ -896,7 +899,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSQ %s\n", tokens[0]);
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 WAT_RESPONSE_FUNC(wat_response_ata)
@@ -913,7 +916,7 @@ WAT_RESPONSE_FUNC(wat_response_ata)
 	}
 	
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_ath)
@@ -930,7 +933,7 @@ WAT_RESPONSE_FUNC(wat_response_ath)
 	}
 	
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_atd)
@@ -945,7 +948,7 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 	}
 
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_clcc)
@@ -990,11 +993,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		<alpha>: string type, alphanumeric representation of <number> corresponding to entry found in phonebook
 	*/
 
-	if (!strncmp(tokens[0], "+CLCC: ", 7)) {
-		int len = strlen(&(tokens[0])[7]);
-		memmove(tokens[0], &(tokens[0])[7], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_remove_prefix(tokens[0], "+CLCC: ");
 
 	for (i = 0; strncmp(tokens[i], "OK", 2); i++) {
 		unsigned id, dir, stat;
@@ -1010,21 +1009,21 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		if (id <= 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call ID from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
-			return;
+			return 1;
 		}
 
 		dir = atoi(cmdtokens[1]);
 		if (dir < 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call direction from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
-			return;
+			return 1;
 		}
 
 		stat = atoi(cmdtokens[2]);
 		if (stat < 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse call state from CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
-			return;
+			return 1;
 		}
 
 		wat_log_span(span, WAT_LOG_DEBUG, "CLCC entry (id:%d dir:%s stat:%s)\n",
@@ -1042,8 +1041,12 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 
 	iter = wat_span_get_call_iterator(span, NULL);
 	if (!iter) {
+		/* No calls active */
+		if (num_clcc_entries) {
+			wat_log_span(span, WAT_LOG_CRIT, "We have %d CLCC entries, but no active calls!!\n", num_clcc_entries);
+		}
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 
 	for (curr = iter; curr; curr = wat_iterator_next(curr)) {
@@ -1150,7 +1153,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 	wat_iterator_free(iter);
 
 	WAT_FUNC_DBG_END
-	return;
+	return 2;
 }
 
 WAT_RESPONSE_FUNC(wat_response_cmgf)
@@ -1167,13 +1170,14 @@ WAT_RESPONSE_FUNC(wat_response_cmgf)
 			wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
 		}
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	if (sms) {
 		span->sms_mode = sms->type;
 		wat_sms_set_state(sms, WAT_SMS_STATE_SEND_HEADER);
 	}
 	WAT_FUNC_DBG_END
+	return 1;
 }
 
 
@@ -1188,7 +1192,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_start)
 	if (!sms) {
 		wat_log_span(span, WAT_LOG_CRIT, "Sent a SMS, but we lost pointer\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	
 	memset(&sms_status, 0, sizeof(sms_status));
@@ -1202,7 +1206,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_start)
 	}
 
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_cmgs_end)
@@ -1216,7 +1220,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_end)
 	if (!sms) {
 		wat_log_span(span, WAT_LOG_CRIT, "Sent a SMS, but we lost pointer\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	
 	memset(&sms_status, 0, sizeof(sms_status));
@@ -1230,7 +1234,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_end)
 	wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
 
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_NOTIFY_FUNC(wat_notify_cring)
@@ -1262,14 +1266,14 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 	if (call) {
 		/* We already allocated this call - do nothing */
 		WAT_FUNC_DBG_END
-		return WAT_SUCCESS;
+		return 1;
 	}
 
 	/* Create new call */
 	if (wat_span_call_create(span, &call, 0, WAT_DIRECTION_INCOMING) != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to create new call\n");
 		WAT_FUNC_DBG_END
-		return WAT_SUCCESS;
+		return 1;
 	}
 		
 	call->type = wat_str2wat_call_type(token);
@@ -1277,14 +1281,13 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 
 	wat_call_set_state(call, WAT_CALL_STATE_DIALING);
 	WAT_FUNC_DBG_END
-	return WAT_SUCCESS;
+	return 1;
 }
-
 
 /* Incoming SMS */
 WAT_NOTIFY_FUNC(wat_notify_cmt)
 {
-	int len;
+	wat_size_t len;
 	char *cmdtokens[4];
 	unsigned numtokens;
 
@@ -1292,11 +1295,7 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 	/* Format +CMT <alpha>, <length> */
 	/* token [1] has PDU data */
 
-	if (!strncmp(tokens[0], "+CMT: ", 5)) {
-		int len = strlen(&(tokens[0])[5]);
-		memmove(tokens[0], &(tokens[0])[5], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_remove_prefix(tokens[0], "+CMT: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 
@@ -1315,11 +1314,36 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 
 	wat_log_span(span, WAT_LOG_DEBUG, "[sms] len:%d\n", len);
 
+	/* PDU Mode:
+		+CMT:<alpha>,<length>,\r\n<pdu>
+		alpha:representation from phonebook
+		length: pdu length
+		pdu: pdu message
 
+		Text Mode:
+		+CMT:<oa>,<alpha><scts>[,<tooa>,<fo>,<pid>,<dcs>,<sca>,<tosca>,<length>]\r\n<data>
+		oa: Originating Address
+		alpha:representation from phonebook
+		scts:arrival time of the message to the SC
+		tooa,tosca: type of number
+		fo: first octet
+		pid: Protocol identifier
+		dcs: Data Coding Scheme
+		sca: Service Centre Address
+		length: text length
+	*/
+
+	if (numtokens > 2) {
+		/* Text mode */
+		wat_log_span(span, WAT_LOG_ERROR, "Reception of Text mode SMS not implemented!!!\n", tokens[0]);
+	} else {
+		wat_handle_incoming_sms_pdu((uint8_t *)tokens[1], len);
+	}
+	
 done:
 	wat_free_tokens(cmdtokens);
 	WAT_FUNC_DBG_END
-	return WAT_SUCCESS;
+	return 2;
 }
 
 /* Calling Line Identification Presentation */
@@ -1331,11 +1355,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 
 	WAT_NOTIFY_FUNC_DBG_START
 
-	if (!strncmp(tokens[0], "+CLIP: ", 7)) {
-		int len = strlen(&(tokens[0])[7]);
-		memmove(tokens[0], &(tokens[0])[7], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_remove_prefix(tokens[0], "+CLIP: ");
 
 	wat_log_span(span, WAT_LOG_DEBUG, "Incoming CLIP:%s\n", tokens[0]);
 
@@ -1350,20 +1370,20 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 			wat_log_span(span, WAT_LOG_CRIT, "Received CLIP after CLIP timeout:%d\n", span->config.timeout_cid_num);
 		}
 		WAT_FUNC_DBG_END
-		return WAT_SUCCESS;
+		return 1;
 	}
 
 	call = wat_span_get_call_by_state(span, WAT_CALL_STATE_DIALING);
 	if (!call) {
 		wat_log_span(span, WAT_LOG_CRIT, "Received CLIP without CRING\n");
 		WAT_FUNC_DBG_END
-		return WAT_SUCCESS;
+		return 1;
 	}
 
 	if (wat_test_flag(call, WAT_CALL_FLAG_RCV_CLIP)) {
 		/* We already processed a CLIP - do nothing */
 		WAT_FUNC_DBG_END
-		return WAT_SUCCESS;
+		return 1;
 	}
 
 	wat_set_flag(call, WAT_CALL_FLAG_RCV_CLIP);
@@ -1451,7 +1471,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 
 done:	
 	wat_free_tokens(cmdtokens);
-	return WAT_SUCCESS;
+	return 1;
 }
 
 WAT_NOTIFY_FUNC(wat_notify_creg)
@@ -1459,39 +1479,35 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 	int stat;
 	unsigned count;
 	char *cmdtokens[3];
-	wat_status_t status = WAT_FAIL;
+	int consumed_tokens = 0;
 	
 	WAT_NOTIFY_FUNC_DBG_START
 
-	if (!strncmp(tokens[0], "+CREG: ", 7)) {
-		int len = strlen(&(tokens[0])[7]);
-		memmove(tokens[0], &(tokens[0])[7], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_remove_prefix(tokens[0], "+CREG: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
 
 	if (count < 0) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CREG Response %s\n", tokens[0]);
-		status = WAT_SUCCESS;
+		consumed_tokens = 1;
 	} else if (count == 1) {
 		stat = atoi(cmdtokens[0]);
 		if (stat < 0) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CREG Response %s\n", tokens[0]);
-			status = WAT_SUCCESS;
+			consumed_tokens = 1;
 		} else {
 			wat_span_update_net_status(span, stat);
 		}
 	} else {
-		/* if count > 1, this is an unsollicited notification, but an response
-			(and the terminator has not been received yet) return WAT_BREAK,
-			so that we wait for a complete response */
-		status = WAT_BREAK;
+		/* if count > 1, this is NOT an unsollicited notification, but an response
+			(and the terminator has not been received yet) return 0, so we do not consume
+			any tokens and wiat for a complete response */
+		consumed_tokens = 0;
 	}
 
 	wat_free_tokens(cmdtokens);
-	return status;
+	return consumed_tokens;
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc)

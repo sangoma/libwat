@@ -65,6 +65,11 @@ wat_status_t telit_start(wat_span_t *span)
 	 * makes CREG behavior more formal */
 	wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL);
 	wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL);
+
+#if 1 /* Echo cancellation */
+	wat_cmd_enqueue(span, "AT#SHFEC=1", NULL, NULL);
+	wat_cmd_enqueue(span, "AT#SHSEC=1", NULL, NULL);
+#endif
 	return WAT_SUCCESS;
 }
 
@@ -86,10 +91,10 @@ WAT_RESPONSE_FUNC(wat_response_selint)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable interface type\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_smsmode)
@@ -98,10 +103,10 @@ WAT_RESPONSE_FUNC(wat_response_smsmode)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable sms mode\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_regmode)
@@ -110,10 +115,10 @@ WAT_RESPONSE_FUNC(wat_response_regmode)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable reg mode\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 WAT_RESPONSE_FUNC(wat_response_dvi)
@@ -122,10 +127,10 @@ WAT_RESPONSE_FUNC(wat_response_dvi)
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Digital Voice Interface\n");
 		WAT_FUNC_DBG_END
-		return;
+		return 1;
 	}
 	WAT_FUNC_DBG_END
-	return;
+	return 1;
 }
 
 

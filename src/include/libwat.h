@@ -161,12 +161,50 @@ typedef struct _wat_con_event {
 	char calling_name[WAT_MAX_NAME_SZ];
 } wat_con_event_t;
 
+typedef struct {
+	uint8_t len;
+	uint8_t toa; /* Type of Address */
+	char number[WAT_MAX_NUMBER_SZ];
+} wat_sms_pdu_number_t;
+
+typedef struct {
+	/* From  www.dreamfabric.com/sms/deliver_fo.html */
+	uint8_t rp:1; /* Reply Path */
+	uint8_t udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
+	uint8_t sri:1; /* Status report indication. 1 => Status report is going to be returned to the SME */
+	uint8_t mms:1; /* More messages to send. 0 => There are more messages to send  */
+	uint8_t mti:2; /* Message type indicator. 0 => this PDU is an SMS-DELIVER */
+} wat_sms_pdu_deliver_t;
+
+typedef struct timestamp {
+	uint8_t year;
+	uint8_t month;
+	uint8_t day;
+	uint8_t hour;
+	uint8_t minute;
+	uint8_t second;
+	int8_t timezone;
+} wat_sms_pdu_timestamp_t;
+
+typedef struct _wat_sms_event_pdu_t {
+	wat_sms_pdu_number_t smsc;	
+	wat_sms_pdu_deliver_t deliver;
+	wat_sms_pdu_number_t sender;
+	
+	uint16_t pid;		/* Protocol Identifier */
+	uint16_t dcs;		/* Daca coding scheme */
+
+	wat_sms_pdu_timestamp_t timestamp;
+	
+} wat_sms_event_pdu_t;
+
 typedef struct _wat_sms_event {
 	wat_number_t calling_num;
 	wat_number_t called_num;
 	wat_sms_type_t type;				/* PDU or Plain Text */
 	uint32_t len;						/* Length of message */
 	char message[WAT_MAX_SMS_SZ];		/* Message */
+	wat_sms_event_pdu_t pdu;
 } wat_sms_event_t;
 
 typedef struct _wat_rel_event {

@@ -71,6 +71,7 @@
 #define wat_clear_flag(obj, flag)	((obj)->flags &= ~(1 << flag))
 
 #define ARRAY_LEN(_array) sizeof(_array)/sizeof(_array[0])
+#define SWAP_NIBBLE(byte) ((((byte) >> 4) & 0x0F) | (((byte) << 4) & 0xF0))
 
 extern wat_interface_t g_interface;
 extern uint32_t	g_debug;
@@ -257,12 +258,12 @@ wat_event_t *wat_event_dequeue(wat_span_t *span);
 wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event);
 
 #define WAT_RESPONSE_ARGS (wat_span_t *span, char *tokens[], wat_bool_t success, void *obj, char *error)
-#define WAT_RESPONSE_FUNC(name) void (name)  WAT_RESPONSE_ARGS
-typedef void (wat_cmd_response_func) WAT_RESPONSE_ARGS;
+#define WAT_RESPONSE_FUNC(name) int (name)  WAT_RESPONSE_ARGS
+typedef int (wat_cmd_response_func) WAT_RESPONSE_ARGS;
 
 #define WAT_NOTIFY_ARGS (wat_span_t *span, char *tokens[])
-#define WAT_NOTIFY_FUNC(name) wat_status_t (name) WAT_NOTIFY_ARGS
-typedef wat_status_t (wat_cmd_notify_func) WAT_NOTIFY_ARGS;
+#define WAT_NOTIFY_FUNC(name) int (name) WAT_NOTIFY_ARGS
+typedef int (wat_cmd_notify_func) WAT_NOTIFY_ARGS;
 
 #define WAT_SCHEDULED_FUNC(name) void (name) (void *data)
 
@@ -336,6 +337,7 @@ void wat_span_run_sched(wat_span_t *span);
 wat_status_t wat_cmd_process(wat_span_t *span);
 wat_status_t wat_sms_process(wat_sms_t *sms);
 wat_status_t wat_sms_send_body(wat_sms_t *sms);
+wat_status_t wat_handle_incoming_sms_pdu(uint8_t *data, wat_size_t len);
 wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event);
 void wat_span_run_timeouts(wat_span_t *span);
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up);

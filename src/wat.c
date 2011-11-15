@@ -31,9 +31,9 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
-//uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_CALL_STATE;
+uint32_t	g_debug = WAT_DEBUG_AT_HANDLE;
 
-uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE;
+//uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE;
 #else
 uint32_t	g_debug = 0;
 #endif
@@ -343,7 +343,7 @@ WAT_DECLARE(uint32_t) wat_span_schedule_next(uint8_t span_id)
 		return -1;
 	}
 
-	if (span->cmd_busy || wat_queue_empty(span->cmd_queue) == WAT_FALSE) {
+	if (!span->cmd_busy && wat_queue_empty(span->cmd_queue) == WAT_FALSE) {
 		return 0;
 	}
 

@@ -70,6 +70,7 @@ void on_alarm(unsigned char span_id, wat_alarm_t alarm);
 void *on_malloc(size_t size);
 void *on_calloc(size_t nmemb, size_t size);
 void on_free(void *ptr);
+void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...);
 void on_log(unsigned char loglevel, char *fmt, ...);
 void on_assert(char *message);
 int on_span_write(unsigned char span_id, void *buffer, unsigned len);
@@ -128,6 +129,22 @@ void on_free(void *ptr)
 {
 	free(ptr);
 	return;
+}
+
+void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...)
+{
+	char *data;
+	int ret;
+	va_list ap;
+
+	va_start(ap, fmt);
+	ret = vasprintf(&data, fmt, ap);
+	if (ret == -1) {
+		return;
+	}
+
+	on_log(loglevel, "s%d: %s", span_id, data);
+	if (data) free(data);
 }
 
 void on_log(unsigned char loglevel, char *fmt, ...)
@@ -276,6 +293,7 @@ int main (int argc, char *argv[])
 	gen_interface.wat_sigstatus_change = on_sigstatus_change;
 	gen_interface.wat_span_write = on_span_write;
 	gen_interface.wat_log = on_log;
+	gen_interface.wat_log_span = on_log_span;
 	gen_interface.wat_malloc = on_malloc;
 	gen_interface.wat_calloc = on_calloc;
 	gen_interface.wat_free = on_free;

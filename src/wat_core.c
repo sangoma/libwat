@@ -73,6 +73,11 @@ void wat_span_run_cmds(wat_span_t *span)
 			span->cmd = cmd;
 			span->cmd_busy = 1;
 
+			if (g_debug & WAT_DEBUG_AT_HANDLE) {
+				char mydata[WAT_MAX_CMD_SZ];
+				wat_log_span(span, WAT_LOG_DEBUG, "Dequeuing command %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd)));
+			}
+
 			if (g_debug & WAT_DEBUG_UART_DUMP) {
 				char mydata[WAT_MAX_CMD_SZ];
 

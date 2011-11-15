@@ -188,3 +188,77 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 	wat_sms_set_state(sms, WAT_SMS_STATE_SEND_TERMINATOR);
 	return WAT_SUCCESS;
 }
+
+static void wat_decode_sms_pdu_semi_octets(char *string, uint8_t *data, wat_size_t len)
+{
+	int i;
+	char *p = string;
+	
+	for (i = 0; i < len; i++) {
+		sprintf(p++, "%d", data[i] & 0x0F);
+		if (((data[i] >> 4) & 0x0F) != 0x0F) {
+			sprintf(p++, "%d", (data[i] >> 4) & 0x0F);
+		}
+	}
+	return;
+}
+
+static void wat_decode_sms_pdu_deliver(wat_sms_pdu_deliver_t *deliver, uint8_t data)
+{
+	deliver->mti = data & 0x03;
+	deliver->mms = (data > 2) & 0x01;
+	deliver->sri = (data > 4) & 0x01;
+	deliver->udhi = (data > 5) & 0x01;
+	deliver->rp = (data > 6) & 0x01;
+	return;
+}
+
+static void wat_decode_sms_pdu_timestamp(wat_sms_pdu_timestamp_t *ts, uint8_t *data)
+{
+	ts->year = SWAP_NIBBLE(data[0]);
+	ts->month = SWAP_NIBBLE(data[1]);
+	ts->day = SWAP_NIBBLE(data[2]);
+	ts->hour = SWAP_NIBBLE(data[3]);
+	ts->minute = SWAP_NIBBLE(data[4]);
+	ts->second = SWAP_NIBBLE(data[5]);
+	ts->timezone = SWAP_NIBBLE(data[6]);
+}
+
+static int wat_decode_sms_pdu_message(char *message, uint8_t *data, wat_size_t len)
+{
+	return 0;
+}
+
+wat_status_t wat_handle_incoming_sms_pdu(uint8_t *data, wat_size_t len)
+{	
+	
+	wat_sms_event_t sms_event;
+	int i = 0;
+	
+	/* From www.dreamfabric.com/sms */ 
+	memset(&sms_event, 0, sizeof(sms_event));
+#if 0
+	sms_event.pdu.smsc.len = atoi(((char *)(data[i++] & 0xFF)));
+	//sms_event.pdu.smsc.toa = atoi(&(char)data[i++]);
+	wat_decode_sms_pdu_semi_octets(sms_event.pdu.smsc.number, &data[i++], sms_event.pdu.smsc.len-1);
+
+	i += sms_event.pdu.smsc.len - 1;
+	wat_decode_sms_pdu_deliver(&sms_event.pdu.deliver, data[i++]);
+
+	sms_event.pdu.sender.len = data[i++];
+	sms_event.pdu.sender.toa = data[i++];
+	wat_decode_sms_pdu_semi_octets(sms_event.pdu.sender.number, &data[i++], sms_event.pdu.sender.len-1);
+
+	i += sms_event.pdu.sender.len - 1;
+
+	sms_event.pdu.pid = data[i++];
+	sms_event.pdu.dcs = data[i++];
+
+	wat_decode_sms_pdu_timestamp(&sms_event.pdu.timestamp, &data[i++]);
+
+	i += 6;
+
+	sms_event.len = wat_decode_sms_pdu_message(sms_event.message, &data[i+1], data[i]);
+#endif
+	return WAT_SUCCESS;
+}
