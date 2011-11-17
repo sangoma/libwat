@@ -38,6 +38,7 @@
 #define WAT_DEBUG_CALL_STATE	(1 << 2) /* Debug call states */
 #define WAT_DEBUG_AT_PARSE		(1 << 3) /* Debug how AT commands are parsed */
 #define WAT_DEBUG_AT_HANDLE		(1 << 4) /* Debug how AT commands are scheduled/processed */
+#define WAT_DEBUG_PDU_DECODE	(1 << 5) /* Debug how PDU is decoded */
 
 /*ENUMS & Defines ******************************************************************/
 
@@ -88,20 +89,32 @@ WAT_STR2ENUM_P(wat_str2wat_moduletype, wat_moduletype2str, wat_moduletype_t);
 typedef enum {
 	WAT_NUMBER_TYPE_UNKNOWN,
 	WAT_NUMBER_TYPE_INTERNATIONAL,
+	WAT_NUMBER_TYPE_NATIONAL,
+	WAT_NUMBER_TYPE_NETWORK_SPECIFIC,
+	WAT_NUMBER_TYPE_SUBSCRIBER,
+	WAT_NUMBER_TYPE_ALPHANUMERIC, /* Coded according to GSM TS 03.38 7-bit default alphabet */
+	WAT_NUMBER_TYPE_ABBREVIATED,
+	WAT_NUMBER_TYPE_RESERVED,
 	WAT_NUMBER_TYPE_INVALID,
 } wat_number_type_t;
 
-#define WAT_NUMBER_TYPE_STRINGS "unknown", "international" ,"invalid"
+#define WAT_NUMBER_TYPE_STRINGS "unknown", "international" , "national", "network specific", "subscriber", "alphanumeric", "abbreviated", "reserved", "invalid"
 
 WAT_STR2ENUM_P(wat_str2wat_number_type, wat_number_type2str, wat_number_type_t);
 
 typedef enum {
 	WAT_NUMBER_PLAN_UNKNOWN,
 	WAT_NUMBER_PLAN_ISDN,
+	WAT_NUMBER_PLAN_DATA,
+	WAT_NUMBER_PLAN_TELEX,
+	WAT_NUMBER_PLAN_NATIONAL,
+	WAT_NUMBER_PLAN_PRIVATE,
+	WAT_NUMBER_PLAN_ERMES,	/* ETSI DE/PS 3 01-3 */
+	WAT_NUMBER_PLAN_RESERVED,
 	WAT_NUMBER_PLAN_INVALID,
 } wat_number_plan_t;
 
-#define WAT_NUMBER_PLAN_STRINGS "unknown", "ISDN" ,"invalid"
+#define WAT_NUMBER_PLAN_STRINGS "unknown", "ISDN", "data", "telex", "national", "private", "ermes", "reserved", "invalid"
 
 WAT_STR2ENUM_P(wat_str2wat_number_plan, wat_number_plan2str, wat_number_plan_t);
 
@@ -161,19 +174,13 @@ typedef struct _wat_con_event {
 	char calling_name[WAT_MAX_NAME_SZ];
 } wat_con_event_t;
 
-typedef struct _wat_sms_pdu_number {
-	uint8_t len;
-	uint8_t toa; /* Type of Address */
-	char number[WAT_MAX_NUMBER_SZ];
-} wat_sms_pdu_number_t;
-
 typedef struct _wat_sms_pdu_deliver {
 	/* From  www.dreamfabric.com/sms/deliver_fo.html */
-	uint8_t rp:1; /* Reply Path */
-	uint8_t udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
-	uint8_t sri:1; /* Status report indication. 1 => Status report is going to be returned to the SME */
-	uint8_t mms:1; /* More messages to send. 0 => There are more messages to send  */
-	uint8_t mti:2; /* Message type indicator. 0 => this PDU is an SMS-DELIVER */
+	uint8_t tp_rp:1; /* Reply Path */
+	uint8_t tp_udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
+	uint8_t tp_sri:1; /* Status report indication. 1 => Status report is going to be returned to the SME */
+	uint8_t tp_mms:1; /* More messages to send. 0 => There are more messages to send  */
+	uint8_t tp_mti:2; /* Message type indicator. 0 => this PDU is an SMS-DELIVER */
 } wat_sms_pdu_deliver_t;
 
 typedef struct _wat_sms_pdu_timestamp {
@@ -187,14 +194,23 @@ typedef struct _wat_sms_pdu_timestamp {
 } wat_sms_pdu_timestamp_t;
 
 typedef struct _wat_sms_event_pdu {
-	wat_sms_pdu_number_t smsc;	
-	wat_sms_pdu_deliver_t deliver;
-	wat_sms_pdu_number_t sender;
+	wat_number_t smsc;
+	wat_sms_pdu_deliver_t sms_deliver;
+	wat_number_t sender;
 	
-	uint16_t pid;		/* Protocol Identifier */
-	uint16_t dcs;		/* Daca coding scheme */
+	uint8_t tp_pid;		/* Protocol Identifier */
+	uint8_t tp_dcs;		/* Daca coding scheme */
+	uint8_t tp_udl;
 
-	wat_sms_pdu_timestamp_t timestamp;
+	uint8_t tp_udhl;
+
+	uint8_t iei;
+	uint8_t iedl;
+	uint8_t refnr;
+	uint8_t total;
+	uint8_t seq;
+
+	wat_sms_pdu_timestamp_t tp_scts;
 	
 } wat_sms_event_pdu_t;
 

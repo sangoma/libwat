@@ -59,7 +59,7 @@ void wat_span_run_cmds(wat_span_t *span)
 	/* Once we are in SMS mode, we have to finish transmitting that SMS before
 	writing any other commands */
 	if (span->sms_write) {
-		if (wat_sms_send_body(span->sms) == WAT_BREAK) {
+		if (wat_sms_send_body(span->outbound_sms) == WAT_BREAK) {
 			return;
 		}
 	}
@@ -99,11 +99,11 @@ void wat_span_run_cmds(wat_span_t *span)
 
 void wat_span_run_smss(wat_span_t *span)
 {	
-	if (!span->sms) {
+	if (!span->outbound_sms) {
 		wat_sms_t *sms = NULL;
 		sms = wat_queue_dequeue(span->sms_queue);
 		if (sms) {
-			span->sms = sms;
+			span->outbound_sms = sms;
 			wat_sms_set_state(sms, WAT_SMS_STATE_START);
 		}
 	}
@@ -291,3 +291,45 @@ wat_bool_t wat_sig_status_up(wat_net_stat_t stat)
 	/* Should never reach here */
 	return WAT_FALSE;
 }
+
+void wat_decode_type_of_address(uint8_t octet, wat_number_type_t *type, wat_number_plan_t *plan)
+{
+	if (type) {
+		*type = (octet > 4) & 0x07;
+	}
+
+	if (plan) {
+		/* Numbering plan has non-consecutive values */
+		switch(octet & 0x0F) {
+			case 0:
+				*plan = WAT_NUMBER_PLAN_UNKNOWN;
+				break;
+			case 1:
+				*plan = WAT_NUMBER_PLAN_ISDN;
+				break;
+			case 3:
+				*plan = WAT_NUMBER_PLAN_DATA;
+				break;
+			case 4:
+				*plan = WAT_NUMBER_PLAN_TELEX;
+				break;
+			case 8:
+				*plan = WAT_NUMBER_PLAN_NATIONAL;
+				break;
+			case 9:
+				*plan = WAT_NUMBER_PLAN_PRIVATE;
+				break;
+			case 10:
+				*plan = WAT_NUMBER_PLAN_ERMES; 
+				break;
+			case 15:
+				*plan = WAT_NUMBER_PLAN_RESERVED;
+				break;
+			default:
+				*plan = WAT_NUMBER_PLAN_INVALID;
+				break;
+		}
+	}
+	return;
+}
+

@@ -28,16 +28,17 @@ INCLUDE_DIRECTORIES("${PROJECT_BINARY_DIR}")
 
 SET(wat_SOURCES
 	        wat.c
-			wat_core.c
-			wat_call.c
-			wat_sms.c
-			wat_event.c
-			wat_cmd.c
-			wat_queue.c
-			wat_mutex.c
-			wat_sched.c
-			wat_buffer.c
-	        telit.c)
+		wat_core.c
+		wat_call.c
+		wat_sms.c
+		wat_event.c
+		wat_cmd.c
+		wat_queue.c
+		wat_mutex.c
+		wat_sched.c
+		wat_buffer.c
+	        telit.c
+		pduconv.c)
 
 SET(wat_PUBLIC_HEADERS
 			wat_declare.h

@@ -1229,7 +1229,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_end)
 		sms->cause = WAT_SMS_CAUSE_NETWORK_REJECT;
 		sms->error = error;
 	}
-	span->sms = NULL;
+	span->outbound_sms = NULL;
 
 	wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
 
@@ -1337,7 +1337,7 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 		/* Text mode */
 		wat_log_span(span, WAT_LOG_ERROR, "Reception of Text mode SMS not implemented!!!\n", tokens[0]);
 	} else {
-		wat_handle_incoming_sms_pdu((uint8_t *)tokens[1], len);
+		wat_handle_incoming_sms_pdu(span, tokens[1], len);
 	}
 	
 done:
@@ -1418,30 +1418,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 	strncpy(call->calling_num.digits, cmdtokens[0], strlen(cmdtokens[0]));
 
 	if (numtokens >= 1) {
-		switch (atoi(cmdtokens[1])) {
-			case 128:
-				call->calling_num.type = WAT_NUMBER_TYPE_UNKNOWN;
-				call->calling_num.plan = WAT_NUMBER_PLAN_UNKNOWN;
-				break;
-			case 129:
-				call->calling_num.type = WAT_NUMBER_TYPE_UNKNOWN;
-				call->calling_num.plan = WAT_NUMBER_PLAN_ISDN;
-				break;
-			case 145:
-				call->calling_num.type = WAT_NUMBER_TYPE_INTERNATIONAL;
-				call->calling_num.plan = WAT_NUMBER_PLAN_ISDN;
-				break;
-			case 0:
-				/* Calling Number is not available */
-				call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
-				call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
-				break;
-			default:
-				wat_log_span(span, WAT_LOG_ERROR, "Invalid number type from CLIP:%s\n", tokens[0]);
-				call->calling_num.type = WAT_NUMBER_TYPE_INVALID;
-				call->calling_num.plan = WAT_NUMBER_PLAN_INVALID;
-				break;
-		}
+		wat_decode_type_of_address(atoi(cmdtokens[1]), &call->calling_num.type, &call->calling_num.plan);
 	}
 
 	if (numtokens >= 6) {
@@ -1462,7 +1439,6 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 		}
 	}
 
-	
 	wat_log_span(span, WAT_LOG_DEBUG, "Calling Number:%s type:%s(%d) plan:%s(%d) validity:%s(%d)\n",
 										call->calling_num.digits,
 										wat_number_type2str(call->calling_num.type), call->calling_num.type,
@@ -1498,6 +1474,7 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 			consumed_tokens = 1;
 		} else {
 			wat_span_update_net_status(span, stat);
+			consumed_tokens = 1;
 		}
 	} else {
 		/* if count > 1, this is NOT an unsollicited notification, but an response

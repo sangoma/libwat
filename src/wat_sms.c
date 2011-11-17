@@ -23,6 +23,15 @@
 
 #include "libwat.h"
 #include "wat_internal.h"
+#include "pduconv.h"
+
+static uint8_t hexstr_to_val(char *string);
+static uint8_t decstr_to_val(char *string);
+static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data);
+static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data);
+static int wat_decode_sms_pdu_timestamp(wat_sms_pdu_timestamp_t *ts, char *data);
+static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len);
+
 
 wat_status_t wat_span_sms_create(wat_span_t *span, wat_sms_t **insms, uint8_t sms_id, wat_direction_t dir)
 {
@@ -92,7 +101,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			break;
 		case WAT_SMS_STATE_START:
 			/* See if we need to adjust the sms mode */
-			span->sms = sms;
+			span->outbound_sms = sms;
 			if (span->sms_mode != sms->type) {
 				if (sms->type == WAT_SMS_TXT) {
 					wat_cmd_enqueue(span, "AT+CMGF=1", wat_response_cmgf, sms);
@@ -189,76 +198,347 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 	return WAT_SUCCESS;
 }
 
-static void wat_decode_sms_pdu_semi_octets(char *string, uint8_t *data, wat_size_t len)
+static int wat_decode_sms_pdu_semi_octets(char *string, char *data, wat_size_t len)
 {
 	int i;
+	int ret = 0;
 	char *p = string;
-	
-	for (i = 0; i < len; i++) {
-		sprintf(p++, "%d", data[i] & 0x0F);
-		if (((data[i] >> 4) & 0x0F) != 0x0F) {
-			sprintf(p++, "%d", (data[i] >> 4) & 0x0F);
+
+	for (i = 0; i < (len*2); i+=2) {
+		*p++ = data[i+1];
+		if (data[i] != 'F') {
+			*p++ = data[i];
 		}
 	}
-	return;
+	return ret;
 }
 
-static void wat_decode_sms_pdu_deliver(wat_sms_pdu_deliver_t *deliver, uint8_t data)
+static int wat_decode_sms_pdu_deliver(wat_sms_pdu_deliver_t *deliver, char *data)
 {
-	deliver->mti = data & 0x03;
-	deliver->mms = (data > 2) & 0x01;
-	deliver->sri = (data > 4) & 0x01;
-	deliver->udhi = (data > 5) & 0x01;
-	deliver->rp = (data > 6) & 0x01;
-	return;
+	uint8_t octet;
+
+	wat_log(WAT_LOG_DEBUG, "Decoding SMS-DELIVER [%s]\n", data);
+	octet = hexstr_to_val(data);
+	
+	deliver->tp_mti = octet & 0x03;
+	deliver->tp_mms = (octet > 2) & 0x01;
+	deliver->tp_sri = (octet > 4) & 0x01;
+	deliver->tp_udhi = (octet > 5) & 0x01;
+	deliver->tp_rp = (octet > 6) & 0x01;
+
+	wat_log(WAT_LOG_DEBUG, "  TP-RP:%d TP-UDHI:%d TP-SRI:%d TP-MMS:%d TP-MTI:%d\n",
+								deliver->tp_rp, deliver->tp_udhi, deliver->tp_sri, deliver->tp_mms, deliver->tp_mti);
+
+	/* SMS-DELIVER always takes 2 chars */
+	return 2;
 }
 
-static void wat_decode_sms_pdu_timestamp(wat_sms_pdu_timestamp_t *ts, uint8_t *data)
+static int wat_decode_sms_pdu_timestamp(wat_sms_pdu_timestamp_t *ts, char *data)
 {
-	ts->year = SWAP_NIBBLE(data[0]);
-	ts->month = SWAP_NIBBLE(data[1]);
-	ts->day = SWAP_NIBBLE(data[2]);
-	ts->hour = SWAP_NIBBLE(data[3]);
-	ts->minute = SWAP_NIBBLE(data[4]);
-	ts->second = SWAP_NIBBLE(data[5]);
-	ts->timezone = SWAP_NIBBLE(data[6]);
+	int i;
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Decoding Time Stamp information [%s]\n", data);
+	}
+
+	for (i = 0; i <= 6; i++) {
+		uint8_t val = decstr_to_val(&data[i*2]);
+		uint8_t true_val = (val / 10) + ((val % 10) * 10);
+		switch(i) {
+			case 0:
+				ts->year = true_val;
+				break;
+			case 1:
+				ts->month = true_val;
+				break;
+			case 2:
+				ts->day = true_val;
+				break;
+			case 3:
+				ts->hour = true_val;
+				break;
+			case 4:
+				ts->minute = true_val;
+				break;
+			case 5:
+				ts->second = true_val;
+				break;
+			case 6:
+				ts->timezone = true_val;
+				break;
+		}
+	}
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "  Year:%d Month:%d Day:%d Hr:%d Min:%d Sec:%d Timezone:%d\n",
+																	ts->year, ts->month, ts->day, ts->hour, ts->minute, ts->second, ts->timezone);
+	}
+	
+	/* TP-SCTS always takes 14 bytes */
+	return 14;
 }
 
-static int wat_decode_sms_pdu_message(char *message, uint8_t *data, wat_size_t len)
+static uint8_t maskbits(uint8_t data, uint8_t numbits)
 {
+	switch(numbits) {
+		case 0:
+			return data & 0xFF;
+		case 1:
+			return data & 0x7F;
+		case 2:
+			return data & 0x3F;
+		case 3:
+			return data & 0x1F;
+		case 4:
+			return data & 0x0F;
+		case 5:
+			return data & 0x07;
+		case 6:
+			return data & 0x03;
+		case 7:
+			return data & 0x01;
+	}
 	return 0;
 }
 
-wat_status_t wat_handle_incoming_sms_pdu(uint8_t *data, wat_size_t len)
-{	
+static uint8_t hexstr_to_val(char *string)
+{
+	char octet_string[3];
+	int octet;
+
+	memset(octet_string, 0, sizeof(octet_string));
+	memcpy(octet_string, string, 2);
+	sscanf(octet_string, "%x", &octet);
+	return (uint8_t )octet;
+}
+
+static uint8_t decstr_to_val(char *string)
+{
+	char octet_string[3];
+	int octet;
+
+	memset(octet_string, 0, sizeof(octet_string));
+	memcpy(octet_string, string, 2);
+	sscanf(octet_string, "%d", &octet);
+	return (uint8_t )octet;
+}
+
+
+static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len)
+{
+	int i, mylen;
+	char *p = message;
+	uint8_t carry_over = 0;
+	uint8_t octet;
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Decoding PDU Message (len:%d)[%s]\n", len, data);
+	}
+
+	/* 7-bit encoding ---> 8-bit encoding */
+
+	i = 0;
+	mylen = 0;
+
+	while(mylen < len) {	
+		if (i && !(i % 7)) {
+			sprintf(p++, "%c", carry_over);
+			mylen++;
+			//wat_log(WAT_LOG_DEBUG, "DAVIDY string:%s added carry_over:%x\n", message, carry_over);
+			carry_over = 0;
+			if (mylen >= len) {
+				break;
+			}
+		}
+		octet = hexstr_to_val(&data[i*2]);
+
+		sprintf(p++, "%c", ((maskbits(octet, (i + 1) % 7) << (i % 7)) & 0x7F) | (carry_over & 0xFF));
+		mylen++;
+
+		carry_over = (octet & 0xFF) >> (7 - (i % 7));
+		
+		wat_log(WAT_LOG_DEBUG, "DAVIDY i:%d string:%s octet:%x masked:%x carry_over:%x len:%d\n", i, message, octet, ((maskbits(octet, (i + 1) % 7) << (i % 7)) & 0x7F), carry_over, mylen);
+		i++;
+	}
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Message:%s\n", message);
+	}
+	return len;
+}
+
+static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data)
+{
+	/* www.dreamfabric.com/sms/type_of_address.html */
+	int len;
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Decoding SMSC information [%s]\n", data);
+	}
+
+	len = hexstr_to_val(&data[0]);
+
+	wat_decode_type_of_address(hexstr_to_val(&data[2]), &smsc->type, &smsc->plan);
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "  len:%d type:%d plan:%d\n", len, smsc->type, smsc->plan);
+	}
 	
+	/* For the smsc, the 'length' parameter specifies how many octets in the sms->number */
+	/* Actual length of number is sms_event.pdu.smsc.len-1 because we have to substract 'toa' */
+	wat_decode_sms_pdu_semi_octets(smsc->digits, &data[4], len - 1);
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "  number:%s\n", smsc->digits);
+	}
+
+	/* Need to add 2 for type-of-address */
+	return len*2 + 2;
+}
+
+static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data)
+{
+	/* www.developershome.com/sms/cmgrCommand3.asp */
+	int len;
+	int data_len;
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Decoding Sender information [%s]\n", data);
+	}
+	
+	len = hexstr_to_val(&data[0]);
+
+	wat_decode_type_of_address(hexstr_to_val(&data[2]), &sender->type, &sender->plan);
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "  len:%d type:%d plan:%d\n", len, sender->type, sender->plan);
+	}
+
+	/* For the sender, the 'length' parameter specifies how many characters are in the sender->number:
+	   2 characters per octet, there is a trailing F is there is an odd number of characters */
+	data_len = (len / 2) + (len % 2);
+
+	wat_decode_sms_pdu_semi_octets(sender->digits, (char *)&data[4], data_len);
+	
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "  number:%s\n", sender->digits);
+	}
+
+	/* Need to add 2 for type-of-address + 2 for len [+ 1 if odd numbered size] */
+	return 4 + len + (len % 2);
+}
+
+
+wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_t len)
+{
 	wat_sms_event_t sms_event;
+	int ret;
 	int i = 0;
+	uint8_t padding = 0;
+	uint8_t carry_over = 0;
+
+	/* From www.dreamfabric.com/sms */
+	/* GSM 03.38 */
 	
-	/* From www.dreamfabric.com/sms */ 
 	memset(&sms_event, 0, sizeof(sms_event));
-#if 0
-	sms_event.pdu.smsc.len = atoi(((char *)(data[i++] & 0xFF)));
-	//sms_event.pdu.smsc.toa = atoi(&(char)data[i++]);
-	wat_decode_sms_pdu_semi_octets(sms_event.pdu.smsc.number, &data[i++], sms_event.pdu.smsc.len-1);
 
-	i += sms_event.pdu.smsc.len - 1;
-	wat_decode_sms_pdu_deliver(&sms_event.pdu.deliver, data[i++]);
+	ret = wat_decode_sms_pdu_smsc(&sms_event.pdu.smsc, &data[i]);
+	if (ret <= 0) {
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMSC from SMS PDU data [%s]\n", &data[i]);
+		return WAT_FAIL;
+	}
+	i += ret;
 
-	sms_event.pdu.sender.len = data[i++];
-	sms_event.pdu.sender.toa = data[i++];
-	wat_decode_sms_pdu_semi_octets(sms_event.pdu.sender.number, &data[i++], sms_event.pdu.sender.len-1);
+	ret = wat_decode_sms_pdu_deliver(&sms_event.pdu.sms_deliver, &data[i]);
+	if (ret <= 0) {
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-DELIVER from SMS PDU data [%s]\n", &data[i]);
+		/* TODO print SMS PDU here */
+		return WAT_FAIL;
+	}
+	i += ret;
 
-	i += sms_event.pdu.sender.len - 1;
+	ret = wat_decode_sms_pdu_sender(&sms_event.pdu.sender, &data[i]);
+	if (ret <= 0) {
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SENDER from SMS PDU data [%s]\n", &data[i]);
+		/* TODO print SMS PDU here */
+		return WAT_FAIL;
+	}
+	i += ret;
 
-	sms_event.pdu.pid = data[i++];
-	sms_event.pdu.dcs = data[i++];
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Decoding TP-PID TP-DCS [%s]\n", &data[i]);
+	}
 
-	wat_decode_sms_pdu_timestamp(&sms_event.pdu.timestamp, &data[i++]);
+	sms_event.pdu.tp_pid = hexstr_to_val(&data[i]);
+	i += 2;
+	sms_event.pdu.tp_dcs = hexstr_to_val(&data[i]);
+	i += 2;
 
-	i += 6;
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "  TP-PID:%d TP-DCS:%d\n", sms_event.pdu.tp_pid, sms_event.pdu.tp_dcs);
+	}
 
-	sms_event.len = wat_decode_sms_pdu_message(sms_event.message, &data[i+1], data[i]);
-#endif
+	ret = wat_decode_sms_pdu_timestamp(&sms_event.pdu.tp_scts, &data[i]);
+	if (ret <= 0) {
+		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SCTS from SMS PDU data [%s]\n", &data[i]);
+		/* TODO print SMS PDU here */
+		return WAT_FAIL;
+	}
+
+	i+= ret;
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		wat_log(WAT_LOG_DEBUG, "Decoding TP-UDL [%s]\n", &data[i]);
+	}
+	sms_event.pdu.tp_udl = hexstr_to_val(&data[i]);
+	i += 2;
+
+	if (g_debug & WAT_DEBUG_PDU_DECODE) {
+		/* User data length */
+		wat_log(WAT_LOG_DEBUG, "TP-UDL:%d\n", sms_event.pdu.tp_udl);
+	}
+
+	if (sms_event.pdu.sms_deliver.tp_mms) {
+		if (g_debug & WAT_DEBUG_PDU_DECODE) {
+			wat_log(WAT_LOG_DEBUG, "Decoding TP-UDHL [%s]\n", &data[i]);
+		}
+		sms_event.pdu.tp_udhl = hexstr_to_val(&data[i]);
+		i += 2;
+
+		sms_event.pdu.iei = hexstr_to_val(&data[i]);
+		i += 2;
+
+		sms_event.pdu.iedl = hexstr_to_val(&data[i]);
+		i += 2;
+
+		sms_event.pdu.refnr = hexstr_to_val(&data[i]);
+		i += 2;
+
+		sms_event.pdu.total = hexstr_to_val(&data[i]);
+		i += 2;
+
+		sms_event.pdu.seq = hexstr_to_val(&data[i]);
+		i += 2;
+
+		padding = 1;
+		carry_over = 1;
+		if (g_debug & WAT_DEBUG_PDU_DECODE) {
+			/* User data length */
+			wat_log(WAT_LOG_DEBUG, "TP-UDHL:%d IEI:%d IEDL:%d Ref nr:%d Total:%d Seq:%d\n",
+					sms_event.pdu.tp_udhl, sms_event.pdu.iei, sms_event.pdu.iedl, sms_event.pdu.refnr, sms_event.pdu.total, sms_event.pdu.seq);
+		}
+		
+	}
+
+	switch (sms_event.pdu.tp_dcs) {
+		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
+		case 0:
+			/* Default Aplhabet, phase 2 */
+			sms_event.len = wat_decode_sms_pdu_message_7_bit(sms_event.message, &data[i], sms_event.pdu.tp_udl);
+			break;
+		default:
+			wat_log(WAT_LOG_ERROR, "Dont' know how to decode incoming SMS message with coding scheme:0x%x\n", sms_event.pdu.tp_dcs);
+			break;
+	}
+
 	return WAT_SUCCESS;
 }

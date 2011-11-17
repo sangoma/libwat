@@ -326,7 +326,9 @@ struct wat_span {
 	wat_sms_type_t sms_mode;	/* Current mode for SMS */
 	
 	wat_queue_t *sms_queue;		/* Queue for pending outgoing SMS */
-	wat_sms_t *sms;				/* Current SMS being executed */
+	wat_sms_t *outbound_sms;		/* Current Outbound SMS being executed */
+
+	wat_sms_t *inbound_sms;		/* Current Inboudn SMS being executed */
 };
 
 
@@ -337,13 +339,14 @@ void wat_span_run_sched(wat_span_t *span);
 wat_status_t wat_cmd_process(wat_span_t *span);
 wat_status_t wat_sms_process(wat_sms_t *sms);
 wat_status_t wat_sms_send_body(wat_sms_t *sms);
-wat_status_t wat_handle_incoming_sms_pdu(uint8_t *data, wat_size_t len);
+wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_t len);
 wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event);
 void wat_span_run_timeouts(wat_span_t *span);
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up);
 wat_bool_t wat_sig_status_up(wat_net_stat_t stat);
 wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat);
 int wat_span_write(wat_span_t *span, void *data, uint32_t len);
+void wat_decode_type_of_address(uint8_t octet, wat_number_type_t *type, wat_number_plan_t *plan);
 
 WAT_RESPONSE_FUNC(wat_response_atz);
 WAT_RESPONSE_FUNC(wat_response_ate);
