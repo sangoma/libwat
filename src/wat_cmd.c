@@ -894,7 +894,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		char dest[30];
 		span->net_info.rssi = rssi;
 		span->net_info.ber = ber;
-		wat_log_span(span, WAT_LOG_DEBUG, "Signal strength:%s (BER:%s)\n", wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
+		wat_log_span(span, WAT_LOG_NOTICE, "Signal strength:%s (BER:%s)\n", wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSQ %s\n", tokens[0]);
 	}

@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <unistd.h>
 
 #include <signal.h>
 #include <fcntl.h>
@@ -41,6 +42,7 @@
 #include <dahdi/user.h>
 
 #include "libwat.h"
+#include "testwat_utils.h"
 
 #define POLL_INTERVAL 10 /* 10 millisecond */
 #define BLOCK_SIZE 3000
@@ -63,16 +65,10 @@ int g_make_call = 0;
 char g_called_number[255];
 int g_hangup_call = 0;
 gsm_span_t gsm_spans[32];
-static g_outbound_call_id = 1;
+static int g_outbound_call_id = 1;
 
 void on_sigstatus_change(unsigned char span_id, wat_sigstatus_t sigstatus);
-void on_alarm(unsigned char span_id, wat_alarm_t alarm);
-void *on_malloc(size_t size);
-void *on_calloc(size_t nmemb, size_t size);
-void on_free(void *ptr);
-void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...);
-void on_log(unsigned char loglevel, char *fmt, ...);
-void on_assert(char *message);
+void on_span_alarm(unsigned char span_id, wat_alarm_t alarm);
 int on_span_write(unsigned char span_id, void *buffer, unsigned len);
 
 void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event);
@@ -110,71 +106,9 @@ void on_sigstatus_change(unsigned char span_id, wat_sigstatus_t sigstatus)
 	return;
 }
 
-void on_alarm(unsigned char span_id, wat_alarm_t alarm)
+void on_span_alarm(unsigned char span_id, wat_alarm_t alrm)
 {
-	return;
-}
-
-void *on_malloc(size_t size)
-{
-	return malloc(size);
-}
-
-void *on_calloc(size_t nmemb, size_t size)
-{
-	return calloc(nmemb, size);
-}
-
-void on_free(void *ptr)
-{
-	free(ptr);
-	return;
-}
-
-void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...)
-{
-	char *data;
-	int ret;
-	va_list ap;
-
-	va_start(ap, fmt);
-	ret = vasprintf(&data, fmt, ap);
-	if (ret == -1) {
-		return;
-	}
-
-	on_log(loglevel, "s%d: %s", span_id, data);
-	if (data) free(data);
-}
-
-void on_log(unsigned char loglevel, char *fmt, ...)
-{
-	char *data;
-	int ret;
-	va_list ap;
-
-	va_start(ap, fmt);
-	ret = vasprintf(&data, fmt, ap);
-	if (ret == -1) {
-		return;
-	}
-
-	fprintf(stdout, "libwat[%s]:%s",
-								(loglevel==WAT_LOG_CRIT)? "CRIT":
-								(loglevel==WAT_LOG_ERROR)? "ERROR":
-								(loglevel==WAT_LOG_WARNING)? "WARNING":
-								(loglevel==WAT_LOG_INFO)? "INFO":
-								(loglevel==WAT_LOG_NOTICE)? "NOTICE":
-								(loglevel==WAT_LOG_DEBUG)? "DEBUG": "UNKNOWN", data);
-
-	if (data) free(data);
-	return;
-}
-
-void on_assert(char *message)
-{
-	fprintf(stderr, "ASSERT!!!! %s\n");
-	abort();
+	fprintf(stdout, "span:%d Alarm received\n", span_id);
 	return;
 }
 
@@ -245,7 +179,6 @@ static void handle_sig(int sig)
 int main (int argc, char *argv[])
 {
 	wat_interface_t gen_interface;
-	wat_span_config_t span_config;
 	unsigned next;
 	int x;
 	int res;
@@ -255,7 +188,6 @@ int main (int argc, char *argv[])
 	struct dahdi_bufferinfo bi;
 	struct dahdi_spaninfo si;
 
-	int bs = BLOCK_SIZE;
 	unsigned char inbuf[BLOCK_SIZE];
 
 	if (argc < 2) {
@@ -298,7 +230,7 @@ int main (int argc, char *argv[])
 	gen_interface.wat_calloc = on_calloc;
 	gen_interface.wat_free = on_free;
 	
-	gen_interface.wat_alarm = on_alarm;
+	gen_interface.wat_alarm = on_span_alarm;
 	gen_interface.wat_con_ind = on_con_ind;
 	gen_interface.wat_con_sts = on_con_sts;
 	gen_interface.wat_rel_ind = on_rel_ind;

@@ -30,7 +30,7 @@ static uint8_t decstr_to_val(char *string);
 static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data);
 static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data);
 static int wat_decode_sms_pdu_timestamp(wat_sms_pdu_timestamp_t *ts, char *data);
-static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len);
+static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len, uint8_t pad_len, uint8_t carry_over);
 
 
 wat_status_t wat_span_sms_create(wat_span_t *span, wat_sms_t **insms, uint8_t sms_id, wat_direction_t dir)
@@ -277,28 +277,6 @@ static int wat_decode_sms_pdu_timestamp(wat_sms_pdu_timestamp_t *ts, char *data)
 	return 14;
 }
 
-static uint8_t maskbits(uint8_t data, uint8_t numbits)
-{
-	switch(numbits) {
-		case 0:
-			return data & 0xFF;
-		case 1:
-			return data & 0x7F;
-		case 2:
-			return data & 0x3F;
-		case 3:
-			return data & 0x1F;
-		case 4:
-			return data & 0x0F;
-		case 5:
-			return data & 0x07;
-		case 6:
-			return data & 0x03;
-		case 7:
-			return data & 0x01;
-	}
-	return 0;
-}
 
 static uint8_t hexstr_to_val(char *string)
 {
@@ -322,42 +300,73 @@ static uint8_t decstr_to_val(char *string)
 	return (uint8_t )octet;
 }
 
-
-static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len)
+static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len, uint8_t pad_len, uint8_t carry_over)
 {
-	int i, mylen;
-	char *p = message;
-	uint8_t carry_over = 0;
-	uint8_t octet;
+	int i;
+	uint8_t data_pdu_pad [WAT_MAX_SMS_SZ];
+	uint8_t data_pdu_nopad [WAT_MAX_SMS_SZ];
 
+	len = 10;
 	if (g_debug & WAT_DEBUG_PDU_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "Decoding PDU Message (len:%d)[%s]\n", len, data);
 	}
 
-	/* 7-bit encoding ---> 8-bit encoding */
+	memset(data_pdu_pad, 0, sizeof(data_pdu_pad));
+	memset(data_pdu_nopad, 0, sizeof(data_pdu_nopad));
 
-	i = 0;
-	mylen = 0;
+	for (i = 0; i < len - 1; i++) {
+		data_pdu_pad[i] = hexstr_to_val(&data[i*2]);
+	}
 
-	while(mylen < len) {	
-		if (i && !(i % 7)) {
-			sprintf(p++, "%c", carry_over);
-			mylen++;
-			//wat_log(WAT_LOG_DEBUG, "DAVIDY string:%s added carry_over:%x\n", message, carry_over);
-			carry_over = 0;
-			if (mylen >= len) {
-				break;
+	if (1) {
+		int j;
+		char print_string[1000];
+		int print_string_len = 0;
+		wat_log(WAT_LOG_DEBUG, "DAVIDY with padding\n");
+		for (j = 0; j < len -1; j++) {
+			print_string_len += sprintf(&print_string[print_string_len], "0x%02x ", data_pdu_pad[j]);
+		}
+		wat_log(WAT_LOG_DEBUG, "[%s]\n\n", print_string);
+	}
+
+	if (pad_len) {
+		for (i = 0; i < len - 1; i++) {
+			if (i == 0) {
+				wat_log(WAT_LOG_DEBUG, "DAVIDY data:%x shifted:%x carry_over:%x result:%x\n", data_pdu_pad[i], (data_pdu_pad[i] & 0xFF) >> pad_len, (carry_over << 7), (((data_pdu_pad[i] & 0xFF) >> pad_len) | carry_over << 7));
+
+				data_pdu_nopad[i] = ((data_pdu_pad[i] & 0xFF) >> pad_len) | carry_over << 7;
+				
+			} else {
+				wat_log(WAT_LOG_DEBUG, "DAVIDY data:%x shifted:%x previous:%x carry_over:%x result:%x\n",
+																data_pdu_pad[i],
+																(data_pdu_pad[i] & 0xFF) >> pad_len,
+																data_pdu_pad[i-1],
+																((data_pdu_pad[i-1] & 0x01) << 7),
+																((data_pdu_pad[i] & 0xFF) >> pad_len) | (((data_pdu_pad[i-1]) << 7) & 0xFF));
+
+				data_pdu_nopad[i] = ((data_pdu_pad[i] & 0xFF) >> pad_len) | (((data_pdu_pad[i-1]) << 7) & 0xFF);
 			}
 		}
-		octet = hexstr_to_val(&data[i*2]);
+	}
 
-		sprintf(p++, "%c", ((maskbits(octet, (i + 1) % 7) << (i % 7)) & 0x7F) | (carry_over & 0xFF));
-		mylen++;
+	if (1) {
+		int j;
+		char print_string[1000];
+		int print_string_len = 0;
+		wat_log(WAT_LOG_DEBUG, "DAVIDY without padding\n");
+		for (j = 0; j < len -1; j++) {
+			print_string_len += sprintf(&print_string[print_string_len], "0x%02x ", data_pdu_nopad[j]);
+		}
+		wat_log(WAT_LOG_DEBUG, "[%s]\n\n", print_string);
+	}
 
-		carry_over = (octet & 0xFF) >> (7 - (i % 7));
-		
-		wat_log(WAT_LOG_DEBUG, "DAVIDY i:%d string:%s octet:%x masked:%x carry_over:%x len:%d\n", i, message, octet, ((maskbits(octet, (i + 1) % 7) << (i % 7)) & 0x7F), carry_over, mylen);
-		i++;
+	memset(message, 0, WAT_MAX_SMS_SZ);
+	/* 7-bit encoding ---> 8-bit encoding */
+
+	if (((len*7)%8)) {
+		pdu_to_ascii(data_pdu_nopad, ((len*7)/8) + 1, message);
+	} else {
+		pdu_to_ascii(data_pdu_nopad, ((len*7)/8), message);
 	}
 
 	if (g_debug & WAT_DEBUG_PDU_DECODE) {
@@ -497,7 +506,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		wat_log(WAT_LOG_DEBUG, "TP-UDL:%d\n", sms_event.pdu.tp_udl);
 	}
 
-	if (sms_event.pdu.sms_deliver.tp_mms) {
+	if (sms_event.pdu.sms_deliver.tp_udhi) {
 		if (g_debug & WAT_DEBUG_PDU_DECODE) {
 			wat_log(WAT_LOG_DEBUG, "Decoding TP-UDHL [%s]\n", &data[i]);
 		}
@@ -533,7 +542,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
 		case 0:
 			/* Default Aplhabet, phase 2 */
-			sms_event.len = wat_decode_sms_pdu_message_7_bit(sms_event.message, &data[i], sms_event.pdu.tp_udl);
+			sms_event.len = wat_decode_sms_pdu_message_7_bit(sms_event.message, &data[i], sms_event.pdu.tp_udl, sms_event.pdu.seq, sms_event.pdu.seq);
 			break;
 		default:
 			wat_log(WAT_LOG_ERROR, "Dont' know how to decode incoming SMS message with coding scheme:0x%x\n", sms_event.pdu.tp_dcs);

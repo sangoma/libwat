@@ -263,7 +263,7 @@ wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat)
 	}
 
 	if (span->net_info.stat != stat) {
-		wat_log_span(span, WAT_LOG_DEBUG, "Network status changed to \"%s\"\n", wat_net_stat2str(stat));
+		wat_log_span(span, WAT_LOG_NOTICE, "Network status changed to \"%s\"\n", wat_net_stat2str(stat));
 
 		if (wat_sig_status_up(span->net_info.stat) != wat_sig_status_up(stat)) {
 			wat_span_update_sig_status(span, wat_sig_status_up(stat));

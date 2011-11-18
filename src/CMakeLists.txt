@@ -25,9 +25,8 @@ INCLUDE_DIRECTORIES("${PROJECT_SOURCE_DIR}/include")
 INCLUDE_DIRECTORIES("${PROJECT_SOURCE_DIR}/include/private")
 INCLUDE_DIRECTORIES("${PROJECT_BINARY_DIR}")
 
-
 SET(wat_SOURCES
-	        wat.c
+		wat.c
 		wat_core.c
 		wat_call.c
 		wat_sms.c
@@ -37,12 +36,12 @@ SET(wat_SOURCES
 		wat_mutex.c
 		wat_sched.c
 		wat_buffer.c
-	        telit.c
+		telit.c
 		pduconv.c)
 
 SET(wat_PUBLIC_HEADERS
-			wat_declare.h
-	        libwat.h)
+		wat_declare.h
+		libwat.h)
 
 ADD_LIBRARY(${PROJECT_NAME} SHARED ${wat_SOURCES})
 ADD_DEFINITIONS(-ggdb3 -O0 -Wall -Wshadow -Wcast-qual -Wcast-align -Wchar-subscripts -Wmissing-prototypes -Wmissing-declarations)
@@ -68,16 +67,8 @@ SET(LIBBININSTALLDIR ${DESTDIR}${LIBDIR})
 FIND_LIBRARY(M_LIB NAMES m ${DESTDIR}${LIBDIR})
 TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${M_LIB})	
 
-#FOREACH(INTERNALTEST test_buffer)
-#	ADD_EXECUTABLE(${INTERNALTEST} test_buffer.c test_wat.c ${wat_SOURCES})
-#	TARGET_LINK_LIBRARIES(${INTERNALTEST} ${M_LIB})	
-#ENDFOREACH(INTERNALTEST)
-
-
 INSTALL(TARGETS ${PROJECT_NAME} DESTINATION ${LIBBININSTALLDIR} LIBRARY)
 
 FOREACH(wat_PUBLIC_HEADER ${wat_PUBLIC_HEADERS})
         INSTALL(FILES include/${wat_PUBLIC_HEADER} DESTINATION ${LIBHEADERINSTALLDIR})
 ENDFOREACH()
-
-
