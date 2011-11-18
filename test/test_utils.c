@@ -33,7 +33,7 @@
 #include <sys/ioctl.h>
 
 #include "libwat.h"
-#include "testwat_utils.h"
+#include "test_utils.h"
 
 void on_assert(char *message)
 {

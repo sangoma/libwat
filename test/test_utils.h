@@ -20,8 +20,8 @@
  * Contributors:
  *
  */
-#ifndef _TESTWAT_UTILS_H
-#define _TESTWAT_UTILS_H
+#ifndef _TEST_UTILS_H
+#define _TEST_UTILS_H
 
 void *on_malloc(size_t size);
 void *on_calloc(size_t nmemb, size_t size);
@@ -31,4 +31,4 @@ void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...);
 void on_assert(char *message);
 
 
-#endif /* _TESTWAT_UTILS_H */
+#endif /* _TEST_UTILS_H */

@@ -303,70 +303,26 @@ static uint8_t decstr_to_val(char *string)
 static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_t len, uint8_t pad_len, uint8_t carry_over)
 {
 	int i;
-	uint8_t data_pdu_pad [WAT_MAX_SMS_SZ];
-	uint8_t data_pdu_nopad [WAT_MAX_SMS_SZ];
+	uint8_t data_pdu[WAT_MAX_SMS_SZ];
 
 	len = 10;
 	if (g_debug & WAT_DEBUG_PDU_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "Decoding PDU Message (len:%d)[%s]\n", len, data);
 	}
 
-	memset(data_pdu_pad, 0, sizeof(data_pdu_pad));
-	memset(data_pdu_nopad, 0, sizeof(data_pdu_nopad));
+	memset(data_pdu, 0, sizeof(data_pdu));
 
 	for (i = 0; i < len - 1; i++) {
-		data_pdu_pad[i] = hexstr_to_val(&data[i*2]);
-	}
-
-	if (1) {
-		int j;
-		char print_string[1000];
-		int print_string_len = 0;
-		wat_log(WAT_LOG_DEBUG, "DAVIDY with padding\n");
-		for (j = 0; j < len -1; j++) {
-			print_string_len += sprintf(&print_string[print_string_len], "0x%02x ", data_pdu_pad[j]);
-		}
-		wat_log(WAT_LOG_DEBUG, "[%s]\n\n", print_string);
-	}
-
-	if (pad_len) {
-		for (i = 0; i < len - 1; i++) {
-			if (i == 0) {
-				wat_log(WAT_LOG_DEBUG, "DAVIDY data:%x shifted:%x carry_over:%x result:%x\n", data_pdu_pad[i], (data_pdu_pad[i] & 0xFF) >> pad_len, (carry_over << 7), (((data_pdu_pad[i] & 0xFF) >> pad_len) | carry_over << 7));
-
-				data_pdu_nopad[i] = ((data_pdu_pad[i] & 0xFF) >> pad_len) | carry_over << 7;
-				
-			} else {
-				wat_log(WAT_LOG_DEBUG, "DAVIDY data:%x shifted:%x previous:%x carry_over:%x result:%x\n",
-																data_pdu_pad[i],
-																(data_pdu_pad[i] & 0xFF) >> pad_len,
-																data_pdu_pad[i-1],
-																((data_pdu_pad[i-1] & 0x01) << 7),
-																((data_pdu_pad[i] & 0xFF) >> pad_len) | (((data_pdu_pad[i-1]) << 7) & 0xFF));
-
-				data_pdu_nopad[i] = ((data_pdu_pad[i] & 0xFF) >> pad_len) | (((data_pdu_pad[i-1]) << 7) & 0xFF);
-			}
-		}
-	}
-
-	if (1) {
-		int j;
-		char print_string[1000];
-		int print_string_len = 0;
-		wat_log(WAT_LOG_DEBUG, "DAVIDY without padding\n");
-		for (j = 0; j < len -1; j++) {
-			print_string_len += sprintf(&print_string[print_string_len], "0x%02x ", data_pdu_nopad[j]);
-		}
-		wat_log(WAT_LOG_DEBUG, "[%s]\n\n", print_string);
+		data_pdu[i] = hexstr_to_val(&data[i*2]);
 	}
 
 	memset(message, 0, WAT_MAX_SMS_SZ);
 	/* 7-bit encoding ---> 8-bit encoding */
 
 	if (((len*7)%8)) {
-		pdu_to_ascii(data_pdu_nopad, ((len*7)/8) + 1, message);
+		pdu_to_ascii(data_pdu, ((len*7)/8) + 1, message);
 	} else {
-		pdu_to_ascii(data_pdu_nopad, ((len*7)/8), message);
+		pdu_to_ascii(data_pdu, ((len*7)/8), message);
 	}
 
 	if (g_debug & WAT_DEBUG_PDU_DECODE) {

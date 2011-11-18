@@ -369,14 +369,6 @@ static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success,
 	return WAT_FAIL;
 }
 
-#if 0
-typedef enum {
-	WAT_CMD_PARSE_STATE_INIT,
-	WAT_CMD_PARSE_STATE_HAS_TOKEN, /* We have a token that is not a terminator */
-	
-} wat_cmd_parse_state_t;
-#endif
-
 wat_status_t wat_cmd_process(wat_span_t *span)
 {
 	char data[WAT_BUFFER_SZ];	
@@ -409,10 +401,10 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 						/* This could be a hangup from the remote side, schedule a CLCC to find out which call hung-up */
 						wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL);
 						tokens_consumed++;
+					} else {					
+						tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], success, error);
+						tokens_unused = 0;
 					}
-					
-					tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], success, error);
-					tokens_unused = 0;
 				} else {
 					if (!tokens[i+1]) {
 						tokens_consumed += wat_cmd_handle_notify(span, &tokens[i-tokens_unused]);
@@ -422,11 +414,11 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 				}
 			}
 			wat_free_tokens(tokens);
-		}
-		if (tokens_consumed) {
-			/* If we handled this token, remove it from the buffer */
+			if (tokens_consumed) {
+				/* If we handled this token, remove it from the buffer */
 
-			wat_buffer_flush(span->buffer, consumed);
+				wat_buffer_flush(span->buffer, consumed);
+			}
 		}
 	}
 
@@ -507,10 +499,17 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 					has_token = 0;
 
 					tokens[token_index++] = token_str;
+					consumed_index = i;
+				}
+				if (!token_index) {
+					consumed_index = i;
 				}
 				break;
 			case '\r':
 				/* Ignore \r */
+				if (!token_index) {
+					consumed_index = i;
+				}				
 				break;
 			case '>':
 				{
@@ -522,6 +521,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 						has_token = 0;
 
 						tokens[token_index++] = token_str;
+						consumed_index = i;
 					}
 					/* Create a new token */
 					tokens[token_index++] = wat_strdup(">\0");
@@ -539,8 +539,12 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 					p = token_str;
 				}
 				*(p++) = line[i];
-				
 		}
+	}
+
+	if (has_token) {
+		/* We only got half a token, need to free this pointer */
+		wat_safe_free(token_str);
 	}
 
 	/* No more tokens left in buffer */
@@ -551,10 +555,10 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 				break;
 			}
 			i++;
+			consumed_index = i;
 		}
-		consumed_index = i;
 
-		*consumed = consumed_index;
+		*consumed = consumed_index+1;
 
 		if (g_debug & WAT_DEBUG_AT_PARSE) {
 			wat_log(WAT_LOG_DEBUG, "Decoded tokens %d consumed:%u len:%u\n", token_index, *consumed, len);
@@ -565,12 +569,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 		}
 		return WAT_SUCCESS;
 	}
-
-	if (has_token) {
-		/* We only got half a token, need to free this pointer */
-		wat_safe_free(token_str);
-	}
-
+	*consumed = consumed_index+1;
 	return WAT_FAIL;
 }
 
@@ -1259,7 +1258,7 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 	if (call) {
 		/* We already allocated this call - do nothing */		
 		WAT_FUNC_DBG_END
-		return WAT_SUCCESS;
+		return 1;
 	}
 
 	call = wat_span_get_call_by_state(span, WAT_CALL_STATE_DIALED);

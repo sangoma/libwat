@@ -31,9 +31,8 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
-uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_PDU_DECODE;
-
-//uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE;
+//uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_PDU_DECODE;
+uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE;
 #else
 uint32_t	g_debug = 0;
 #endif
@@ -191,22 +190,6 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 		return WAT_FAIL;
 	}
 
-#if 1
-	if (1) {
-		int len;
-
-		/* Long Concatenated message with padding */
-		char *data = "0791198954800710440C91199920512899000001302251431522A0050003080201D06536FB0DBABFE56C32";
-
-		/* Short non-concatenated message */
-		//char *data = "0791198954800710040C9119992051289900000130225103412209CA305A7D5E9FD761";
-
-		len = strlen(data);
-
-		wat_handle_incoming_sms_pdu(span, data, len);
-		exit(1);
-	}
-#endif
 	span->running = 1;
 
 	memset(span->calls, 0, sizeof(span->calls));
