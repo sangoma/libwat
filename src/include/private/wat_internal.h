@@ -270,6 +270,11 @@ typedef int (wat_cmd_notify_func) WAT_NOTIFY_ARGS;
 wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_notify_func *func);
 wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj);
 
+typedef struct _wat_user_cmd_t {
+	wat_at_cmd_response_func cb;
+	void *obj;
+} wat_user_cmd_t;
+
 typedef struct wat_cmd {
 	char *cmd;
 	wat_cmd_response_func *cb;

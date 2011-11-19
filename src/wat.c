@@ -634,6 +634,34 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 	return WAT_SUCCESS;
 }
 
+WAT_RESPONSE_FUNC(wat_user_cmd_response);
+WAT_RESPONSE_FUNC(wat_user_cmd_response)
+{
+	int processed_tokens = 0;
+	wat_user_cmd_t *cmd = obj;
+	processed_tokens = cmd->cb(span->id, tokens, success, cmd->obj, error);
+	wat_safe_free(obj);
+	return processed_tokens;
+}
+
+WAT_DECLARE(wat_status_t) wat_exec_at(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj)
+{
+	wat_user_cmd_t *user_cmd = NULL;
+	wat_span_t *span = NULL;
+
+	span = wat_get_span(span_id);
+
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	user_cmd = wat_calloc(1, sizeof(*user_cmd));
+	if (!user_cmd) {
+		return WAT_ENOMEM;
+	}
+	user_cmd->cb = cb;
+	user_cmd->obj = obj;
+	return wat_cmd_enqueue(span, at_cmd, wat_user_cmd_response, user_cmd);
+}
+
 wat_span_t *wat_get_span(uint8_t span_id)
 {
 	wat_span_t *span;
