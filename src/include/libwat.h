@@ -325,11 +325,16 @@ WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, char *net_info, 
 WAT_DECLARE(wat_status_t) wat_span_get_signal_quality(uint8_t span_id, char *strength, wat_size_t len_strength, char *ber, wat_size_t len_ber);
 
 
+#define WAT_AT_CMD_RESPONSE_ARGS (uint8_t span_id, char *tokens[], wat_bool_t success, void *obj, char *error)
+#define WAT_AT_CMD_RESPONSE_FUNC(name) static int (name)  WAT_AT_CMD_RESPONSE_ARGS
+typedef int (*wat_at_cmd_response_func) WAT_AT_CMD_RESPONSE_ARGS;
+
 WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_con_req(uint8_t span_id, uint8_t call_id, wat_con_event_t *con_event);
 WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_event_t *sms_event);
+WAT_DECLARE(wat_status_t) wat_exec_at(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj);
 
 #endif /* _LIBWAT_H */
 

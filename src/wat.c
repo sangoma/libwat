@@ -413,12 +413,24 @@ WAT_DECLARE(wat_status_t) wat_span_get_chip_info(uint8_t span_id,
 	span = wat_get_span(span_id);
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 
-	strncpy(manufacturer_name, span->manufacturer_name, len_manufacturer_name);
-	strncpy(manufacturer_id, span->manufacturer_id, len_manufacturer_id);
-	strncpy(revision_id, span->revision_id, len_revision_id);
-	strncpy(serial_number, span->serial_number, len_serial_number);
-	strncpy(imsi, span->imsi, len_imsi);
-	strncpy(subscriber_number, span->subscriber_number, len_subscriber_number);
+	if (manufacturer_name) {
+		strncpy(manufacturer_name, span->manufacturer_name, len_manufacturer_name);
+	}
+	if (manufacturer_id) {
+		strncpy(manufacturer_id, span->manufacturer_id, len_manufacturer_id);
+	}
+	if (revision_id) {
+		strncpy(revision_id, span->revision_id, len_revision_id);
+	}
+	if (serial_number) {
+		strncpy(serial_number, span->serial_number, len_serial_number);
+	}
+	if (imsi) {
+		strncpy(imsi, span->imsi, len_imsi);
+	}
+	if (subscriber_number) {
+		strncpy(subscriber_number, span->subscriber_number, len_subscriber_number);
+	}
 
 	return WAT_SUCCESS;
 }
@@ -620,6 +632,34 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 	wat_event_enqueue(span, &event);
 	WAT_FUNC_DBG_END
 	return WAT_SUCCESS;
+}
+
+WAT_RESPONSE_FUNC(wat_user_cmd_response);
+WAT_RESPONSE_FUNC(wat_user_cmd_response)
+{
+	int processed_tokens = 0;
+	wat_user_cmd_t *cmd = obj;
+	processed_tokens = cmd->cb(span->id, tokens, success, cmd->obj, error);
+	wat_safe_free(obj);
+	return processed_tokens;
+}
+
+WAT_DECLARE(wat_status_t) wat_exec_at(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj)
+{
+	wat_user_cmd_t *user_cmd = NULL;
+	wat_span_t *span = NULL;
+
+	span = wat_get_span(span_id);
+
+	wat_assert_return(span, WAT_FAIL, "Invalid span");
+
+	user_cmd = wat_calloc(1, sizeof(*user_cmd));
+	if (!user_cmd) {
+		return WAT_ENOMEM;
+	}
+	user_cmd->cb = cb;
+	user_cmd->obj = obj;
+	return wat_cmd_enqueue(span, at_cmd, wat_user_cmd_response, user_cmd);
 }
 
 wat_span_t *wat_get_span(uint8_t span_id)
