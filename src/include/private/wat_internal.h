@@ -71,26 +71,12 @@
 #define wat_clear_flag(obj, flag)	((obj)->flags &= ~(1 << flag))
 
 #define ARRAY_LEN(_array) sizeof(_array)/sizeof(_array[0])
-#define SWAP_NIBBLE(byte) ((((byte) >> 4) & 0x0F) | (((byte) << 4) & 0xF0))
 
 extern wat_interface_t g_interface;
 extern uint32_t	g_debug;
 
 typedef struct wat_span wat_span_t;
 typedef struct wat_module wat_module_t;
-
-typedef enum {
-	WAT_NET_NOT_REGISTERED = 0,             /* Initial state */
-	WAT_NET_REGISTERED_HOME,                /* Registered to home network */
-	WAT_NET_NOT_REGISTERED_SEARCHING,       /* Not Registered, searching for an operator */
-	WAT_NET_REGISTRATION_DENIED,            /* Registration denied */
-	WAT_NET_UNKNOWN,                        /* Unknown */
-	WAT_NET_REGISTERED_ROAMING,             /* Registered, roaming */
-	WAT_NET_INVALID,
-} wat_net_stat_t;
-
-#define WAT_NET_STAT_STRINGS "Not Registered", "Registered Home", "Not Registered, Searching", "Registration Denied", "Unknown", "Registered Roaming", "Invalid"
-WAT_STR2ENUM_P(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t);
 
 typedef enum {
 	WAT_CSQ_BER_0,
@@ -108,15 +94,6 @@ typedef enum {
 WAT_STR2ENUM_P(wat_str2wat_csq_ber, wat_csq_ber2str, wat_csq_ber_t);
 
 char *wat_decode_csq_rssi(char *in, unsigned rssi);
-
-typedef struct {
-	wat_net_stat_t stat;
-	uint8_t lac;	/* Local Area Code for the currently registered on cell */
-	uint8_t ci;		/* Cell Id for currently registered on cell */
-
-	uint8_t rssi;
-	uint8_t ber;
-} wat_net_info_t;
 
 typedef enum {
 	WAT_TIMEOUT_CLIP,
@@ -297,15 +274,12 @@ struct wat_span {
 
 	wat_sigstatus_t sigstatus;
 
-	char manufacturer_name [50];
-	char manufacturer_id [20];
-	char revision_id [20];
-	char serial_number [50];
-	char imsi[50];				/* International Mobile Subscriber Identify */
-	char subscriber_number[50];		/* Subscriber Number */
-	wat_bool_t clip;
-
+	wat_chip_info_t chip_info;
+	wat_sim_info_t sim_info;
 	wat_net_info_t net_info;	/* Network Registration Report */
+	wat_sig_info_t sig_info;
+
+	wat_bool_t clip;
 
 	wat_span_config_t config;	/* Configuration parameters */
 

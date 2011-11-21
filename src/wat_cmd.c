@@ -692,7 +692,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmm)
 		return 1;
 	}
 
-	strncpy(span->manufacturer_name, tokens[0], sizeof(span->manufacturer_name));
+	strncpy(span->chip_info.manufacturer_name, tokens[0], sizeof(span->chip_info.manufacturer_name));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -707,7 +707,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 		return 1;
 	}
 
-	strncpy(span->manufacturer_id, tokens[0], sizeof(span->manufacturer_id));
+	strncpy(span->chip_info.manufacturer_id, tokens[0], sizeof(span->chip_info.manufacturer_id));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -727,7 +727,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmr)
 		start = 6;
 	}
 
-	strncpy(span->revision_id, &((tokens[0])[start]), sizeof(span->revision_id));
+	strncpy(span->chip_info.revision, tokens[0], sizeof(span->chip_info.revision));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -742,7 +742,7 @@ WAT_RESPONSE_FUNC(wat_response_cgsn)
 		return 1;
 	}
 
-	strncpy(span->serial_number, tokens[0], sizeof(span->serial_number));
+	strncpy(span->chip_info.serial, tokens[0], sizeof(span->chip_info.serial));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -757,7 +757,7 @@ WAT_RESPONSE_FUNC(wat_response_cimi)
 		return 1;
 	}
 
-	strncpy(span->imsi, tokens[0], sizeof(span->imsi));
+	strncpy(span->sim_info.imsi, tokens[0], sizeof(span->sim_info.imsi));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -849,6 +849,8 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 WAT_RESPONSE_FUNC(wat_response_cnum)
 {
 	WAT_RESPONSE_FUNC_DBG_START
+	char *cmdtokens[5];
+
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number\n");
 		WAT_FUNC_DBG_END
@@ -862,16 +864,32 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		   then Subscriber Number is not available
 		   on this SIM card
 		*/
-		sprintf(span->subscriber_number, "Not available");
+		sprintf(span->sim_info.subscriber.digits, "Not available");
 		WAT_FUNC_DBG_END
 		return 1;
 	}
 
 	wat_remove_prefix(tokens[0], "+CNUM: ");
 
-	/* TODO: Do a complete parsing of the parameters */
+	/* TODO: Do a complete parsing of the parameters */	
+	memset(cmdtokens, 0, sizeof(cmdtokens));
 
-	strncpy(span->subscriber_number, tokens[0], sizeof(span->subscriber_number));
+	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CNUM entry:%s\n", tokens[0]);
+		wat_free_tokens(cmdtokens);
+		WAT_FUNC_DBG_END
+		return 2;
+	}
+
+	strncpy(span->sim_info.subscriber_type, cmdtokens[0], sizeof(span->sim_info.subscriber_type));	
+	strncpy(span->sim_info.subscriber.digits, cmdtokens[1], sizeof(span->sim_info.subscriber.digits));
+	wat_decode_type_of_address(atoi(cmdtokens[2]), &span->sim_info.subscriber.type, &span->sim_info.subscriber.plan);
+
+	wat_log_span(span, WAT_LOG_NOTICE, "Subscriber:%s type:%s plan:%s <%s> \n",
+				span->sim_info.subscriber.digits, wat_number_type2str(span->sim_info.subscriber.type),
+				 wat_number_plan2str(span->sim_info.subscriber.plan),
+				span->sim_info.subscriber_type);
+
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -891,9 +909,9 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 	
 	if (sscanf(tokens[0], "%d,%d\n", &rssi, &ber) == 2) {
 		char dest[30];
-		span->net_info.rssi = rssi;
-		span->net_info.ber = ber;
-		wat_log_span(span, WAT_LOG_NOTICE, "Signal strength:%s (BER:%s)\n", wat_decode_csq_rssi(dest, rssi), wat_csq_ber2str(ber));
+		span->sig_info.rssi = rssi;
+		span->sig_info.ber = ber;
+		wat_log_span(span, WAT_LOG_NOTICE, "Signal strength:%s (BER:%s)\n", wat_decode_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSQ %s\n", tokens[0]);
 	}
@@ -1225,7 +1243,7 @@ WAT_RESPONSE_FUNC(wat_response_cmgs_end)
 	memset(&sms_status, 0, sizeof(sms_status));
 	
 	if (success != WAT_TRUE) {
-		sms->cause = WAT_SMS_CAUSE_NETWORK_REJECT;
+		sms->cause = WAT_SMS_CAUSE_NETWORK_REFUSE;
 		sms->error = error;
 	}
 	span->outbound_sms = NULL;
@@ -1490,26 +1508,6 @@ WAT_SCHEDULED_FUNC(wat_scheduled_clcc)
 {
 	wat_call_t *call = (wat_call_t *)data;
 	wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
-}
-
-char *wat_decode_csq_rssi(char *in, unsigned rssi)
-{
-	switch (rssi) {
-		case 0:
-			return "(-113)dBm or less";
-		case 1:
-			return "(-111)dBm";
-		case 31:
-			return "(-51)dBm";
-		case 99:
-			return "not detectable";
-		default:
-			if (rssi >= 2 && rssi <= 30) {
-				sprintf(in, "(-%d)dBm", 113-(2*rssi));
-				return in;
-			}
-	}
-	return "invalid";
 }
 
 char* format_at_data(char *dest, void *indata, wat_size_t len)

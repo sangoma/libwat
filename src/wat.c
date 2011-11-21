@@ -73,8 +73,12 @@ WAT_STR2ENUM(wat_str2wat_call_state, wat_call_state2str, wat_call_state_t, WAT_C
 WAT_ENUM_NAMES(WAT_SMS_STATE_NAMES, WAT_SMS_STATE_STRINGS)
 WAT_STR2ENUM(wat_str2wat_sms_state, wat_sms_state2str, wat_sms_state_t, WAT_SMS_STATE_NAMES, WAT_SMS_STATE_INVALID)
 
+WAT_ENUM_NAMES(WAT_SMS_CAUSE_NAMES, WAT_SMS_CAUSE_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t, WAT_SMS_CAUSE_NAMES, WAT_SMS_CAUSE_UNKNOWN)
+
 WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
 WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
+
 
 static wat_span_t *wat_get_span(uint8_t span_id);
 
@@ -400,80 +404,46 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 	return;
 }
 
-WAT_DECLARE(wat_status_t) wat_span_get_chip_info(uint8_t span_id,
-					char *manufacturer_name, wat_size_t len_manufacturer_name,
-					char *manufacturer_id, wat_size_t len_manufacturer_id,
-					char *revision_id, wat_size_t len_revision_id,
-					char *serial_number, wat_size_t len_serial_number,
-					char *imsi, wat_size_t len_imsi,
-					char *subscriber_number, wat_size_t len_subscriber_number)
+WAT_DECLARE(const wat_chip_info_t*) wat_span_get_chip_info(uint8_t span_id)
 {
 	wat_span_t *span;
 
 	span = wat_get_span(span_id);
-	wat_assert_return(span, WAT_FAIL, "Invalid span");
-
-	if (manufacturer_name) {
-		strncpy(manufacturer_name, span->manufacturer_name, len_manufacturer_name);
-	}
-	if (manufacturer_id) {
-		strncpy(manufacturer_id, span->manufacturer_id, len_manufacturer_id);
-	}
-	if (revision_id) {
-		strncpy(revision_id, span->revision_id, len_revision_id);
-	}
-	if (serial_number) {
-		strncpy(serial_number, span->serial_number, len_serial_number);
-	}
-	if (imsi) {
-		strncpy(imsi, span->imsi, len_imsi);
-	}
-	if (subscriber_number) {
-		strncpy(subscriber_number, span->subscriber_number, len_subscriber_number);
-	}
-
-	return WAT_SUCCESS;
+	wat_assert_return(span, NULL, "Invalid span");
+	
+	return &span->chip_info;
 }
 
-WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, char *net_info, wat_size_t len)
+WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id)
 {
 	wat_span_t *span;
 
 	span = wat_get_span(span_id);
-	wat_assert_return(span, WAT_FAIL, "Invalid span");
+	wat_assert_return(span, NULL, "Invalid span");
 
-	WAT_SPAN_FUNC_DBG_START
-			
-	if (!span->running) {
-		WAT_FUNC_DBG_END
-		return WAT_FAIL;
-	}
-
-	snprintf(net_info, len, "%s", wat_net_stat2str(span->net_info.stat));
-	WAT_FUNC_DBG_END
-	return WAT_SUCCESS;
+	return &span->sim_info;
 }
 
-WAT_DECLARE(wat_status_t) wat_span_get_signal_quality(uint8_t span_id, char *strength, wat_size_t len_strength, char *ber, wat_size_t len_ber)
+WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id)
 {
-	char dest[30];
 	wat_span_t *span;
 
 	span = wat_get_span(span_id);
-	wat_assert_return(span, WAT_FAIL, "Invalid span");
+	wat_assert_return(span, NULL, "Invalid span");
 
 	WAT_SPAN_FUNC_DBG_START
 
-	if (!span->running) {
-		WAT_FUNC_DBG_END
-		return WAT_FAIL;
-	}
+	return &span->net_info;
+}
 
-	snprintf(ber, len_ber, wat_csq_ber2str(span->net_info.ber));
-	snprintf(strength, len_strength, "%s", wat_decode_csq_rssi(dest, span->net_info.rssi));
+WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id)
+{
+	wat_span_t *span;
 
-	WAT_FUNC_DBG_END
-	return WAT_SUCCESS;
+	span = wat_get_span(span_id);
+	wat_assert_return(span, NULL, "Invalid span");
+
+	return &span->sig_info;
 }
 
 WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
@@ -737,6 +707,37 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 		g_interface.wat_sigstatus_change(span->id, span->sigstatus);
 	}
 	return WAT_SUCCESS;
+}
+
+WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi)
+{
+	switch (rssi) {
+		case 0:
+			sprintf(dest, "(-113)dBm or less");
+		case 1:
+			sprintf(dest, "(-111)dBm");
+		case 31:
+			sprintf(dest, "(-51)dBm");
+		case 99:
+			sprintf(dest, "not detectable");
+		default:
+			if (rssi >= 2 && rssi <= 30) {
+				sprintf(dest, "(-%d)dBm", 113-(2*rssi));
+			} else {
+				sprintf(dest, "invalid");
+			}
+	}
+	return dest;
+}
+
+WAT_DECLARE(const char *) wat_decode_ber(unsigned ber)
+{
+	return wat_csq_ber2str(ber);
+}
+
+WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause)
+{
+	return wat_sms_cause2str(cause);
 }
 
 /* For Emacs:

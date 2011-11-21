@@ -47,6 +47,7 @@
 #define WAT_MAX_NAME_SZ		24 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_SMS_SZ		1024 /* DAVIDY TODO: Find real max sizes based on specs */
 #define WAT_MAX_CMD_SZ		2048 /* DAVIDY TODO: Find real max sizes based on specs */
+#define WAT_MAX_TYPE_SZ		12
 
 #define WAT_MAX_CALLS_PER_SPAN			16
 #define WAT_MAX_SMSS_PER_SPAN			16
@@ -74,9 +75,13 @@ typedef enum {
 	WAT_SMS_CAUSE_MODE_NOT_SUPPORTED,
 	WAT_SMS_CAUSE_NO_RESPONSE,
 	WAT_SMS_CAUSE_NO_NETWORK,
-	WAT_SMS_CAUSE_NETWORK_REJECT,
+	WAT_SMS_CAUSE_NETWORK_REFUSE,
 	WAT_SMS_CAUSE_UNKNOWN,
 } wat_sms_cause_t;
+
+#define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response",  "Network Refused", "Unknown"
+
+WAT_STR2ENUM_P(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t);
 
 typedef enum {
 	WAT_MODULE_TELIT,
@@ -166,6 +171,44 @@ typedef enum {
 } wat_loglevel_t;
 
 /* Structures  *********************************************************************/
+
+typedef struct _wat_chip_info {
+	char manufacturer_name[32];
+ 	char manufacturer_id[32];
+	char revision[32];
+	char serial[32];
+} wat_chip_info_t;
+
+typedef struct _wat_sim_info {	
+	wat_number_t subscriber;
+	char subscriber_type[WAT_MAX_TYPE_SZ];
+	char imsi[32];
+} wat_sim_info_t;
+
+typedef enum {
+	WAT_NET_NOT_REGISTERED = 0,             /* Initial state */
+	WAT_NET_REGISTERED_HOME,                /* Registered to home network */
+	WAT_NET_NOT_REGISTERED_SEARCHING,       /* Not Registered, searching for an operator */
+	WAT_NET_REGISTRATION_DENIED,            /* Registration denied */
+	WAT_NET_UNKNOWN,                        /* Unknown */
+	WAT_NET_REGISTERED_ROAMING,             /* Registered, roaming */
+	WAT_NET_INVALID,
+} wat_net_stat_t;
+
+#define WAT_NET_STAT_STRINGS "Not Registered", "Registered Home", "Not Registered, Searching", "Registration Denied", "Unknown", "Registered Roaming", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t);
+
+typedef struct {
+	wat_net_stat_t stat;
+	uint8_t lac;	/* Local Area Code for the currently registered on cell */
+	uint8_t ci;		/* Cell Id for currently registered on cell */
+} wat_net_info_t;
+
+typedef struct {
+	uint8_t rssi;
+	uint8_t ber;
+} wat_sig_info_t;
+
 typedef struct _wat_con_event {
 	wat_call_type_t type;
 	wat_call_sub_t	sub;
@@ -313,17 +356,13 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 WAT_DECLARE(uint32_t) wat_span_schedule_next(uint8_t span_id);
 WAT_DECLARE(void) wat_span_run(uint8_t span_id);
 
-WAT_DECLARE(wat_status_t) wat_span_get_chip_info(uint8_t span_id,
-													char *manufacturer_name, wat_size_t len_manufacturer_name,
-													char *manufacturer_id, wat_size_t len_manufacturer_id,
-													char *revision_id, wat_size_t len_revision_id,
-													char *serial_number, wat_size_t len_serial_number,
-													char *imsi, wat_size_t len_imsi,
-													char *subscriber_number, wat_size_t len_subscriber_number);
-
-WAT_DECLARE(wat_status_t) wat_span_get_netinfo(uint8_t span_id, char *net_info, wat_size_t len);
-WAT_DECLARE(wat_status_t) wat_span_get_signal_quality(uint8_t span_id, char *strength, wat_size_t len_strength, char *ber, wat_size_t len_ber);
-
+WAT_DECLARE(const wat_chip_info_t*) wat_span_get_chip_info(uint8_t span_id);
+WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id);
+WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id);
+WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id);
+WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi);
+WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
+WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 
 #define WAT_AT_CMD_RESPONSE_ARGS (uint8_t span_id, char *tokens[], wat_bool_t success, void *obj, char *error)
 #define WAT_AT_CMD_RESPONSE_FUNC(name) static int (name)  WAT_AT_CMD_RESPONSE_ARGS
