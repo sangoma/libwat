@@ -292,6 +292,19 @@ wat_bool_t wat_sig_status_up(wat_net_stat_t stat)
 	return WAT_FALSE;
 }
 
+char *wat_string_clean(char *string)
+{
+	if (string[0] == '\"') {
+		int len = strlen(string);
+		memmove(string, &string[1], len - 1);
+		string[len - 1]='\0';
+	}
+	if (string[strlen(string) - 1] == '\"') {
+		string[strlen(string) - 1] = '\0';
+	}
+	return string;
+}
+
 void wat_decode_type_of_address(uint8_t octet, wat_number_type_t *type, wat_number_plan_t *plan)
 {
 	if (type) {

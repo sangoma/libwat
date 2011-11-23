@@ -509,7 +509,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 				/* Ignore \r */
 				if (!token_index) {
 					consumed_index = i;
-				}				
+				}
 				break;
 			case '>':
 				{
@@ -521,10 +521,13 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 						has_token = 0;
 
 						tokens[token_index++] = token_str;
-						consumed_index = i;
 					}
 					/* Create a new token */
 					tokens[token_index++] = wat_strdup(">\0");
+
+					/* Chip will not send anything else after a '>' */
+					i = len - 1;
+					consumed_index = i;
 				}
 				break;
 			default:
@@ -543,8 +546,14 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 	}
 
 	if (has_token) {
+#if 1
+		/* We are in the middle of receiving a Command wait for the rest */
+		wat_free_tokens(tokens);
+		return WAT_FAIL;
+#else
 		/* We only got half a token, need to free this pointer */
 		wat_safe_free(token_str);
+#endif
 	}
 
 	/* No more tokens left in buffer */
@@ -626,7 +635,7 @@ done:
 	return status;
 }
 
-static int wat_cmd_entry_tokenize(char *entry, char *tokens[])
+int wat_cmd_entry_tokenize(char *entry, char *tokens[])
 {
 	int token_count = 0;
 	char *p = NULL;
@@ -637,8 +646,36 @@ static int wat_cmd_entry_tokenize(char *entry, char *tokens[])
 		tokens[token_count++] = wat_strdup("");
 	}
 	p = strtok(entry, ",");
+
 	while (p != NULL) {
 		tokens[token_count++] = wat_strdup(p);
+		if (token_count > 1 && p[strlen(p)-1] == '\"') {
+			/* We have an end quote */
+			if (p[0] != '\"') {
+				/* But we do not have a beginning quote */
+
+				if (tokens[token_count - 2][strlen(tokens[token_count - 2])-1] != '\"' &&
+				   	tokens[token_count - 2][0] == '\"') {
+					char *new, *previous;
+
+					/* Combine current token with previous token */
+					new = (char *)wat_malloc(strlen(tokens[token_count - 2]) + strlen(tokens[token_count-1]) + 1);
+					previous = tokens[token_count - 2];
+					
+					wat_assert_return(new, 0, "Failed to allocate space for new token");
+
+					memset(new, 0, strlen(tokens[token_count - 2]) + strlen(tokens[token_count-1]));
+
+					tokens[token_count - 2] = strcat(new, previous);
+					tokens[token_count - 2] = strcat(new, ",");
+					tokens[token_count - 2] = strcat(new, tokens[token_count-1]);
+					wat_safe_free(previous);
+					wat_safe_free(tokens[token_count - 1]);
+					
+					token_count--;
+				}
+			}
+		}
 		p = strtok(NULL, ",");
 	}
 	return token_count;
@@ -1318,43 +1355,44 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 
 	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
 
+	/* PDU Mode:
+	+CMT:<alpha>,<length>,\r\n<pdu>
+	alpha:representation from phonebook
+	length: pdu length
+	pdu: pdu message
+
+		Text Mode:
+	+CMT:<oa>,,<scts>[,<tooa>,<fo>,<pid>,<dcs>,<sca>,<tosca>,<length>]\r\n<data>
+	oa: Originating Address
+	scts:arrival time of the message to the SC
+	tooa,tosca: type of number
+	fo: first octet
+	pid: Protocol identifier
+	dcs: Data Coding Scheme
+	sca: Service Centre Address
+	length: text length
+	*/
+
 	if (numtokens < 2) {
 		wat_log_span(span, WAT_LOG_WARNING, "Failed to parse incoming SMS Header %s (%d)\n", tokens[0], numtokens);
 		goto done;
 	}
 
-	len = atoi(cmdtokens[1]);
-	if (len <= 0) {
-		wat_log_span(span, WAT_LOG_WARNING, "Invalid PDU len in SMS header %s\n", tokens[0]);
-		goto done;
+	if (numtokens == 2) {/* PDU mode */
+		len = atoi(cmdtokens[1]);
+		if (len <= 0) {
+			wat_log_span(span, WAT_LOG_WARNING, "Invalid PDU len in SMS header %s\n", tokens[0]);
+			goto done;
+		}
+
+		wat_log_span(span, WAT_LOG_DEBUG, "[sms]PDU len:%d\n", len);
+		wat_handle_incoming_sms_pdu(span, tokens[1], len);
 	}
 
-	wat_log_span(span, WAT_LOG_DEBUG, "[sms] len:%d\n", len);
-
-	/* PDU Mode:
-		+CMT:<alpha>,<length>,\r\n<pdu>
-		alpha:representation from phonebook
-		length: pdu length
-		pdu: pdu message
-
-		Text Mode:
-		+CMT:<oa>,<alpha><scts>[,<tooa>,<fo>,<pid>,<dcs>,<sca>,<tosca>,<length>]\r\n<data>
-		oa: Originating Address
-		alpha:representation from phonebook
-		scts:arrival time of the message to the SC
-		tooa,tosca: type of number
-		fo: first octet
-		pid: Protocol identifier
-		dcs: Data Coding Scheme
-		sca: Service Centre Address
-		length: text length
-	*/
-
-	if (numtokens > 2) {
-		/* Text mode */
-		wat_log_span(span, WAT_LOG_ERROR, "Reception of Text mode SMS not implemented!!!\n", tokens[0]);
-	} else {
-		wat_handle_incoming_sms_pdu(span, tokens[1], len);
+	if (numtokens > 2) { /* Text mode */
+		len = atoi(cmdtokens[1]);
+		wat_log_span(span, WAT_LOG_DEBUG, "[sms]TEXT len:%d\n", len);
+		wat_handle_incoming_sms_text(span, cmdtokens[0], cmdtokens[2], tokens[1]);
 	}
 	
 done:

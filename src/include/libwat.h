@@ -38,7 +38,7 @@
 #define WAT_DEBUG_CALL_STATE	(1 << 2) /* Debug call states */
 #define WAT_DEBUG_AT_PARSE		(1 << 3) /* Debug how AT commands are parsed */
 #define WAT_DEBUG_AT_HANDLE		(1 << 4) /* Debug how AT commands are scheduled/processed */
-#define WAT_DEBUG_PDU_DECODE	(1 << 5) /* Debug how PDU is decoded */
+#define WAT_DEBUG_SMS_DECODE	(1 << 5) /* Debug how PDU is decoded */
 
 /*ENUMS & Defines ******************************************************************/
 
@@ -71,7 +71,7 @@ typedef enum {
 } wat_sms_type_t;
 
 typedef enum {
-	WAT_SMS_CAUSE_QUEUE_FULL = 1,
+	WAT_SMS_CAUSE_QUEUE_FULL,
 	WAT_SMS_CAUSE_MODE_NOT_SUPPORTED,
 	WAT_SMS_CAUSE_NO_RESPONSE,
 	WAT_SMS_CAUSE_NO_NETWORK,
@@ -79,7 +79,7 @@ typedef enum {
 	WAT_SMS_CAUSE_UNKNOWN,
 } wat_sms_cause_t;
 
-#define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response",  "Network Refused", "Unknown"
+#define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response", "No network",  "Network Refused", "Unknown"
 
 WAT_STR2ENUM_P(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t);
 
@@ -227,14 +227,14 @@ typedef struct _wat_sms_pdu_deliver {
 } wat_sms_pdu_deliver_t;
 
 typedef struct _wat_sms_pdu_timestamp {
-	uint8_t year;
-	uint8_t month;
-	uint8_t day;
-	uint8_t hour;
-	uint8_t minute;
-	uint8_t second;
-	int8_t timezone;
-} wat_sms_pdu_timestamp_t;
+	int year;
+	int month;
+	int day;
+	int hour;
+	int minute;
+	int second;
+	int timezone;
+} wat_timestamp_t;
 
 typedef struct _wat_sms_event_pdu {
 	wat_number_t smsc;
@@ -253,8 +253,6 @@ typedef struct _wat_sms_event_pdu {
 	uint8_t total;
 	uint8_t seq;
 
-	wat_sms_pdu_timestamp_t tp_scts;
-	
 } wat_sms_event_pdu_t;
 
 typedef struct _wat_sms_event {
@@ -262,8 +260,9 @@ typedef struct _wat_sms_event {
 	wat_number_t called_num;
 	wat_sms_type_t type;				/* PDU or Plain Text */
 	uint32_t len;						/* Length of message */
-	char message[WAT_MAX_SMS_SZ];		/* Message */
+	wat_timestamp_t scts;
 	wat_sms_event_pdu_t pdu;
+	char message[WAT_MAX_SMS_SZ];		/* Message */
 } wat_sms_event_t;
 
 typedef struct _wat_rel_event {
