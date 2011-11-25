@@ -199,6 +199,47 @@ typedef enum {
 #define WAT_NET_STAT_STRINGS "Not Registered", "Registered Home", "Not Registered, Searching", "Registration Denied", "Unknown", "Registered Roaming", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t);
 
+typedef enum {
+	WAT_PIN_READY,					/* ME is not pending for any password */
+	WAT_PIN_SIM_PIN,				/* ME is waiting for SIM PIN to be given */
+	WAT_PIN_SIM_PUK,				/* ME is waiting for SIM PUK to be given */
+	WAT_PIN_PH_SIM_PIN,				/* ME is waiting for phone-to-sim card password to be given */
+	WAT_PIN_PH_FSIM_PIN,			/* ME is waiting phone-to-very first SIM card password to be given */
+	WAT_PIN_PH_FSIM_PUK,			/* ME is waiting for phone-to-very first SIM card unblocking password to be given */
+	WAT_PIN_SIM_PIN2,				/* ME is waiting for SIM PIN 2 to be given */
+	WAT_PIN_SIM_PUK2,				/* ME is waiting for SIM PUK 2 to be given */
+	WAT_PIN_PH_NET_PIN,				/* ME is waiting network personalization password to be given */
+	WAT_PIN_PH_NET_PUK, 			/* ME is waiting network personalization unblocking password to be given */
+	WAT_PIN_PH_NETSUB_PIN,			/* ME is waiting network subset personalization password to be given */
+	WAT_PIN_PH_NETSUB_PUK,			/* ME is waiting netowrk subset personalization unblocking password to be given */
+	WAT_PIN_PH_SP_PIN,				/* ME is waiting service provider personalization password to be given */
+	WAT_PIN_PH_SP_PUK,				/* ME is waiting service provider personalization unblocking password to be given */
+	WAT_PIN_PH_CORP_PIN,			/* ME is waiting corporate personalization password to be given */
+	WAT_PIN_PH_CORP_PUK,			/* ME is waiting corporate personalization unblocking password to be given */
+	WAT_PIN_PH_MCL_PIN,  			/* ME is waiting for Multi Country Lock password to be given */
+	WAT_PIN_INVALID,				/* Invalid Response */
+} wat_pin_stat_t;
+
+#define WAT_PIN_STAT_STRINGS "Ready", "SIM PIN required", "SIM PUK required", "PH-SIM PIN required", \
+						"PH-First SIM PIN required", "PH-First SIM PUK required", \
+						"SIM PIN 2 required", "SIM PUK 2 required", \
+						"PH-NET PIN required", "PH-NET PUK required", \
+						"PH-NETSUB PIN required", "PH-NETSUB PUK required", \
+						"PH-SP PIN required", "PH-SP PUK required" \
+						"PH-CORP PIN required", "PH-CORP PUK required" \
+						"PH-MCL PIN required", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_pin_stat, wat_pin_stat2str, wat_pin_stat_t);
+
+#define WAT_PIN_CHIP_STAT_STRINGS "READY", "SIM PIN", "SIM PUK", "PH-SIM PIN", \
+						"PH-FSIM PIN", "PH-FSIM PUK", \
+						"SIM PIN2", "SIM PUK2" \
+						"PH-NET PIN", "PH-NET PUK", \
+						"PH-NETSUB PIN", "PH-NETSUB PUK", \
+						"PH-SP PIN", "PH-SP PUK" \
+						"PH-CORP PIN", "PH-CORP PUK" \
+						"PH-MCL PIN", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_chip_pin_stat, wat_chip_pin_stat2str, wat_pin_stat_t);
+
 typedef struct {
 	wat_net_stat_t stat;
 	uint8_t lac;	/* Local Area Code for the currently registered on cell */
@@ -297,8 +338,9 @@ typedef struct _wat_span_config_t {
 
 	/* Timeouts */
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
+	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
-	uint32_t signal_poll_interval;	/* How often to check for signal quality */
+	uint32_t signal_poll_interval;	/* How often to check for signal quality */	
 } wat_span_config_t;
 
 typedef void (*wat_sigstatus_change_func_t)(uint8_t span_id, wat_sigstatus_t sigstatus);
@@ -361,9 +403,12 @@ WAT_DECLARE(const wat_chip_info_t*) wat_span_get_chip_info(uint8_t span_id);
 WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id);
 WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id);
 WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id);
+WAT_DECLARE(const wat_pin_stat_t*) wat_span_get_pin_info(uint8_t span_id);
+
 WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi);
 WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
+WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
 
 #define WAT_AT_CMD_RESPONSE_ARGS (uint8_t span_id, char *tokens[], wat_bool_t success, void *obj, char *error)
 #define WAT_AT_CMD_RESPONSE_FUNC(name) static int (name)  WAT_AT_CMD_RESPONSE_ARGS

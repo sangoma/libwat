@@ -51,6 +51,9 @@ WAT_STR2ENUM_P(wat_str2wat_clcc_stat, wat_clcc_stat2str, wat_clcc_stat_t);
 WAT_ENUM_NAMES(WAT_CLCC_STAT_NAMES, WAT_CLCC_STAT_STRINGS)
 WAT_STR2ENUM(wat_str2wat_clcc_stat, wat_clcc_stat2str, wat_clcc_stat_t, WAT_CLCC_STAT_NAMES, WAT_CLCC_STAT_INVALID)
 
+WAT_ENUM_NAMES(WAT_PIN_CHIP_STAT_NAMES, WAT_PIN_CHIP_STAT_STRINGS)
+WAT_STR2ENUM(wat_str2wat_chip_pin_stat, wat_chip_pin_stat2str, wat_pin_stat_t, WAT_PIN_CHIP_STAT_NAMES, WAT_PIN_INVALID)
+
 typedef struct {
 	unsigned id;
 	unsigned dir;
@@ -91,13 +94,13 @@ static struct terminator terminators[] = {
 	{ ">", WAT_TRUE, WAT_TERM_SMS }
 };
 
-struct error_code {
+struct enum_code {
 	uint32_t code;
 	char *string;
 };
 
 /* GSM Equipment related codes */
-static struct error_code cme_codes[] = {
+static struct enum_code cme_codes[] = {
 	{ 0, "Phone failure" },
 	{ 1, "No connection to phone" },
 	{ 2, "phone-adaptor link reserved" },
@@ -194,7 +197,7 @@ static struct error_code cme_codes[] = {
 
 /* GSM Network related codes */
 /* From wwww.smssolutions.net/tutorials/gsm/gsmerrorcodes */
-static struct error_code cms_codes[] = {
+static struct enum_code cms_codes[] = {
 	{ 1, "Unassigned number" },
 	{ 8, "Operator determined barring" },
 	{ 10, "Call bared" },
@@ -285,7 +288,7 @@ static struct error_code cms_codes[] = {
 };
 
 /* TODO: Fill in ext error codes */
-static struct error_code ext_codes[] = {
+static struct enum_code ext_codes[] = {
 	{ -1, "invalid" },
 };
 
@@ -307,7 +310,7 @@ static wat_bool_t wat_match_prefix(char *string, const char *prefix)
 	return WAT_FALSE;
 }
 
-static char *wat_strerror(int error, struct error_code error_table[])
+static char *wat_strerror(int error, struct enum_code error_table[])
 {
 	int i = 0;
 
@@ -341,7 +344,7 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	cmd->cb = cb;
 	cmd->obj = obj;
 	cmd->cmd = wat_strdup(incommand);
-	wat_queue_enqueue(span->cmd_queue, cmd);
+	wat_queue_enqueue(span->cmd_queue, cmd);	
 	return WAT_SUCCESS;
 }
 
@@ -444,6 +447,8 @@ static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t 
 	} else {
 		tokens_consumed = 1;
 	}
+
+	wat_sched_cancel_timer(span->sched, span->timeouts[WAT_TIMEOUT_CMD]);
 
 	span->cmd = NULL;
 
@@ -747,6 +752,28 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 	}
 
 	strncpy(span->chip_info.manufacturer_id, tokens[0], sizeof(span->chip_info.manufacturer_id));
+	WAT_FUNC_DBG_END
+	return 2;
+}
+
+/* Get PIN status */
+WAT_RESPONSE_FUNC(wat_response_cpin)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain PIN status\n");
+		WAT_FUNC_DBG_END
+		return 2;
+	}
+
+	wat_match_prefix(tokens[0], "+CPIN: ");
+	
+	span->pin_status = wat_str2wat_chip_pin_stat(tokens[0]);
+
+	if (span->pin_status != WAT_PIN_READY) {
+		wat_log_span(span, WAT_LOG_WARNING, "PIN Error: %s (%s)\n", wat_pin_stat2str(span->pin_status), tokens[0]);
+	}
+
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -1160,7 +1187,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 								matched = WAT_TRUE;
 
 								/* Keep monitoring the call to find out when the call is anwered */
-								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 								break;
 							
 						}
@@ -1176,14 +1203,14 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 							case 2: /* Dialing */
 								matched = WAT_TRUE;
 								/* Keep monitoring the call to find out when the call is anwered */
-								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 								break;
 							case 3: /* Alerting */
 								wat_call_set_state(call, WAT_CALL_STATE_RINGING);
 							
 								matched = WAT_TRUE;
 								/* Keep monitoring the call to find out when the call is anwered */
-								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+								wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 								break;
 							case 0:
 								matched = WAT_TRUE;
@@ -1199,7 +1226,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 						case 3:
 							matched = WAT_TRUE;
 							/* Keep monitoring the call to find out when the call is anwered */
-							wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+							wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 							break;
 						case 0:
 							matched = WAT_TRUE;
@@ -1562,6 +1589,13 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 
 	wat_free_tokens(cmdtokens);
 	return consumed_tokens;
+}
+
+WAT_SCHEDULED_FUNC(wat_cmd_timeout)
+{
+	wat_span_t *span = (wat_span_t *) data;
+
+	wat_log_span(span, WAT_LOG_ERROR, "Timeout to execute command:%s\n", span->cmd->cmd);
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc)

@@ -100,8 +100,9 @@ char *wat_decode_csq_rssi(char *in, unsigned rssi);
 
 typedef enum {
 	WAT_TIMEOUT_CLIP,
+	WAT_TIMEOUT_CMD,	/* General command time-out, i.e we did not get a response from GSM module */
 	WAT_PROGRESS_MONITOR,
-} wat_call_timeout_id_t;
+} wat_timeout_id_t;
 
 typedef wat_status_t (wat_module_start_func)(wat_span_t *span);
 typedef wat_status_t (wat_module_restart_func)(wat_span_t *span);
@@ -183,8 +184,7 @@ typedef struct {
 	uint32_t flags;
 	wat_direction_t dir; /* Inbound or outbound */
 
-	wat_span_t *span; /* Span on which this call exists */
-	wat_timer_id_t timeouts[WAT_TIMEOUTS_SZ];
+	wat_span_t *span; /* Span on which this call exists */	
 } wat_call_t;
 
 typedef struct {
@@ -281,7 +281,8 @@ struct wat_span {
 	wat_sim_info_t sim_info;
 	wat_net_info_t net_info;	/* Network Registration Report */
 	wat_sig_info_t sig_info;
-
+	wat_pin_stat_t pin_status;
+	
 	wat_bool_t clip;
 
 	wat_span_config_t config;	/* Configuration parameters */
@@ -303,6 +304,8 @@ struct wat_span {
 
 	wat_notify_t *notifys[WAT_MAX_NOTIFYS_PER_SPAN];
 	unsigned notify_count;
+
+	wat_timer_id_t timeouts[WAT_TIMEOUTS_SZ];
 
 	uint8_t sms_write;			/* We are currently writing an SMS, cannot process anything else */
 	wat_sms_type_t sms_mode;	/* Current mode for SMS */
@@ -350,6 +353,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc);
 WAT_RESPONSE_FUNC(wat_response_ata);
 WAT_RESPONSE_FUNC(wat_response_ath);
 WAT_RESPONSE_FUNC(wat_response_atd);
+WAT_RESPONSE_FUNC(wat_response_cpin);
 WAT_RESPONSE_FUNC(wat_response_cmgs_start);
 WAT_RESPONSE_FUNC(wat_response_cmgs_end);
 WAT_RESPONSE_FUNC(wat_response_cmgf);
@@ -360,6 +364,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip);
 WAT_NOTIFY_FUNC(wat_notify_creg);
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc);
+WAT_SCHEDULED_FUNC(wat_cmd_timeout);
 
 wat_status_t wat_call_create(wat_span_t *span, wat_call_t **call, wat_direction_t dir);
 void wat_call_destroy(wat_call_t **call);

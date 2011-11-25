@@ -87,6 +87,7 @@ void wat_span_run_cmds(wat_span_t *span)
 			sprintf(command, "%s\r\n ", span->cmd->cmd);
 
  			wat_span_write(span, command, strlen(command));
+			wat_sched_timer(span->sched, "command timeout", span->config.timeout_command, wat_cmd_timeout, (void*) span, &span->timeouts[WAT_TIMEOUT_CMD]);
 		}
 	}
 

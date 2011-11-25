@@ -129,7 +129,7 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 		{
 			if (call->dir == WAT_DIRECTION_INCOMING) {
 				/* schedule a CLCC, we may or may not get a CLIP right after CRING */
-				wat_sched_timer(span->sched, "clip_timeout", span->config.timeout_cid_num, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_TIMEOUT_CLIP]);
+				wat_sched_timer(span->sched, "clip_timeout", span->config.timeout_cid_num, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_TIMEOUT_CLIP]);
 			} else {
 				char cmd[40];
 				memset(cmd, 0, sizeof(cmd));
@@ -137,7 +137,7 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 				sprintf(cmd, "ATD%s;", call->called_num.digits);
 				wat_cmd_enqueue(span, cmd, wat_response_atd, call);
 
-				wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
+				wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 			}
 		}
 		break;

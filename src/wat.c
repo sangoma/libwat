@@ -49,6 +49,9 @@ WAT_STR2ENUM(wat_str2wat_event, wat_event2str, wat_event_id_t, WAT_EVENT_NAMES, 
 WAT_ENUM_NAMES(WAT_NET_STAT_NAMES, WAT_NET_STAT_STRINGS)
 WAT_STR2ENUM(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t, WAT_NET_STAT_NAMES, WAT_NET_INVALID)
 
+WAT_ENUM_NAMES(WAT_PIN_STAT_NAMES, WAT_PIN_STAT_STRINGS)
+WAT_STR2ENUM(wat_str2wat_pin_stat, wat_pin_stat2str, wat_pin_stat_t, WAT_PIN_STAT_NAMES, WAT_PIN_INVALID)
+
 WAT_ENUM_NAMES(WAT_CSQ_BER_NAMES, WAT_CSQ_BER_STRINGS)
 WAT_STR2ENUM(wat_str2wat_csq_ber, wat_csq_ber2str, wat_csq_ber_t, WAT_CSQ_BER_NAMES, WAT_CSQ_BER_NOT_DETECTABLE)
 
@@ -281,6 +284,9 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Call module specific start here */
 	span->module.start(span);
 
+	/* Check the PIN status, this will also report if there is no SIM inserted */
+	wat_cmd_enqueue(span, "AT+CPIN?", wat_response_cpin, NULL);
+
 	/* Get some information about the chip */
 	
 	/* Get Module Manufacturer Name */
@@ -297,9 +303,6 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 
 	/* Get Module IMSI */
 	wat_cmd_enqueue(span, "AT+CIMI", wat_response_cimi, NULL);
-
-	/* Own Number */
-	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
 
 	/* Signal Quality */
 	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, NULL);
@@ -432,11 +435,11 @@ WAT_DECLARE(const wat_chip_info_t*) wat_span_get_chip_info(uint8_t span_id)
 WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id)
 {
 	wat_span_t *span;
-	WAT_SPAN_FUNC_DBG_START
-
+	
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
 
+	WAT_SPAN_FUNC_DBG_START
 	WAT_FUNC_DBG_END
 	return &span->sim_info;
 }
@@ -445,11 +448,10 @@ WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id)
 {
 	wat_span_t *span;
 
-	WAT_SPAN_FUNC_DBG_START
-
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
 
+	WAT_SPAN_FUNC_DBG_START
 	WAT_FUNC_DBG_END
 	return &span->net_info;
 }
@@ -458,13 +460,24 @@ WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id)
 {
 	wat_span_t *span;
 
+	span = wat_get_span(span_id);
+	wat_assert_return(span, NULL, "Invalid span");
+
 	WAT_SPAN_FUNC_DBG_START
+	WAT_FUNC_DBG_END
+	return &span->sig_info;
+}
+
+WAT_DECLARE(const wat_pin_stat_t*) wat_span_get_pin_info(uint8_t span_id)
+{
+	wat_span_t *span;
 
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
 
+	WAT_SPAN_FUNC_DBG_START
 	WAT_FUNC_DBG_END
-	return &span->sig_info;
+	return &span->pin_status;
 }
 
 WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
@@ -727,8 +740,14 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 		g_interface.wat_sigstatus_change(span->id, span->sigstatus);
 	}
 
-	/* Get the Operator Name */
-	wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL);
+	if (span->sigstatus == WAT_SIGSTATUS_UP) {
+		/* Get the Operator Name */
+		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL);
+
+		/* Own Number */
+		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
+	}
+
 	return WAT_SUCCESS;
 }
 
@@ -761,6 +780,11 @@ WAT_DECLARE(const char *) wat_decode_ber(unsigned ber)
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause)
 {
 	return wat_sms_cause2str(cause);
+}
+
+WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status)
+{
+	return wat_pin_stat2str(pin_status);
 }
 
 /* For Emacs:
