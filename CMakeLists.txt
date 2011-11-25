@@ -7,5 +7,10 @@ PROJECT(libwat)
 
 ADD_DEFINITIONS(-ggdb3 -O0 -Wall -Wshadow -Wcast-qual -Wcast-align -Wchar-subscripts -Wmissing-prototypes -Wmissing-declarations)
 
+SET(wat_VERSION_LT_CURRENT 0)
+SET(wat_VERSION_LT_REVISION 0)
+SET(wat_VERSION_LT_AGE 0)
+
 ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(test)
+
