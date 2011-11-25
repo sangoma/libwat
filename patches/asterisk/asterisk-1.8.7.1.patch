@@ -1,0 +1,2223 @@
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/build_tools/menuselect-deps.in asterisk-1.8.7.1.wat/build_tools/menuselect-deps.in
+--- asterisk-1.8.7.1/build_tools/menuselect-deps.in	2010-12-17 18:52:04.000000000 -0500
++++ asterisk-1.8.7.1.wat/build_tools/menuselect-deps.in	2011-11-25 17:31:07.000000000 -0500
+@@ -43,6 +43,7 @@
+ POPT=@PBX_POPT@
+ PORTAUDIO=@PBX_PORTAUDIO@
+ PRI=@PBX_PRI@
++WAT=@PBX_WAT@
+ OPENR2=@PBX_OPENR2@
+ RESAMPLE=@PBX_RESAMPLE@
+ AIS=@PBX_AIS@
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/channels/chan_dahdi.c asterisk-1.8.7.1.wat/channels/chan_dahdi.c
+--- asterisk-1.8.7.1/channels/chan_dahdi.c	2011-09-19 12:57:40.000000000 -0400
++++ asterisk-1.8.7.1.wat/channels/chan_dahdi.c	2011-11-25 16:35:02.000000000 -0500
+@@ -44,6 +44,7 @@
+ 	<use>pri</use>
+ 	<use>ss7</use>
+ 	<use>openr2</use>
++	<use>wat</use>
+ 	<support_level>core</support_level>
+  ***/
+ 
+@@ -85,6 +86,10 @@
+ #include <openr2.h>
+ #endif
+ 
++#ifdef HAVE_WAT
++#include "sig_wat.h"
++#endif
++
+ #include "asterisk/lock.h"
+ #include "asterisk/channel.h"
+ #include "asterisk/config.h"
+@@ -318,7 +323,7 @@
+ #define NEED_MFDETECT(p) (((p)->sig == SIG_FEATDMF) || ((p)->sig == SIG_FEATDMF_TA) || ((p)->sig == SIG_E911) || ((p)->sig == SIG_FGC_CAMA) || ((p)->sig == SIG_FGC_CAMAMF) || ((p)->sig == SIG_FEATB))
+ 
+ static const char tdesc[] = "DAHDI Telephony Driver"
+-#if defined(HAVE_PRI) || defined(HAVE_SS7) || defined(HAVE_OPENR2)
++#if defined(HAVE_PRI) || defined(HAVE_SS7) || defined(HAVE_OPENR2) || defined(HAVE_WAT)
+ 	" w/"
+ 	#if defined(HAVE_PRI)
+ 		"PRI"
+@@ -335,6 +340,13 @@
+ 		#endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) */
+ 		"MFC/R2"
+ 	#endif	/* defined(HAVE_OPENR2) */
++	#ifdef HAVE_WAT
++		#if defined(HAVE_PRI) || defined(HAVE_SS7) || defined (HAVE_WAT)
++		" & "
++		#endif  /* defined(HAVE_PRI) || defined(HAVE_SS7) || defined (HAVE_WAT) */
++		"WAT"
++	#endif /* HAVE_WAT */
++
+ #endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) || defined(HAVE_OPENR2) */
+ ;
+ 
+@@ -359,6 +371,7 @@
+ #define SIG_BRI		(0x2000000 | DAHDI_SIG_CLEAR)
+ #define SIG_BRI_PTMP	(0X4000000 | DAHDI_SIG_CLEAR)
+ #define SIG_SS7		(0x1000000 | DAHDI_SIG_CLEAR)
++#define SIG_GSM                (0x8000000 | DAHDI_SIG_CLEAR)
+ #define SIG_MFCR2 	DAHDI_SIG_CAS
+ #define	SIG_SF		DAHDI_SIG_SF
+ #define SIG_SFWINK 	(0x0100000 | DAHDI_SIG_SF)
+@@ -583,6 +596,16 @@
+ 
+ #endif /* HAVE_OPENR2 */
+ 
++#ifdef HAVE_WAT
++struct dahdi_wat {
++	int sigchannel; /*!< What channel is the UART channel on */
++	struct sig_wat_span wat;
++};
++
++static struct dahdi_wat wats[NUM_SPANS];
++#endif
++
++
+ #ifdef HAVE_PRI
+ 
+ struct dahdi_pri {
+@@ -966,6 +989,10 @@
+ 	 */
+ 	unsigned int manages_span_alarms:1;
+ 
++#if defined(HAVE_WAT)
++	struct sig_wat_span *wat;
++#endif
++
+ #if defined(HAVE_PRI)
+ 	struct sig_pri_span *pri;
+ 	int logicalspan;
+@@ -1332,6 +1359,11 @@
+ #ifdef HAVE_OPENR2
+ 	struct dahdi_mfcr2_conf mfcr2;
+ #endif
++
++#ifdef HAVE_WAT
++	struct dahdi_wat wat;
++#endif
++
+ 	struct dahdi_params timing;
+ 	int is_sig_auto; /*!< Use channel signalling from DAHDI? */
+ 	/*! Continue configuration even if a channel is not there. */
+@@ -1377,6 +1409,16 @@
+ 			.resetinterval = -1,
+ 		},
+ #endif
++#ifdef HAVE_WAT
++		.wat.wat.wat_cfg = {
++			.moduletype = WAT_MODULE_TELIT,
++			.timeout_cid_num = 500,
++			.timeout_command = 2000,
++			.progress_poll_interval = 750,
++			.signal_poll_interval = 60*1000,
++		},
++#endif
++
+ #if defined(HAVE_SS7)
+ 		.ss7.ss7 = {
+ 			.called_nai = SS7_NAI_NATIONAL,
+@@ -1546,6 +1588,32 @@
+ 	return handles;
+ }
+ 
++#ifdef HAVE_WAT
++/*!
++ * \internal
++ * \brief Determine if sig_wat handles the signaling.
++ *
++ * \param signaling Signaling to determine if is for sig_wat.
++ *
++ * \return TRUE if the signaling is for sig_wat.
++ */
++static inline int dahdi_sig_wat_lib_handles(int signaling)
++{
++	int handles;
++
++	switch (signaling) {
++		case SIG_GSM:
++			handles = 1;
++			break;
++		default:
++			handles = 0;
++			break;
++	}
++
++	return handles;
++}
++#endif
++
+ static enum analog_sigtype dahdisig_to_analogsig(int sig)
+ {
+ 	switch (sig) {
+@@ -2546,6 +2614,37 @@
+ }
+ #endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) */
+ 
++#ifdef HAVE_WAT
++static struct ast_channel *my_new_wat_ast_channel(void *pvt, int state, int startpbx, int sub, const struct ast_channel *requestor)
++{
++	int dahdi_sub;
++	int audio = 1;
++	struct dahdi_pvt *p = pvt;
++
++	switch (sub) {
++		case WAT_CALL_SUB_REAL:
++			dahdi_sub = SUB_REAL;
++			break;
++		case WAT_CALL_SUB_CALLWAIT:
++			dahdi_sub = SUB_CALLWAIT;
++			break;
++		case WAT_CALL_SUB_THREEWAY:
++			dahdi_sub = SUB_THREEWAY;
++			break;
++		default:
++			ast_log(LOG_ERROR, "Invalid sub!\n");
++			dahdi_sub = SUB_REAL;
++	}
++
++	if (ioctl(p->subs[SUB_REAL].dfd, DAHDI_AUDIOMODE, &audio) == -1) {
++		ast_log(LOG_WARNING, "Unable to set audio mode on channel %d to %d: %s\n",
++							p->channel, audio, strerror(errno));
++	}
++
++	return dahdi_new(p, state, startpbx, dahdi_sub, DAHDI_LAW_ALAW, requestor ? requestor->linkedid : "");
++}
++#endif /* defined (HAVE_WAT) */
++
+ #if defined(HAVE_PRI)
+ static struct ast_channel *my_new_pri_ast_channel(void *pvt, int state, enum sig_pri_law law, char *exten, const struct ast_channel *requestor)
+ {
+@@ -2991,6 +3090,7 @@
+ 	return dahdi_set_hook(p->subs[ANALOG_SUB_REAL].dfd, DAHDI_ONHOOK);
+ }
+ 
++
+ #if defined(HAVE_PRI)
+ static void my_pri_fixup_chans(void *chan_old, void *chan_new)
+ {
+@@ -3347,6 +3447,102 @@
+ };
+ #endif	/* defined(HAVE_PRI) */
+ 
++#ifdef HAVE_WAT
++static void wat_handle_sig_exception(struct sig_wat_span *wat)
++{
++	int x;
++	ioctl(wat->fd, DAHDI_GETEVENT, &x);
++	if (x) {
++		ast_log(LOG_NOTICE, "WAT got event: %s (%d) on signalling channel of span %d\n", event2str(x), x, wat->span);
++	}
++	/* Keep track of alarm state */
++	switch (x) {
++		case DAHDI_EVENT_ALARM:
++			wat_event_alarm(wat);
++			break;
++		case DAHDI_EVENT_NOALARM:
++			wat_event_noalarm(wat);
++			break;
++		default:
++			break;
++	}
++}
++
++/*!
++ * \internal
++ * \brief Open the WAT channel media path.
++ * \since 1.8
++ *
++ * \param p Channel private control structure.
++ *
++ * \return Nothing
++ */
++static void my_wat_open_media(void *p)
++{
++	struct dahdi_pvt *pvt = p;
++	int res;
++	int dfd;
++	int set_val;
++
++	dfd = pvt->subs[SUB_REAL].dfd;
++
++	/* Open the media path. */
++	set_val = 1;
++	res = ioctl(dfd, DAHDI_AUDIOMODE, &set_val);
++	if (res < 0) {
++		ast_log(LOG_WARNING, "Unable to enable audio mode on channel %d (%s)\n",
++				pvt->channel, strerror(errno));
++	}
++
++#if 0 /* TODO: find equivalent */
++	/* Set correct companding law for this call. */
++	res = dahdi_setlaw(dfd, pvt->law);
++	if (res < 0) {
++		ast_log(LOG_WARNING, "Unable to set law on channel %d\n", pvt->channel);
++	}
++
++	/* Set correct gain for this call. */
++	if (pvt->digital) {
++		res = set_actual_gain(dfd, 0, 0, pvt->rxdrc, pvt->txdrc, pvt->law);
++	} else {
++		res = set_actual_gain(dfd, pvt->rxgain, pvt->txgain, pvt->rxdrc, pvt->txdrc, pvt->law);
++	}
++	if (res < 0) {
++		ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", pvt->channel);
++	}
++	
++	if (pvt->dsp_features && pvt->dsp) {
++		ast_dsp_set_features(pvt->dsp, pvt->dsp_features);
++		pvt->dsp_features = 0;
++	}
++#endif
++}
++
++static struct sig_wat_callback dahdi_wat_callbacks =
++{
++	.lock_private = my_lock_private,
++	.unlock_private = my_unlock_private,
++	.deadlock_avoidance_private = my_deadlock_avoidance_private,
++
++	.set_echocanceller = my_set_echocanceller,
++	.deadlock_avoidance_private = my_deadlock_avoidance_private,
++	.new_ast_channel = my_new_wat_ast_channel,
++	//.play_tone = my_wat_play_tone,
++
++	.handle_sig_exception = wat_handle_sig_exception,
++	.set_alarm = my_set_alarm,
++	.set_dialing = my_set_dialing,
++	//.set_digital = my_set_digital,
++	//.set_inservice = my_set_inservice,
++	.set_callerid = my_set_callerid,
++	.set_dnid = my_set_dnid,
++	.module_ref = my_module_ref,
++	.module_unref = my_module_unref,
++	.open_media = my_wat_open_media,
++	.set_new_owner = my_set_new_owner,
++};
++#endif /* defined (HAVE_WAT) */
++
+ #if defined(HAVE_SS7)
+ /*!
+  * \internal
+@@ -4282,6 +4478,14 @@
+ }
+ #endif	/* defined(HAVE_PRI) */
+ 
++#ifdef HAVE_WAT
++static void dahdi_close_wat_fd(struct dahdi_wat *wat)
++{
++	dahdi_close(wat->wat.fd);
++	wat->wat.fd = -1;
++}
++#endif
++
+ #if defined(HAVE_SS7)
+ static void dahdi_close_ss7_fd(struct dahdi_ss7 *ss7, int fd_num)
+ {
+@@ -4567,6 +4771,8 @@
+ 		return "SF (Tone) with Feature Group D (MF)";
+ 	case SIG_SF_FEATB:
+ 		return "SF (Tone) with Feature Group B (MF)";
++	case SIG_GSM:
++		return "GSM";
+ 	case 0:
+ 		return "Pseudo";
+ 	default:
+@@ -5317,6 +5523,14 @@
+ 	}
+ #endif
+ 
++#ifdef HAVE_WAT
++	if (dahdi_sig_wat_lib_handles(p->sig)) {
++		res = sig_wat_call(p->sig_pvt, ast, rdest);
++		ast_mutex_unlock(&p->lock);
++		return res;
++	}
++#endif
++
+ #if defined(HAVE_SS7)
+ 	if (p->sig == SIG_SS7) {
+ 		res = sig_ss7_call(p->sig_pvt, ast, rdest);
+@@ -6149,6 +6363,43 @@
+ 	}
+ #endif	/* defined(HAVE_PRI) */
+ 
++#ifdef HAVE_WAT
++	if (dahdi_sig_wat_lib_handles(p->sig)) {
++		x = 1;
++		ast_channel_setoption(ast, AST_OPTION_AUDIO_MODE, &x, sizeof(char), 0);
++
++		dahdi_confmute(p, 0);
++		p->muting = 0;
++		restore_gains(p);
++		if (p->dsp) {
++				ast_dsp_free(p->dsp);
++				p->dsp = NULL;
++		}
++		p->ignoredtmf = 0;
++
++		/* Real channel, do some fixup */
++		p->subs[SUB_REAL].owner = NULL;
++		p->subs[SUB_REAL].needbusy = 0;
++		dahdi_setlinear(p->subs[SUB_REAL].dfd, 0);
++
++		p->owner = NULL;
++		p->cid_tag[0] = '\0';
++
++		p->outgoing = 0;
++
++		revert_fax_buffers(p, ast);
++
++		sig_wat_hangup(p->sig_pvt, ast);
++
++		dahdi_disable_ec(p);
++
++		update_conf(p);
++		reset_conf(p);
++
++		goto hangup_out;
++	}
++#endif /* HAVE_WAT */
++
+ #if defined(HAVE_SS7)
+ 	if (p->sig == SIG_SS7) {
+ 		x = 1;
+@@ -6378,6 +6629,7 @@
+ 		switch (p->sig) {
+ 		case SIG_SS7:
+ 		case SIG_MFCR2:
++		case SIG_GSM:
+ 		case SIG_PRI_LIB_HANDLE_CASES:
+ 		case 0:
+ 			break;
+@@ -6503,6 +6755,11 @@
+ 		res = sig_pri_answer(p->sig_pvt, ast);
+ 		break;
+ #endif	/* defined(HAVE_PRI) */
++#if defined(HAVE_WAT)
++	case SIG_GSM:
++		res = sig_wat_answer(p->sig_pvt, ast);
++		break;
++#endif
+ #if defined(HAVE_SS7)
+ 	case SIG_SS7:
+ 		res = sig_ss7_answer(p->sig_pvt, ast);
+@@ -12124,6 +12381,9 @@
+ #if defined(HAVE_SS7)
+ 	struct sig_ss7_chan *ss7_chan = NULL;
+ #endif	/* defined(HAVE_SS7) */
++#ifdef HAVE_WAT
++	struct sig_wat_chan *wat_chan = NULL;
++#endif
+ 
+ 	/* Search channel interface list to see if it already exists. */
+ 	for (tmp = iflist; tmp; tmp = tmp->next) {
+@@ -12220,6 +12480,63 @@
+ 				}
+ 				tmp->sig_pvt = analog_p;
+ 			}
++
++#ifdef HAVE_WAT
++			if (chan_sig == SIG_GSM) {
++				int offset;
++				int matchessigchan;
++				int x;
++
++				offset = (channel - p.chanpos) + 2;
++
++				if (ioctl(tmp->subs[SUB_REAL].dfd, DAHDI_AUDIOMODE, &offset)) {
++					ast_log(LOG_ERROR, "Unable to set clear mode on clear channel %d of span %d: %s\n", channel, p.spanno, strerror(errno));
++					destroy_dahdi_pvt(tmp);
++					return NULL;
++				}
++				if (span >= NUM_SPANS) {
++					ast_log(LOG_ERROR, "Channel %d does not lie on a span I know of (%d)\n", channel, span);
++					destroy_dahdi_pvt(tmp);
++					return NULL;
++				} else {
++					si.spanno = 0;
++					if (ioctl(tmp->subs[SUB_REAL].dfd,DAHDI_SPANSTAT,&si) == -1) {
++						ast_log(LOG_ERROR, "Unable to get span status: %s\n", strerror(errno));
++						destroy_dahdi_pvt(tmp);
++						return NULL;
++					}
++
++					wats[span].sigchannel = offset;
++					wats[span].wat.span = span;
++					wats[span].wat.wat_span_id = span + 1;
++
++					/* Make sure this isn't a sig-channel */
++					matchessigchan=0;
++					for (x = 0; x < NUM_SPANS; x++) {
++						if (wats[x].sigchannel == tmp->channel) {
++							matchessigchan = 1;
++							break;
++						}
++					}
++
++					if (!matchessigchan) {
++						ast_debug(4, "Adding callbacks %p to chan %d\n", &dahdi_wat_callbacks, tmp->channel);
++						wat_chan = sig_wat_chan_new(tmp, &dahdi_wat_callbacks, &wats[span].wat, p.chanpos);
++
++						tmp->sig_pvt = wat_chan;
++						tmp->wat = &wats[span].wat;
++
++						memcpy(&wats[span].wat.wat_cfg, &conf->wat.wat.wat_cfg, sizeof(wats[span].wat.wat_cfg));
++
++						wats[span].wat.pvt = tmp->sig_pvt;
++					} else {
++						destroy_dahdi_pvt(tmp);
++						return NULL;
++					}
++				}
++			}
++#endif
++
+ #if defined(HAVE_SS7)
+ 			if (chan_sig == SIG_SS7) {
+ 				struct dahdi_ss7 *ss7;
+@@ -12767,6 +13084,7 @@
+ 				case SIG_PRI_LIB_HANDLE_CASES:
+ 				case SIG_SS7:
+ 				case SIG_MFCR2:
++				case SIG_GSM:
+ 					break;
+ 				default:
+ 					/* Hang it up to be sure it's good */
+@@ -12786,6 +13104,18 @@
+ 			if ((res = get_alarms(tmp)) != DAHDI_ALARM_NONE) {
+ 				/* the dchannel is down so put the channel in alarm */
+ 				switch (tmp->sig) {
++#ifdef HAVE_WAT
++				case SIG_GSM:
++					if (wat_chan) {
++						wat_chan->channel = tmp->channel;
++						ast_copy_string(wat_chan->context, tmp->context,
++														sizeof(wat_chan->context));
++						ast_copy_string(wat_chan->mohinterpret, tmp->mohinterpret,
++														sizeof(wat_chan->mohinterpret));
++					}
++					break;
++#endif /* defined (HAVE_WAT) */
++
+ #ifdef HAVE_PRI
+ 				case SIG_PRI_LIB_HANDLE_CASES:
+ 					sig_pri_set_alarm(tmp->sig_pvt, !si.alarms);
+@@ -13886,6 +14216,60 @@
+ }
+ #endif /* HAVE_OPENR2 */
+ 
++#ifdef HAVE_WAT
++static int prepare_wat(struct dahdi_wat *wat)
++{
++	int res, x;
++	struct dahdi_params p;
++	struct dahdi_bufferinfo bi;
++	struct dahdi_spaninfo si;
++
++	wat->wat.calls = &dahdi_wat_callbacks;
++
++	wat->wat.fd = open("/dev/dahdi/channel", O_RDWR);
++	x = wat->sigchannel;
++	if ((wat->wat.fd < 0) || (ioctl(wat->wat.fd,DAHDI_SPECIFY,&x) == -1)) {
++		ast_log(LOG_ERROR, "Unable to open D-channel %d (%s)\n", x, strerror(errno));
++		return -1;
++	}
++	memset(&p, 0, sizeof(p));
++	res = ioctl(wat->wat.fd, DAHDI_GET_PARAMS, &p);
++	if (res) {
++		dahdi_close_wat_fd(wat);
++		ast_log(LOG_ERROR, "Unable to get parameters for Sig-channel %d (%s)\n", x, strerror(errno));
++		return -1;
++	}
++	if ((p.sigtype != DAHDI_SIG_HDLCFCS) && (p.sigtype != DAHDI_SIG_HARDHDLC)) {
++		dahdi_close_wat_fd(wat);
++		ast_log(LOG_ERROR, "Sig-channel %d is not in HDLC/FCS mode.\n", x);
++		return -1;
++	}
++	memset(&si, 0, sizeof(si));
++	res = ioctl(wat->wat.fd, DAHDI_SPANSTAT, &si);
++	if (res) {
++		dahdi_close_wat_fd(wat);
++		ast_log(LOG_ERROR, "Unable to get span state for Sig-channel %d (%s)\n", x, strerror(errno));
++	}
++	if (!si.alarms) {
++		wat_event_noalarm(&wat->wat);
++	} else {
++		wat_event_alarm(&wat->wat);
++	}
++	memset(&bi, 0, sizeof(bi));
++	bi.txbufpolicy = DAHDI_POLICY_IMMEDIATE;
++	bi.rxbufpolicy = DAHDI_POLICY_IMMEDIATE;
++	bi.numbufs = 32;
++	bi.bufsize = 1024;
++	if (ioctl(wat->wat.fd, DAHDI_SET_BUFINFO, &bi)) {
++		ast_log(LOG_ERROR, "Unable to set appropriate buffering on channel %d: %s\n", x, strerror(errno));
++		dahdi_close_wat_fd(wat);
++		return -1;
++	}
++	return 0;
++}
++#endif /* HAVE_WAT */
++
++
+ #if defined(HAVE_PRI)
+ #ifndef PRI_RESTART
+ #error "Upgrade your libpri"
+@@ -14915,6 +15299,19 @@
+ 	}
+ #endif
+ 
++#if defined(HAVE_WAT)
++	for (i = 0; i < NUM_SPANS; i++) {
++		if (wats[i].wat.master && (wats[i].wat.master != AST_PTHREADT_NULL)) {
++			cancel_code = pthread_cancel(wats[i].wat.master);
++			pthread_kill(wats[i].wat.master, SIGURG);
++			ast_debug(4, "Waiting to join thread of span %d with pid=%p, cancel_code=%d\n", i, (void *) wats[i].wat.master, cancel_code);
++			pthread_join(wats[i].wat.master, NULL);
++			ast_debug(4, "Joined thread of span %d\n", i);
++		}
++	}
++#endif
++
++
+ #if defined(HAVE_SS7)
+ 	for (i = 0; i < NUM_SPANS; i++) {
+ 		if (linksets[i].ss7.master && (linksets[i].ss7.master != AST_PTHREADT_NULL)) {
+@@ -16351,6 +16748,161 @@
+ };
+ #endif	/* defined(HAVE_SS7) */
+ 
++static char *handle_wat_send_sms(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
++{
++	int span;
++
++	switch (cmd) {
++		case CLI_INIT:
++			e->command = "wat send sms";
++			e->usage = "Usage: wat send sms <span> <number> <sms>\n"
++					   "       Send a sms on <span> <number> <sms>\n";
++		return NULL;
++		case CLI_GENERATE:
++			return NULL;
++	}
++
++	if (a->argc < 6)
++		return CLI_SHOWUSAGE;
++
++	span = atoi(a->argv[3]);
++	if ((span < 1) || (span > NUM_SPANS)) {
++		ast_cli(a->fd, "Invalid span '%s'.  Should be a number from %d to %d\n", a->argv[3], 1, NUM_SPANS);
++		return CLI_SUCCESS;
++	}
++
++	if (!wats[span-1].wat.wat_span_id) {
++		ast_cli(a->fd, "No WAT running on span %d\n", span);
++		return CLI_SUCCESS;
++	}
++
++	sig_wat_cli_send_sms(a->fd, &wats[span-1].wat, a->argv[4], a->argv[5]);
++	return CLI_SUCCESS;
++}
++
++static char *handle_wat_show_spans(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
++{
++	int span;
++
++	switch (cmd) {
++		case CLI_INIT:
++			e->command = "wat show spans";
++			e->usage = "Usage: wat show spans\n"
++						"       Displays WAT span information\n";
++			return NULL;
++		case CLI_GENERATE:
++			return NULL;
++	}
++
++	if (a->argc != 3)
++		return CLI_SHOWUSAGE;
++
++	for (span = 0; span < NUM_SPANS; span++) {
++		if (wats[span].wat.wat_span_id) {
++			sig_wat_cli_show_spans(a->fd, span + 1, &wats[span].wat);
++		}
++	}
++	return CLI_SUCCESS;
++}
++
++static char *handle_wat_show_span(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
++{
++	int span;
++
++	switch (cmd) {
++		case CLI_INIT:
++			e->command = "wat show span";
++			e->usage = "Usage: wat show span <span>\n"
++						"       Displays GSM Information on a given WAT span\n";
++			return NULL;
++		case CLI_GENERATE:
++			return complete_span_4(a->line, a->word, a->pos, a->n);
++	}
++
++	if (a->argc < 4)
++		return CLI_SHOWUSAGE;
++
++	span = atoi(a->argv[3]);
++	if ((span < 1) || (span > NUM_SPANS)) {
++		ast_cli(a->fd, "Invalid span '%s'.  Should be a number from %d to %d\n", a->argv[3], 1, NUM_SPANS);
++		return CLI_SUCCESS;
++	}
++
++	if (!wats[span-1].wat.wat_span_id) {
++		ast_cli(a->fd, "No WAT running on span %d\n", span);
++		return CLI_SUCCESS;
++	}
++
++	sig_wat_cli_show_span(a->fd, &wats[span-1].wat);
++
++	return CLI_SUCCESS;
++}
++
++static char *handle_wat_version(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
++{
++	unsigned char current = 0;
++	unsigned char revision = 0;
++	unsigned char age = 0;
++
++	switch (cmd) {
++		case CLI_INIT:
++			e->command = "wat show version";
++			e->usage = "Usage: wat show version\n"
++						"       Show the libwat version\n";
++			return NULL;
++		case CLI_GENERATE:
++			return NULL;
++	}
++
++	wat_version(&current, &revision, &age);
++	ast_cli(a->fd, "libwat version: %d.%d.%d\n", current, revision, age);
++
++	return CLI_SUCCESS;
++}
++
++static char *handle_wat_exec_at(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
++{
++	int span = 0;
++
++	switch (cmd) {
++		case CLI_INIT:
++			e->command = "wat exec";
++			e->usage = "Usage: wat exec <span> <AT command>\n"
++						"       Executes an arbitrary AT command in the given WAT span\n";
++			return NULL;
++		case CLI_GENERATE:
++			return complete_span_4(a->line, a->word, a->pos, a->n);
++	}
++
++	if (a->argc < 4)
++		return CLI_SHOWUSAGE;
++
++	span = atoi(a->argv[2]);
++	if ((span < 1) || (span > NUM_SPANS)) {
++		ast_cli(a->fd, "Invalid span '%s'.  Should be a number from %d to %d\n", a->argv[2], 1, NUM_SPANS);
++		return CLI_SUCCESS;
++	}
++
++	if (!wats[span-1].wat.wat_span_id) {
++		ast_cli(a->fd, "No WAT running on span %d\n", span);
++		return CLI_SUCCESS;
++	}
++
++	sig_wat_cli_exec_at(a->fd, &wats[span-1].wat, a->argv[3]);
++
++	return CLI_SUCCESS;
++}
++
++#if defined(HAVE_WAT)
++static struct ast_cli_entry dahdi_wat_cli[] = {
++	AST_CLI_DEFINE(handle_wat_send_sms, "Sends a SMS"),
++	AST_CLI_DEFINE(handle_wat_show_spans, "Displays WAT span information"),
++	AST_CLI_DEFINE(handle_wat_show_span, "Displays WAT span information"),
++	AST_CLI_DEFINE(handle_wat_exec_at, "Executes an arbitrary AT command"),
++	AST_CLI_DEFINE(handle_wat_version, "Displays libwat version"),
++};
++#endif /* defined(HAVE_WAT) */
++
+ #if defined(HAVE_PRI)
+ #if defined(HAVE_PRI_CCSS)
+ /*!
+@@ -16473,6 +17025,14 @@
+ 	ast_unregister_application(dahdi_send_callrerouting_facility_app);
+ #endif
+ #endif
++#ifdef HAVE_WAT
++	for (i = 0; i < NUM_SPANS; i++) {
++		if (wats[i].wat.master != AST_PTHREADT_NULL)
++		pthread_cancel(wats[i].wat.master);
++	}
++	ast_cli_unregister_multiple(dahdi_wat_cli, ARRAY_LEN(dahdi_wat_cli));
++#endif
++
+ #if defined(HAVE_SS7)
+ 	for (i = 0; i < NUM_SPANS; i++) {
+ 		if (linksets[i].ss7.master != AST_PTHREADT_NULL)
+@@ -16532,6 +17092,18 @@
+ 	sig_pri_unload();
+ #endif
+ 
++#ifdef HAVE_WAT
++	for (i = 0; i < NUM_SPANS; i++) {
++		if (wats[i].wat.master && (wats[i].wat.master != AST_PTHREADT_NULL)) {
++			pthread_join(wats[i].wat.master, NULL);
++			dahdi_close_wat_fd(&wats[i]);
++		}
++		if (wats[i].wat.wat_span_id) {
++			sig_wat_stop_wat(&wats[i].wat);
++		}
++	}
++#endif
++
+ #if defined(HAVE_SS7)
+ 	for (i = 0; i < NUM_SPANS; i++) {
+ 		if (linksets[i].ss7.master && (linksets[i].ss7.master != AST_PTHREADT_NULL))
+@@ -17151,6 +17723,10 @@
+ 				} else if (!strcasecmp(v->value, "mfcr2")) {
+ 					confp->chan.sig = SIG_MFCR2;
+ #endif
++#ifdef HAVE_WAT
++				} else if (!strcasecmp(v->value, "gsm")) {
++					confp->chan.sig = SIG_GSM;
++#endif
+ 				} else if (!strcasecmp(v->value, "auto")) {
+ 					confp->is_sig_auto = 1;
+ 				} else {
+@@ -17159,6 +17735,26 @@
+ 					confp->is_sig_auto = orig_auto;
+ 					ast_log(LOG_ERROR, "Unknown signalling method '%s' at line %d.\n", v->value, v->lineno);
+ 				}
++#ifdef HAVE_WAT
++				} else if (!strcasecmp(v->name, "moduletype")) {
++					if (!strcasecmp(v->value, "telit")) {
++						confp->wat.wat.wat_cfg.moduletype = WAT_MODULE_TELIT;
++					} else {
++						ast_log(LOG_WARNING, "Unknown WAT moduletype '%s' at line %d.\n", v->value, v->lineno);
++					}
++				} else if (!strcasecmp(v->name, "timeout_cid_name")) {
++					if (atoi(v->value) >= 0) {
++						confp->wat.wat.wat_cfg.timeout_cid_num = atoi(v->value);
++					} else {
++						ast_log(LOG_WARNING, "Invalid value for '%s' at line %d.\n", v->value, v->lineno);
++					}
++				} else if (!strcasecmp(v->name, "signal_poll_interval")) {
++					if (atoi(v->value) >= 0) {
++						confp->wat.wat.wat_cfg.signal_poll_interval = atoi(v->value);
++					} else {
++						ast_log(LOG_WARNING, "Invalid value for '%s' at line %d.\n", v->value, v->lineno);
++					}
++#endif
+ 			 } else if (!strcasecmp(v->name, "outsignalling") || !strcasecmp(v->name, "outsignaling")) {
+ 				if (!strcasecmp(v->value, "em")) {
+ 					confp->chan.outsigmod = SIG_EM;
+@@ -18113,6 +18709,22 @@
+ 		}
+ 	}
+ #endif
++#ifdef HAVE_WAT
++	if (reload != 1) {
++		int x;
++		for (x = 0; x < NUM_SPANS; x++) {
++			if (wats[x].wat.pvt) {
++				prepare_wat(wats + x);
++				if (sig_wat_start_wat(&wats[x].wat)) {
++						ast_log(LOG_ERROR, "Unable to start sig-channel on span %d\n", x + 1);
++						return -1;
++				} else
++						ast_verb(2, "Starting signalling monitor on span %d\n", x + 1);
++			}
++		}
++	}
++#endif
++
+ 	/* And start the monitor for the first time */
+ 	restart_monitor();
+ 	return 0;
+@@ -18347,6 +18959,13 @@
+ 	ss7_set_error(dahdi_ss7_error);
+ 	ss7_set_message(dahdi_ss7_message);
+ #endif	/* defined(HAVE_SS7) */
++#ifdef HAVE_WAT
++	sig_wat_load(NUM_SPANS);
++	memset(wats, 0, sizeof(wats));
++	for (y = 0; y < NUM_SPANS; y++) {
++		sig_wat_init_wat(&wats[y].wat);
++	}
++#endif
+ 	res = setup_dahdi(0);
+ 	/* Make sure we can register our DAHDI channel type */
+ 	if (res)
+@@ -18362,11 +18981,14 @@
+ #if defined(HAVE_SS7)
+ 	ast_cli_register_multiple(dahdi_ss7_cli, ARRAY_LEN(dahdi_ss7_cli));
+ #endif	/* defined(HAVE_SS7) */
++#ifdef HAVE_WAT
++	ast_cli_register_multiple(dahdi_wat_cli, ARRAY_LEN(dahdi_wat_cli));
++#endif
+ #ifdef HAVE_OPENR2
+ 	ast_cli_register_multiple(dahdi_mfcr2_cli, ARRAY_LEN(dahdi_mfcr2_cli));
+ 	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
+ #endif
+-
++	
+ 	ast_cli_register_multiple(dahdi_cli, ARRAY_LEN(dahdi_cli));
+ 	/* register all the data providers */
+ 	ast_data_register_multiple(dahdi_data_providers, ARRAY_LEN(dahdi_data_providers));
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/channels/Makefile asterisk-1.8.7.1.wat/channels/Makefile
+--- asterisk-1.8.7.1/channels/Makefile	2010-06-07 16:04:42.000000000 -0400
++++ asterisk-1.8.7.1.wat/channels/Makefile	2011-11-25 16:35:02.000000000 -0500
+@@ -73,8 +73,8 @@
+ iax2-parser.o iax2-provision.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_iax2)
+ $(if $(filter chan_sip,$(EMBEDDED_MODS)),modules.link,chan_sip.so): $(subst .c,.o,$(wildcard sip/*.c))
+ $(subst .c,.o,$(wildcard sip/*.c)): _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_sip)
+-$(if $(filter chan_dahdi,$(EMBEDDED_MODS)),modules.link,chan_dahdi.so): sig_analog.o sig_pri.o sig_ss7.o
+-sig_analog.o sig_pri.o sig_ss7.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_dahdi)
++$(if $(filter chan_dahdi,$(EMBEDDED_MODS)),modules.link,chan_dahdi.so): sig_analog.o sig_pri.o sig_ss7.o sig_wat.o
++sig_analog.o sig_pri.o sig_ss7.o sig_wat.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_dahdi)
+ 
+ ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
+ modules.link: h323/libchanh323.a
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/channels/sig_wat.c asterisk-1.8.7.1.wat/channels/sig_wat.c
+--- asterisk-1.8.7.1/channels/sig_wat.c	1969-12-31 19:00:00.000000000 -0500
++++ asterisk-1.8.7.1.wat/channels/sig_wat.c	2011-11-25 16:35:35.000000000 -0500
+@@ -0,0 +1,979 @@
++/*
++ * Asterisk -- An open source telephony toolkit.
++ *
++ * Copyright (C) 1999 - 2009, Digium, Inc.
++ *
++ * Mark Spencer <markster@digium.com>
++ *
++ * See http://www.asterisk.org for more information about
++ * the Asterisk project. Please do not directly contact
++ * any of the maintainers of this project for assistance;
++ * the project provides a web site, mailing lists and IRC
++ * channels for your use.
++ *
++ * This program is free software, distributed under the terms of
++ * the GNU General Public License Version 2. See the LICENSE file
++ * at the top of the source tree.
++ */
++
++/*! \file
++ *
++ * \brief Wireless AT signaling module
++ *
++ * \author David Yat Sin <dyatsin@sangoma.com>
++ */
++
++#include "asterisk.h"
++
++#ifdef HAVE_WAT
++
++#include <errno.h>
++#include <ctype.h>
++#include <signal.h>
++
++#include "asterisk/cli.h"
++
++#include "sig_wat.h"
++
++#define SIGCHAN_NOTINALARM  (1 << 0)
++#define SIGCHAN_UP          (1 << 1)
++
++#define WAT_DEADLOCK_AVOIDANCE(p) \
++	do { \
++		sig_wat_unlock_private(p); \
++		usleep(1); \
++		sig_wat_lock_private(p); \
++} while (0)
++
++
++#define WAT_NOT_IMPL ast_log(LOG_WARNING, "Function not implemented (%s:%s:%d)\n", __FILE__, __FUNCTION__, __LINE__);
++
++void sig_wat_alarm(unsigned char span_id, wat_alarm_t alarm);
++void *sig_wat_malloc(size_t size);
++void *sig_wat_calloc(size_t nmemb, size_t size);
++void sig_wat_free(void *ptr);
++void sig_wat_log(unsigned char loglevel, char *fmt, ...);
++void sig_wat_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...);
++void sig_wat_assert(char *message);
++int sig_wat_span_write(unsigned char span_id, void *buffer, unsigned len);
++void sig_wat_status_change(unsigned char span_id, wat_sigstatus_t status);
++
++void sig_wat_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event);
++void sig_wat_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *con_status);
++void sig_wat_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_event);
++void sig_wat_rel_cfm(unsigned char span_id, uint8_t call_id);
++void sig_wat_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event);
++void sig_wat_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
++
++static void sig_wat_handle_sigchan_exception(struct sig_wat_span *wat);
++static void sig_wat_handle_sigchan_data(struct sig_wat_span *wat);
++static void sig_wat_lock_private(struct sig_wat_chan *p);
++static void sig_wat_unlock_private(struct sig_wat_chan *p);
++static void wat_queue_control(struct sig_wat_span *wat, int subclass);
++static void sig_wat_set_dialing(struct sig_wat_chan *p, int is_dialing);
++static void sig_wat_lock_owner(struct sig_wat_span *wat);
++
++static int sig_wat_set_echocanceller(struct sig_wat_chan *p, int enable);
++static void sig_wat_open_media(struct sig_wat_chan *p);
++static struct ast_channel *sig_wat_new_ast_channel(struct sig_wat_chan *p, int state, int startpbx, int sub, const struct ast_channel *requestor);
++
++struct sig_wat_span **wat_spans;
++struct sig_wat_sms **wat_smss;
++
++void sig_wat_alarm(unsigned char span_id, wat_alarm_t alarm)
++{
++	ast_log(LOG_WARNING, "Span %d:Alarm %d", span_id, alarm);
++}
++
++void *sig_wat_malloc(size_t size)
++{
++	return ast_malloc(size);
++}
++
++void *sig_wat_calloc(size_t nmemb, size_t size)
++{
++	return ast_calloc(nmemb, size);
++}
++
++void sig_wat_free(void *ptr)
++{
++	return ast_free(ptr);
++}
++
++void sig_wat_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...)
++	__attribute__((format (printf, 3, 0)));
++void sig_wat_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...)
++{
++	char *data;
++	va_list ap;
++
++	va_start(ap, fmt);
++	if (vasprintf(&data, fmt, ap) == -1) {
++		ast_log(LOG_ERROR, "Failed to get arguments to log error\n");
++		return;
++	}
++	sig_wat_log(loglevel, "Span %d:%s", span_id, data);
++	free(data);
++	return;
++}
++
++void sig_wat_log(unsigned char loglevel, char *fmt, ...)
++	__attribute__((format (printf, 2, 0)));
++void sig_wat_log(unsigned char loglevel, char *fmt, ...)
++{
++	char *data;
++	va_list ap;
++
++	va_start(ap, fmt);
++	if (vasprintf(&data, fmt, ap) == -1) {
++		ast_log(LOG_ERROR, "Failed to get arguments to log error\n");
++		return;
++	}
++
++	switch(loglevel) {
++		case WAT_LOG_DEBUG:
++			ast_debug(1, "%s", data);
++			break;
++		case WAT_LOG_NOTICE:
++			ast_verb(3, "%s", data);
++			break;
++		case WAT_LOG_WARNING:
++			ast_log(LOG_WARNING, "%s", data);
++			break;
++		case WAT_LOG_INFO:
++			ast_verb(1, "%s", data);
++			break;		
++		case WAT_LOG_CRIT:
++		case WAT_LOG_ERROR:
++		default:
++			ast_log(LOG_ERROR, "%s", data);
++			break;
++	}
++	free(data);
++	return;
++}
++
++void sig_wat_assert(char *message)
++{
++	ast_log(LOG_ERROR, "%s\n", message);
++	ast_assert(0);
++}
++
++int sig_wat_span_write(unsigned char span_id, void *buffer, unsigned len)
++{
++	int res;
++	struct sig_wat_span *wat = wat_spans[span_id];
++	
++	ast_assert(wat != NULL);
++	
++	res = write(wat->fd, buffer, len);
++	if (res < 0) {
++		if (errno != EAGAIN) {
++			ast_log(LOG_ERROR, "Span %d:Write failed: %s\n", wat->span, strerror(errno));
++		}
++	}
++	if (res != len) {
++		ast_log(LOG_ERROR, "Span %d:Short write %d (len:%d)\n", wat->span + 1, res, len);
++	}
++	return res;
++}
++
++void sig_wat_status_change(unsigned char span_id, wat_sigstatus_t status)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];
++	
++	ast_assert(wat != NULL);
++	
++	if (status == WAT_SIGSTATUS_UP) {
++		ast_verb(2, "Span %d:Signalling up\n", wat->span + 1);
++		wat->sigchanavail |= SIGCHAN_UP;
++	} else {
++		ast_verb(2, "Span %d:Signalling down\n", wat->span + 1);
++		wat->sigchanavail &= ~SIGCHAN_UP;
++	}
++
++}
++
++void sig_wat_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event)
++{
++	struct sig_wat_span *wat;
++	struct ast_channel *chan;
++
++
++	wat = wat_spans[span_id];
++	ast_assert(wat != NULL);
++	ast_assert(con_event->sub < WAT_CALL_SUB_INVALID);
++
++	ast_verb(3, "Span %d: Call Incoming (%s)\n",
++									wat->span + 1,
++									(con_event->sub == WAT_CALL_SUB_REAL) ? "Real":
++									(con_event->sub == WAT_CALL_SUB_CALLWAIT) ? "Call Waiting":
++									(con_event->sub == WAT_CALL_SUB_THREEWAY) ? "3-way":"Invalid");
++
++	sig_wat_lock_private(wat->pvt);
++
++	if (wat->pvt->subs[con_event->sub].allocd) {
++		ast_log(LOG_ERROR, "Span %d: Got CRING/RING but we already had a call. Dropping Call.\n", wat->span + 1);
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}
++
++	/* TODO
++	apply_plan_to_existing_number(plancallingnum, sizeof(plancallingnum), pri,
++	*/
++
++	wat->pvt->subs[con_event->sub].allocd = 1;
++	wat->pvt->subs[con_event->sub].wat_call_id = call_id;
++
++	wat->pvt->remotehangup = 0;
++
++	if (wat->pvt->use_callerid) {
++		/* TODO: Set plan etc.. properly */
++		strcpy(wat->pvt->cid_num, con_event->calling_num.digits);
++	}
++
++	if (ast_exists_extension(NULL, wat->pvt->context, "s", 1, wat->pvt->cid_num)) {
++		sig_wat_unlock_private(wat->pvt);
++		chan = sig_wat_new_ast_channel(wat->pvt, AST_STATE_RING, 0, con_event->sub, NULL);
++		sig_wat_lock_private(wat->pvt);
++		if (chan && !ast_pbx_start(chan)) {
++			ast_verb(3, "Accepting call from '%s', span %d\n", wat->pvt->cid_num, wat->span);
++			sig_wat_set_echocanceller(wat->pvt, 1);
++			sig_wat_unlock_private(wat->pvt);
++		} else {
++			ast_log(LOG_WARNING, "Unable to start PBX, span %d\n", wat->span);
++			if (chan) {
++				sig_wat_unlock_private(wat->pvt);
++				ast_hangup(chan);
++			} else {
++				wat_rel_req(span_id, call_id);
++				/* Do not clear the call yet, as we will get a wat_rel_cfm as a response */
++				sig_wat_unlock_private(wat->pvt);
++			}
++		}
++	} else {
++		ast_verb(3, "No \'s' extension in context '%s'\n", wat->pvt->context);
++		/* Do not clear the call yet, as we will get a wat_rel_cfm as a response */
++		wat_rel_req(span_id, call_id);
++		
++		sig_wat_unlock_private(wat->pvt);
++	}	
++	return;
++}
++
++void sig_wat_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *con_status)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];
++	
++	ast_assert(wat != NULL);
++
++	ast_verb(3, "Span %d: Remote side %s\n",
++								wat->span + 1,
++								(con_status->type == WAT_CON_STATUS_TYPE_RINGING) ? "ringing":
++								(con_status->type == WAT_CON_STATUS_TYPE_ANSWER) ? "answered":
++								"Invalid");
++
++	switch(con_status->type) {
++		case WAT_CON_STATUS_TYPE_RINGING:
++			sig_wat_lock_private(wat->pvt);
++			sig_wat_set_echocanceller(wat->pvt, 1);
++			sig_wat_lock_owner(wat);
++			if (wat->pvt->owner) {
++				ast_setstate(wat->pvt->owner, AST_STATE_RINGING);
++				ast_channel_unlock(wat->pvt->owner);
++			}
++			wat_queue_control(wat, AST_CONTROL_RINGING);
++			sig_wat_unlock_private(wat->pvt);
++			break;
++		case WAT_CON_STATUS_TYPE_ANSWER:
++			sig_wat_lock_private(wat->pvt);
++			sig_wat_open_media(wat->pvt);
++			wat_queue_control(wat, AST_CONTROL_ANSWER);
++			sig_wat_set_dialing(wat->pvt, 0);
++			sig_wat_set_echocanceller(wat->pvt, 1);
++			sig_wat_unlock_private(wat->pvt);
++			break;
++	
++	}
++	return;
++}
++
++void sig_wat_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_event)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];
++	
++	ast_assert(wat != NULL);	
++
++	ast_verb(3, "Span %d: Call hangup requested\n", wat->span + 1);	
++
++	sig_wat_lock_private(wat->pvt);
++	if (!wat->pvt->subs[WAT_CALL_SUB_REAL].allocd) {
++		ast_log(LOG_ERROR, "Span %d: Got hangup, but there was not call.\n", wat->span + 1);
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}
++
++	if (wat->pvt->owner) {
++		wat->pvt->remotehangup = 1;
++		wat->pvt->owner->hangupcause = rel_event->cause;
++		wat->pvt->owner->_softhangup |= AST_SOFTHANGUP_DEV;
++	} else {
++		/* Proceed with the hangup even though we do not have an owner */
++		wat_rel_cfm(span_id, call_id);
++		memset(&wat->pvt->subs[WAT_CALL_SUB_REAL], 0, sizeof(wat->pvt->subs[0]));
++	}
++	
++	sig_wat_unlock_private(wat->pvt);
++	return;
++}
++
++void sig_wat_rel_cfm(unsigned char span_id, uint8_t call_id)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];
++	
++	ast_assert(wat != NULL);
++
++	ast_verb(3, "Span %d: Call Release\n", wat->span + 1);
++	sig_wat_lock_private(wat->pvt);
++
++	if (!wat->pvt->subs[WAT_CALL_SUB_REAL].allocd) {
++		ast_log(LOG_ERROR, "Span %d: Got Release, but there was no call.\n", wat->span + 1);
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}
++
++	memset(&wat->pvt->subs[WAT_CALL_SUB_REAL], 0, sizeof(wat->pvt->subs[0]));
++	
++	sig_wat_unlock_private(wat->pvt);
++	return;
++}
++
++void sig_wat_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];
++	ast_assert(wat != NULL);
++	ast_verb(3, "Span %d: SMS received\n %s\n", wat->span + 1, sms_event->message);
++}
++
++void sig_wat_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *sms_status)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];	
++	ast_assert(wat != NULL);
++	
++	if (sms_status->success) {
++		ast_verb(3, "Span %d: SMS sent OK (id:%d)\n", wat->span + 1, sms_id);
++	} else {
++		if (sms_status->error) {
++			ast_verb(3, "Span %d: Failed to send SMS cause:%s error:%s (id:%d)\n",
++													wat->span + 1,
++													wat_decode_sms_cause(sms_status->cause),
++													sms_status->error,
++													sms_id);
++		} else {
++			ast_verb(3, "Span %d: Failed to send SMS cause:%s (id:%d)\n",
++													wat->span + 1,
++													wat_decode_sms_cause(sms_status->cause),
++													sms_id);
++		}
++
++	}
++
++	sig_wat_lock_private(wat->pvt);
++	if (!wat->smss[sms_id]) {
++		ast_log(LOG_ERROR, "Span %d: Could not find record for transmitted SMS (id:%d)\n", wat->span + 1, sms_id);
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}	
++	ast_free(wat->smss[sms_id]);
++	wat->smss[sms_id] = NULL;
++	sig_wat_unlock_private(wat->pvt);
++	return;
++}
++
++int sig_wat_call(struct sig_wat_chan *p, struct ast_channel *ast, char *rdest)
++{
++	int i,j;
++	char *c;
++	
++	struct sig_wat_span *wat;
++	wat_con_event_t con_event;
++
++	wat = p->wat;
++
++	sig_wat_lock_private(wat->pvt);
++	
++	/* Find a free call ID */
++	i = 8;
++	for (j = 0; j < ARRAY_LEN(wat->pvt->subs); j++) {
++		if (wat->pvt->subs[j].allocd) {
++			if (wat->pvt->subs[j].wat_call_id == i) {
++				i++;
++				continue;
++			}
++		}
++	}
++
++	if (i >= WAT_MAX_CALLS_PER_SPAN) {
++		ast_log(LOG_ERROR, "Span :%d Failed to find a free call ID\n", p->wat->span+1);
++		sig_wat_unlock_private(wat->pvt);
++		return -1;
++	}
++
++	if (wat->pvt->subs[WAT_CALL_SUB_REAL].allocd) {
++		ast_log(LOG_ERROR, "Span %d: Got an outgoing call but we already had a call. Ignoring Call.\n", wat->span);
++		sig_wat_unlock_private(wat->pvt);
++		return -1;
++	}
++	
++	c = strchr(rdest, '/');
++	if (c) {
++		c++;
++	}
++
++	if (!c) {
++		ast_log(LOG_ERROR, "Span :%d Invalid destination\n", p->wat->span+1);
++		sig_wat_unlock_private(wat->pvt);
++		return -1;
++		
++	}
++
++	wat->pvt->subs[WAT_CALL_SUB_REAL].allocd = 1;
++	wat->pvt->subs[WAT_CALL_SUB_REAL].wat_call_id = i;
++	wat->pvt->subs[WAT_CALL_SUB_REAL].owner = ast;
++	wat->pvt->owner = ast;
++
++	wat->pvt->remotehangup = 0;
++
++	memset(&con_event, 0, sizeof(con_event));
++
++	ast_copy_string(con_event.called_num.digits, c, sizeof(con_event.called_num.digits));
++
++	wat_con_req(p->wat->wat_span_id, i, &con_event);
++	ast_setstate(ast, AST_STATE_DIALING);
++	sig_wat_unlock_private(wat->pvt);
++	return 0;
++}
++
++int sig_wat_answer(struct sig_wat_chan *p, struct ast_channel *ast)
++{
++	int res = 0;
++
++	sig_wat_open_media(p);
++	res = wat_con_cfm(p->wat->wat_span_id, p->subs[WAT_CALL_SUB_REAL].wat_call_id);
++	
++	ast_setstate(ast, AST_STATE_UP);
++	return res;
++}
++
++int sig_wat_hangup(struct sig_wat_chan *p, struct ast_channel *ast)
++{	
++	struct sig_wat_span *wat;
++	int res = 0;
++
++	wat = p->wat;
++	ast_assert(wat != NULL);
++
++	ast_verb(3, "Span %d: Call Hung up\n", wat->span + 1);
++
++	if (!wat->pvt->subs[WAT_CALL_SUB_REAL].allocd) {
++		ast_log(LOG_NOTICE, "Span %d: Call already hung-up\n", wat->span + 1);
++		return -1;
++	}
++
++	if (wat->pvt->remotehangup) {
++		wat_rel_cfm(wat->wat_span_id, wat->pvt->subs[WAT_CALL_SUB_REAL].wat_call_id);
++		memset(&wat->pvt->subs[WAT_CALL_SUB_REAL], 0, sizeof(wat->pvt->subs[0]));
++		wat->pvt->owner = NULL;
++	} else {
++		wat_rel_req(wat->wat_span_id, wat->pvt->subs[WAT_CALL_SUB_REAL].wat_call_id);
++	}
++
++	return res;
++}
++
++
++static void sig_wat_deadlock_avoidance_private(struct sig_wat_chan *p)
++{
++	if (p->calls->deadlock_avoidance_private) {
++		p->calls->deadlock_avoidance_private(p->chan_pvt);
++	} else {
++		/* Fallback to the old way if callback not present. */
++		WAT_DEADLOCK_AVOIDANCE(p);
++	}
++}
++
++/*!
++ * \internal
++ * \brief Obtain the sig_wat owner channel lock if the owner exists.
++ *
++ * \param wat WAT span control structure.
++ *
++ * \note Assumes the wat->lock is already obtained.
++ * \note Assumes the sig_wat_lock_private(wat->pvt) is already obtained.
++ *
++ * \return Nothing
++ */
++static void sig_wat_lock_owner(struct sig_wat_span *wat)
++{
++	for (;;) {
++		if (!wat->pvt->owner) {
++			/* There is no owner lock to get. */
++			break;
++		}
++		if (!ast_channel_trylock(wat->pvt->owner)) {
++			/* We got the lock */
++			break;
++		}
++		/* We must unlock the PRI to avoid the possibility of a deadlock */
++		ast_mutex_unlock(&wat->lock);
++		sig_wat_deadlock_avoidance_private(wat->pvt);
++		ast_mutex_lock(&wat->lock);
++	}
++}
++
++/*!
++ * \internal
++ * \brief Queue the given frame onto the owner channel.
++ *
++ * \param wat WAT span control structure.
++ * \param frame Frame to queue onto the owner channel.
++ *
++ * \note Assumes the wat->lock is already obtained.
++ * \note Assumes the sig_wat_lock_private(pri->pvts[chanpos]) is already obtained.
++ *
++ * \return Nothing
++ */
++
++static void wat_queue_frame(struct sig_wat_span *wat, struct ast_frame *frame)
++{
++	sig_wat_lock_owner(wat);
++	if (wat->pvt->owner) {
++		ast_queue_frame(wat->pvt->owner, frame);
++		ast_channel_unlock(wat->pvt->owner);
++	}
++}
++
++/*!
++ * \internal
++ * \brief Queue a control frame of the specified subclass onto the owner channel.
++ *
++ * \param wat WAT span control structure.
++ * \param subclass Control frame subclass to queue onto the owner channel.
++ *
++ * \note Assumes the wat->lock is already obtained.
++ * \note Assumes the sig_wat_lock_private(pri->pvts[chanpos]) is already obtained.
++ *
++ * \return Nothing
++ */
++static void wat_queue_control(struct sig_wat_span *wat, int subclass)
++{
++	struct ast_frame f = {AST_FRAME_CONTROL, };
++	struct sig_wat_chan *p = wat->pvt;
++
++	if (p->calls->queue_control) {
++		p->calls->queue_control(p->chan_pvt, subclass);
++	}
++
++	f.subclass.integer = subclass;
++	wat_queue_frame(wat, &f);
++}
++
++static void sig_wat_open_media(struct sig_wat_chan *p)
++{
++	if (p->calls->open_media) {
++		p->calls->open_media(p->chan_pvt);
++	}
++}
++
++static void sig_wat_unlock_private(struct sig_wat_chan *p)
++{
++	if (p->calls->unlock_private)
++		p->calls->unlock_private(p->chan_pvt);
++}
++
++static void sig_wat_lock_private(struct sig_wat_chan *p)
++{
++	if (p->calls->lock_private)
++		p->calls->lock_private(p->chan_pvt);
++}
++
++static void sig_wat_handle_sigchan_exception(struct sig_wat_span *wat)
++{
++	if (wat->calls->handle_sig_exception) {
++		wat->calls->handle_sig_exception(wat);
++	}
++	return;
++}
++
++static void sig_wat_set_dialing(struct sig_wat_chan *p, int is_dialing)
++{
++	if (p->calls->set_dialing) {
++		p->calls->set_dialing(p->chan_pvt, is_dialing);
++	}
++}
++
++static int sig_wat_set_echocanceller(struct sig_wat_chan *p, int enable)
++{
++	if (p->calls->set_echocanceller)
++		return p->calls->set_echocanceller(p->chan_pvt, enable);
++	else
++		return -1;
++}
++
++static void sig_wat_handle_sigchan_data(struct sig_wat_span *wat)
++{
++	char buf[1024];
++	int res;
++	
++	res = read(wat->fd, buf, sizeof(buf));
++	if (!res) {
++		if (errno != EAGAIN) {
++			ast_log(LOG_ERROR, "Span %d:Read on %d failed: %s\n", wat->span + 1, wat->fd, strerror(errno));
++			return;
++		}
++	}
++	wat_span_process_read(wat->wat_span_id, buf, res);
++	return;
++}
++
++static void *wat_sigchannel(void *vwat)
++{
++	struct sig_wat_span *wat = vwat;
++	struct pollfd fds[1];
++	int32_t next;
++	uint32_t lowest;
++	int res;
++
++	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
++
++	for(;;) {
++		fds[0].fd = wat->fd;
++		fds[0].events = POLLIN | POLLPRI;
++		fds[0].revents = 0;
++
++		lowest = 1000;
++
++		next = wat_span_schedule_next(wat->wat_span_id);
++		if (next < 0 || next > lowest) {
++			next = lowest;
++		}
++
++		pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
++		pthread_testcancel();
++		res = poll(fds, 1, next);
++		pthread_testcancel();
++		pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
++
++		if (res == 0) {
++			/* Timeout, do nothing */
++		} else if (res > 0) {
++			/* There is something to read */
++			if (fds[0].revents & POLLPRI) {
++				sig_wat_handle_sigchan_exception(wat);
++			}
++
++			if (fds[0].revents & POLLIN) {
++				sig_wat_handle_sigchan_data(wat);
++			}
++		} else if (errno != EINTR) {
++			ast_log(LOG_WARNING, "poll returned error %d (%s)\n", errno, strerror(errno));
++		}
++
++		wat_span_run(wat->wat_span_id);
++	}
++	/* Never reached */
++	return NULL;
++}
++
++static void wat_set_new_owner(struct sig_wat_chan *p, struct ast_channel *new_owner)
++{
++	p->owner = new_owner;
++	if (p->calls->set_new_owner) {
++		p->calls->set_new_owner(p->chan_pvt, new_owner);
++	}
++}
++
++static struct ast_channel *sig_wat_new_ast_channel(struct sig_wat_chan *p, int state, int startpbx, int sub, const struct ast_channel *requestor)
++{
++	struct ast_channel *c;
++	if (p->calls->new_ast_channel) {
++		c = p->calls->new_ast_channel(p->chan_pvt, state, startpbx, sub, requestor);
++	} else {
++		return NULL;
++	}
++
++	if (!c) {
++		return NULL;
++	}
++
++	p->subs[sub].owner = c;
++	if (!p->owner) {
++		wat_set_new_owner(p, c);
++	}
++
++	return c;
++}
++
++int sig_wat_start_wat(struct sig_wat_span *wat)
++{
++	ast_assert(!wat_spans[wat->wat_span_id]);
++
++	wat_spans[wat->wat_span_id] = wat;
++
++	wat_span_config(wat->wat_span_id, &wat->wat_cfg);
++	wat_span_start(wat->wat_span_id);
++
++	if (ast_pthread_create_background(&wat->master, NULL, wat_sigchannel, wat)) {
++		if (wat->fd > 0) {
++			close(wat->fd);
++			wat->fd = -1;
++		}
++		ast_log(LOG_ERROR, "Span %d:Unable to spawn D-channnel:%s\n", wat->span + 1, strerror(errno));
++		return -1;
++	}
++	return 0;
++}
++
++void sig_wat_stop_wat(struct sig_wat_span *wat)
++{
++	wat_span_stop(wat->wat_span_id);
++}
++
++void sig_wat_load(int maxspans)
++{
++	wat_interface_t wat_intf;
++
++	wat_spans = malloc(maxspans * sizeof(void*));
++	memset(wat_spans, 0, maxspans * sizeof(void*));
++
++	memset(&wat_intf, 0, sizeof(wat_intf));
++
++	wat_intf.wat_span_write = sig_wat_span_write;
++	wat_intf.wat_sigstatus_change = sig_wat_status_change;
++	wat_intf.wat_log = (wat_log_func_t)sig_wat_log;
++	wat_intf.wat_log_span = (wat_log_span_func_t)sig_wat_log_span;
++	wat_intf.wat_malloc = sig_wat_malloc;
++	wat_intf.wat_calloc = sig_wat_calloc;
++	wat_intf.wat_free = sig_wat_free;
++	wat_intf.wat_assert = sig_wat_assert;
++
++	wat_intf.wat_alarm = sig_wat_alarm;
++	wat_intf.wat_con_ind = sig_wat_con_ind;
++	wat_intf.wat_con_sts = sig_wat_con_sts;
++	wat_intf.wat_rel_ind = sig_wat_rel_ind;
++	wat_intf.wat_rel_cfm = sig_wat_rel_cfm;
++	wat_intf.wat_sms_ind = sig_wat_sms_ind;
++	wat_intf.wat_sms_sts = sig_wat_sms_sts;
++
++	if (wat_register(&wat_intf)) {
++		ast_log(LOG_ERROR, "Unable to register to libwat\n");
++		return;
++	}
++	ast_verb(3, "Registered libwat\n");
++	return;	
++}
++
++void sig_wat_unload(void)
++{
++	if (wat_spans) free(wat_spans);
++}
++
++void sig_wat_init_wat(struct sig_wat_span *wat)
++{
++	memset(wat, 0, sizeof(*wat));
++	ast_mutex_init(&wat->lock);
++
++	wat->master = AST_PTHREADT_NULL;
++	wat->fd = -1;
++	return;
++}
++
++struct sig_wat_chan *sig_wat_chan_new(void *pvt_data, struct sig_wat_callback *callback, struct sig_wat_span *wat, int channo)
++{
++	struct sig_wat_chan *p;
++
++	p = ast_calloc(1, sizeof(*p));
++	if (!p) {
++		return p;
++	}
++
++	p->calls = callback;
++	p->chan_pvt = pvt_data;
++
++	p->wat = wat;
++
++	return p;
++}
++
++void wat_event_alarm(struct sig_wat_span *wat)
++{
++	wat->sigchanavail &= ~(SIGCHAN_NOTINALARM | SIGCHAN_UP);
++	return;
++}
++
++void wat_event_noalarm(struct sig_wat_span *wat)
++{
++	wat->sigchanavail |= SIGCHAN_NOTINALARM;
++	return;
++}
++
++
++static void build_span_status(char *s, size_t len, int sigchanavail)
++{
++	if (!s || len < 1) {
++		return;
++	}
++	snprintf(s, len, "%s %s",
++			(sigchanavail & SIGCHAN_NOTINALARM) ? "" : "In Alarm, ",
++			(sigchanavail & SIGCHAN_UP) ? "Up": "Down");
++}
++
++void sig_wat_cli_show_spans(int fd, int span, struct sig_wat_span *wat)
++{	
++	char status[30];
++	const wat_sim_info_t *sim_info = NULL;
++
++	build_span_status(status, sizeof(status), wat->sigchanavail);
++	
++	sim_info = wat_span_get_sim_info(wat->wat_span_id);
++	if (sim_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get SIM information\n", wat->span +1);
++	}
++
++	if (sim_info && strlen(sim_info->subscriber.digits) > 0) {
++		ast_cli(fd, "WAT span %d: %5s (%14s)\n", span, status, sim_info->subscriber.digits);
++	} else {
++		ast_cli(fd, "WAT span %d: %5s\n", span, status);
++	}
++}
++
++void sig_wat_cli_show_span(int fd, struct sig_wat_span *wat)
++{
++	char status[256];
++	const wat_chip_info_t *chip_info = NULL;
++	const wat_sim_info_t *sim_info = NULL;
++	const wat_sig_info_t *sig_info = NULL;
++	const wat_net_info_t *net_info = NULL;
++	const wat_pin_stat_t *pin_status = NULL;
++	
++	build_span_status(status, sizeof(status), wat->sigchanavail);
++
++	ast_cli(fd, "WAT span %d: %s\n", wat->span + 1, status);
++	
++	pin_status = wat_span_get_pin_info(wat->wat_span_id);
++	if (pin_status == NULL) {
++		ast_cli(fd, "Span %d:Failed to get PIN status\n", wat->span + 1);
++	} else if (*pin_status != WAT_PIN_READY) {
++		ast_cli(fd, "   PIN Error:%s\n\n", wat_decode_pin_status(*pin_status));
++	}
++	
++	net_info = wat_span_get_net_info(wat->wat_span_id);
++	if (net_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get Network information\n", wat->span +1);
++	} else {
++		ast_cli(fd, "   Status: %s\n", wat_net_stat2str(net_info->stat));
++		ast_cli(fd, "   Operator: %s\n\n", net_info->operator_name);
++	}
++
++	sig_info = wat_span_get_sig_info(wat->wat_span_id);
++	if (sig_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get Signal information\n", wat->span +1);
++	} else {
++		char dest[30];
++		ast_cli(fd, "   Signal strength: %s\n", wat_decode_rssi(dest, sig_info->rssi));
++		ast_cli(fd, "   Signal BER: %s\n\n", wat_decode_ber(sig_info->ber));
++	}
++
++	sim_info = wat_span_get_sim_info(wat->wat_span_id);
++	if (sim_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get SIM information\n", wat->span +1);
++	} else {
++		ast_cli(fd, "   Subscriber: %s type:%d plan:%d <%s> \n",
++												sim_info->subscriber.digits,
++												sim_info->subscriber.type,
++												sim_info->subscriber.plan,
++												sim_info->subscriber_type);
++		ast_cli(fd, "   IMSI: %s\n\n", sim_info->imsi);
++	}
++
++	chip_info = wat_span_get_chip_info(wat->wat_span_id);
++	if (chip_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get Chip information\n", wat->span +1);
++	} else {
++		ast_cli(fd, "   Manufacturer Name: %s\n", chip_info->manufacturer_name);
++		ast_cli(fd, "   Manufacturer ID: %s\n", chip_info->manufacturer_id);
++		ast_cli(fd, "   Revision ID: %s\n", chip_info->revision);
++		ast_cli(fd, "   Serial Number: %s\n", chip_info->serial);
++	}
++
++	return;
++}
++
++WAT_AT_CMD_RESPONSE_FUNC(sig_wat_at_response)
++{
++	int i = 0;
++	while (tokens[i]) {
++		ast_verb(1, "AT response: %s\n", tokens[i]);
++		i++;
++	}
++	return i;
++}
++
++void sig_wat_cli_exec_at(int fd, struct sig_wat_span *wat, const char *at_cmd)
++{
++	wat_cmd_req(wat->wat_span_id, at_cmd, sig_wat_at_response, wat);
++}
++
++void sig_wat_cli_send_sms(int fd, struct sig_wat_span *wat, const char *dest, const char *sms)
++{
++	int i;
++	struct sig_wat_sms *wat_sms;
++
++	if (strlen(sms) > WAT_MAX_SMS_SZ) {
++		ast_log(LOG_ERROR, "Span %d: SMS exceeds maximum length (len:%zd max:%d)\n", wat->span + 1, strlen(sms), WAT_MAX_SMS_SZ);
++		return;
++	}
++	
++	sig_wat_lock_private(wat->pvt);
++	
++	/* Find a free SMS Id */
++	for (i = 1; i < ARRAY_LEN(wat->smss); i++) {
++		if (!wat->smss[i]) {
++			break;
++		}
++	}
++
++	if (i >= ARRAY_LEN(wat->smss)) {
++		ast_log(LOG_ERROR, "Span :%d Failed to find a free SMS ID\n", wat->span + 1);
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}
++
++	wat_sms = ast_malloc(sizeof(*wat_sms));
++	if (!wat_sms) {
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}
++
++	wat->smss[i] = wat_sms;
++	sig_wat_unlock_private(wat->pvt);
++
++	memset(wat_sms, 0, sizeof(*wat_sms));
++
++	wat_sms->wat_sms_id = i;
++
++	wat_sms->sms_event.type = WAT_SMS_TXT;
++	wat_sms->sms_event.len = strlen(sms);
++	strncpy(wat_sms->sms_event.called_num.digits, dest, sizeof(wat_sms->sms_event.called_num.digits));
++	strncpy(wat_sms->sms_event.message, sms, sizeof(wat_sms->sms_event.message));
++
++	ast_verb(3, "Span %d: Sending sms len:%d (id:%d)\n", wat->span + 1, wat_sms->sms_event.len, wat_sms->wat_sms_id);
++	ast_verb(5, "<begin>\n%s\n<end>\n\n", wat_sms->sms_event.message);
++
++	if (wat_sms_req(wat->wat_span_id, wat_sms->wat_sms_id, &wat_sms->sms_event)) {
++		ast_verb(1, "Span %d: Failed to send sms\n", wat->span + 1);
++	}
++	return;
++}
++
++#endif /* HAVE_WAT */
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/channels/sig_wat.h asterisk-1.8.7.1.wat/channels/sig_wat.h
+--- asterisk-1.8.7.1/channels/sig_wat.h	1969-12-31 19:00:00.000000000 -0500
++++ asterisk-1.8.7.1.wat/channels/sig_wat.h	2011-11-25 16:35:35.000000000 -0500
+@@ -0,0 +1,196 @@
++#ifndef _SIG_WAT_H
++#define _SIG_WAT_H
++/*
++ * Asterisk -- An open source telephony toolkit.
++ *
++ * Copyright (C) 1999 - 2009, Digium, Inc.
++ *
++ * Mark Spencer <markster@digium.com>
++ *
++ * See http://www.asterisk.org for more information about
++ * the Asterisk project. Please do not directly contact
++ * any of the maintainers of this project for assistance;
++ * the project provides a web site, mailing lists and IRC
++ * channels for your use.
++ *
++ * This program is free software, distributed under the terms of
++ * the GNU General Public License Version 2. See the LICENSE file
++ * at the top of the source tree.
++ */
++
++/*! \file
++ *
++ * \brief Interface header for Wireless AT commands signaling module
++ *
++ * \author David Yat Sin <dyatsin@sangoma.com>
++ */
++
++#include "asterisk/pbx.h"
++#include "asterisk/channel.h"
++#include "asterisk/frame.h"
++#include <libwat.h>
++
++#define MAX_NUM_SMS	20	/*!< Maximum number of SMS waiting to be sent */
++
++enum sig_wat_law {
++	SIG_WAT_DEFLAW = 0,
++	SIG_WAT_ULAW,
++	SIG_WAT_ALAW
++};
++
++enum sig_wat_tone {
++	SIG_WAT_TONE_RINGTONE = 0,
++	SIG_WAT_TONE_STUTTER,
++	SIG_WAT_TONE_CONGESTION,
++	SIG_WAT_TONE_DIALTONE,
++	SIG_WAT_TONE_DIALRECALL,
++	SIG_WAT_TONE_INFO,
++	SIG_WAT_TONE_BUSY,
++};
++
++struct sig_wat_span;
++
++struct sig_wat_callback {
++	/* Unlock the private in the signalling private structure.  This is used for three way calling madness. */
++	void (* const unlock_private)(void *pvt);
++	/* Lock the private in the signalling private structure.  ... */
++	void (* const lock_private)(void *pvt);
++	/* Do deadlock avoidance for the private signaling structure lock.  */
++	void (* const deadlock_avoidance_private)(void *pvt);
++	/* Function which is called back to handle any other DTMF events that are received.  Called by analog_handle_event.  Why is this
++	* important to use, instead of just directly using events received before they are passed into the library?  Because sometimes,
++	* (CWCID) the library absorbs DTMF events received. */
++	//void (* const handle_dtmf)(void *pvt, struct ast_channel *ast, enum analog_sub analog_index, struct ast_frame **dest);
++
++	//int (* const dial_digits)(void *pvt, enum analog_sub sub, struct analog_dialoperation *dop);
++	int (* const play_tone)(void *pvt, enum sig_wat_tone tone); /* DAVIDY: Do I need this? */
++
++	int (* const set_echocanceller)(void *pvt, int enable);
++	int (* const train_echocanceller)(void *pvt);				/* DAVIDY: Do I need this? */
++	int (* const dsp_reset_and_flush_digits)(void *pvt);		/* DAVIDY: Do I need this? */
++
++	struct ast_channel * (* const new_ast_channel)(void *pvt, int state, int startpbx, int sub, const struct ast_channel *requestor);
++
++	void (* const fixup_chans)(void *old_chan, void *new_chan);	/* DAVIDY: Do I need this? */
++
++	void (* const handle_sig_exception)(struct sig_wat_span *wat);
++	void (* const set_alarm)(void *pvt, int in_alarm);
++	void (* const set_dialing)(void *pvt, int is_dialing);
++	void (* const set_digital)(void *pvt, int is_digital);
++	void (* const set_callerid)(void *pvt, const struct ast_party_caller *caller);
++	void (* const set_dnid)(void *pvt, const char *dnid);
++	void (* const set_rdnis)(void *pvt, const char *rdnis);	/* DAVIDY: Do I need this? */
++	void (* const queue_control)(void *pvt, int subclass);	/* DAVIDY: Do I need this? */
++	int (* const new_nobch_intf)(struct sig_wat_span *wat);	/* DAVIDY: Do I need this? */
++	void (* const init_config)(void *pvt, struct sig_wat_span *wat);
++	const char *(* const get_orig_dialstring)(void *pvt);
++	void (* const make_cc_dialstring)(void *pvt, char *buf, size_t buf_size);
++	void (* const update_span_devstate)(struct sig_wat_span *wat);
++
++	void (* const open_media)(void *pvt);
++
++	/*!
++	 * \brief Post an AMI B channel association event.
++	 *
++	 * \param pvt Private structure of the user of this module.
++	 * \param chan Channel associated with the private pointer
++	 *
++	 * \return Nothing
++	 */
++	void (* const ami_channel_event)(void *pvt, struct ast_channel *chan); /* DAVIDY: Do I need this? */
++
++	void (* const set_new_owner)(void *pvt, struct ast_channel *new_owner);
++
++	/*! Reference the parent module. */
++	void (*module_ref)(void);
++	/*! Unreference the parent module. */
++	void (*module_unref)(void);
++};
++
++struct sig_wat_chan;
++
++struct sig_wat_sms {
++	unsigned char wat_sms_id;
++	wat_sms_event_t sms_event;
++};
++
++struct sig_wat_subchannel {
++	struct ast_channel *owner;
++	struct ast_frame f; /* DAVIDY do I need this ? */
++	unsigned int allocd:1;
++	
++	unsigned char wat_call_id; /*!< Id used by libwat for this call */
++
++	int cid_ton;
++	char cid_num[AST_MAX_EXTENSION];
++	
++	struct sig_wat_chan *chan;
++};
++
++struct sig_wat_chan {
++	struct sig_wat_span *wat;
++	struct sig_wat_callback *calls;
++	void *chan_pvt;					/*!< Private structure of the user of this module. */
++
++	struct ast_channel *owner;			/*!< Our current active owner (if applicable) */
++
++	struct sig_wat_subchannel subs[3];	/*!< Sub-channels */
++
++	int channel;					/*!< Channel Number or CRV */
++
++	char context[AST_MAX_CONTEXT];
++	char mohinterpret[MAX_MUSICCLASS];
++	char cid_num[AST_MAX_EXTENSION];
++	char cid_name[AST_MAX_EXTENSION];
++
++	unsigned int use_callerid:1; /*< whether or not to use caller id on this channel */
++
++	unsigned int remotehangup:1; /*< If the remote side initiated hangup on this channel */
++	
++
++};
++
++struct sig_wat_span {
++	int fd;						/*!< FD for the uart channel */
++	struct sig_wat_chan *pvt;	/*!< Member channel pvt struct */
++
++	pthread_t master;			/*!< Thread of master */	
++	
++	int sigchanavail;			/*!< Whether channel is available */
++
++	int span;					/*!< span number put into user output messages */
++	int wat_span_id;			/*!< Identifier used by libwat for this span */
++
++	wat_span_config_t wat_cfg;
++
++	struct sig_wat_callback *calls;	
++
++	ast_mutex_t lock;			/*!< libwat access mutex */ /* DAVIDY do I need this? */
++
++	struct sig_wat_sms *smss[MAX_NUM_SMS];
++};
++
++int sig_wat_start_wat(struct sig_wat_span *wat);
++void sig_wat_stop_wat(struct sig_wat_span *wat);
++void sig_wat_init_wat(struct sig_wat_span *wat);
++
++
++int sig_wat_call(struct sig_wat_chan *p, struct ast_channel *ast, char *rdest);
++int sig_wat_answer(struct sig_wat_chan *p, struct ast_channel *ast);
++int sig_wat_hangup(struct sig_wat_chan *p, struct ast_channel *ast);
++
++void wat_event_alarm(struct sig_wat_span *wat);
++void wat_event_noalarm(struct sig_wat_span *wat);
++
++void sig_wat_load(int maxspans);
++void sig_wat_unload(void);
++
++struct sig_wat_chan *sig_wat_chan_new(void *pvt_data, struct sig_wat_callback *callback, struct sig_wat_span *wat, int channo);
++
++void sig_wat_cli_show_spans(int fd, int span, struct sig_wat_span *wat);
++void sig_wat_cli_show_span(int fd, struct sig_wat_span *wat);
++void sig_wat_cli_send_sms(int fd, struct sig_wat_span *wat, const char *dest, const char *sms);
++void sig_wat_cli_exec_at(int fd, struct sig_wat_span *wat, const char *at_cmd);
++
++
++#endif /* _SIG_WAT_H */
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/configure.ac asterisk-1.8.7.1.wat/configure.ac
+--- asterisk-1.8.7.1/configure.ac	2011-09-19 12:57:40.000000000 -0400
++++ asterisk-1.8.7.1.wat/configure.ac	2011-11-25 17:30:03.000000000 -0500
+@@ -416,6 +416,7 @@
+ AST_OPTION_ONLY([sounds-cache], [SOUNDS_CACHE_DIR], [cached sound tarfiles], [])
+ AST_EXT_LIB_SETUP([SPANDSP], [SPANDSP], [spandsp])
+ AST_EXT_LIB_SETUP([SS7], [ISDN SS7], [ss7])
++AST_EXT_LIB_SETUP([WAT], [GSM AT], [wat])	
+ AST_EXT_LIB_SETUP([SPEEX], [Speex], [speex])
+ AST_EXT_LIB_SETUP([SPEEX_PREPROCESS], [Speex preprocess routines], [speex])
+ AST_EXT_LIB_SETUP([SPEEXDSP], [SpeexDSP], [speexdsp])
+@@ -1803,6 +1804,7 @@
+ # These features will always be present if pri_connected_line_update is available.
+ AST_EXT_LIB_CHECK([PRI_PROG_W_CAUSE], [pri], [pri_progress_with_cause], [libpri.h])
+ AST_EXT_LIB_CHECK([PRI_INBANDDISCONNECT], [pri], [pri_set_inbanddisconnect], [libpri.h])
++
+ AST_EXT_LIB_CHECK([PRI_SERVICE_MESSAGES], [pri], [pri_maintenance_service], [libpri.h])
+ AST_EXT_LIB_CHECK([PRI_REVERSE_CHARGE], [pri], [pri_sr_set_reversecharge], [libpri.h])
+ # ------------------------------------^
+@@ -1830,6 +1832,8 @@
+ 
+ AST_EXT_LIB_CHECK([SS7], [ss7], [ss7_pollflags], [libss7.h])
+ 
++AST_EXT_LIB_CHECK([WAT], [wat], [wat_register], [libwat.h])	
++
+ AST_EXT_LIB_CHECK([OPENR2], [openr2], [openr2_chan_new], [openr2.h])
+ 
+ if test "${USE_PWLIB}" != "no"; then
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/include/asterisk/autoconfig.h.in asterisk-1.8.7.1.wat/include/asterisk/autoconfig.h.in
+--- asterisk-1.8.7.1/include/asterisk/autoconfig.h.in	2011-09-19 12:57:40.000000000 -0400
++++ asterisk-1.8.7.1.wat/include/asterisk/autoconfig.h.in	2011-11-25 17:33:01.000000000 -0500
+@@ -956,6 +956,9 @@
+ /* Define to 1 if you have the `vprintf' function. */
+ #undef HAVE_VPRINTF
+ 
++/* Define to 1 if you have the GSM AT library. */
++#undef HAVE_WAT
++
+ /* Define to 1 if you have the <winsock2.h> header file. */
+ #undef HAVE_WINSOCK2_H
+ 
+@@ -1056,9 +1059,6 @@
+ /* Define to the version of this package. */
+ #undef PACKAGE_VERSION
+ 
+-/* Define to 1 if the C compiler supports function prototypes. */
+-#undef PROTOTYPES
+-
+ /* Define to necessary symbol if this constant uses a non-standard name on
+    your system. */
+ #undef PTHREAD_CREATE_JOINABLE
+@@ -1078,11 +1078,6 @@
+ /* Define to the type of arg 5 for `select'. */
+ #undef SELECT_TYPE_ARG5
+ 
+-/* Define to 1 if the `setvbuf' function takes the buffering type as its
+-   second argument and the buffer pointer as the third, as on System V before
+-   release 3. */
+-#undef SETVBUF_REVERSED
+-
+ /* The size of `char *', as computed by sizeof. */
+ #undef SIZEOF_CHAR_P
+ 
+@@ -1118,12 +1113,27 @@
+ /* Define to a type of the same size as fd_set.fds_bits[[0]] */
+ #undef TYPEOF_FD_SET_FDS_BITS
+ 
+-/* Define to 1 if on AIX 3.
+-   System headers sometimes define this.
+-   We just want to avoid a redefinition error message.  */
++/* Enable extensions on AIX 3, Interix.  */
+ #ifndef _ALL_SOURCE
+ # undef _ALL_SOURCE
+ #endif
++/* Enable GNU extensions on systems that have them.  */
++#ifndef _GNU_SOURCE
++# undef _GNU_SOURCE
++#endif
++/* Enable threading extensions on Solaris.  */
++#ifndef _POSIX_PTHREAD_SEMANTICS
++# undef _POSIX_PTHREAD_SEMANTICS
++#endif
++/* Enable extensions on HP NonStop.  */
++#ifndef _TANDEM_SOURCE
++# undef _TANDEM_SOURCE
++#endif
++/* Enable general extensions on Solaris.  */
++#ifndef __EXTENSIONS__
++# undef __EXTENSIONS__
++#endif
++
+ 
+ /* Define to 1 if running on Darwin. */
+ #undef _DARWIN_UNLIMITED_SELECT
+@@ -1131,11 +1141,6 @@
+ /* Number of bits in a file offset, on hosts where this is settable. */
+ #undef _FILE_OFFSET_BITS
+ 
+-/* Enable GNU extensions on systems that have them.  */
+-#ifndef _GNU_SOURCE
+-# undef _GNU_SOURCE
+-#endif
+-
+ /* Define to 1 to make fseeko visible on some hosts (e.g. glibc 2.2). */
+ #undef _LARGEFILE_SOURCE
+ 
+@@ -1152,20 +1157,6 @@
+ /* Define to 1 if you need to in order for `stat' and other things to work. */
+ #undef _POSIX_SOURCE
+ 
+-/* Enable extensions on Solaris.  */
+-#ifndef __EXTENSIONS__
+-# undef __EXTENSIONS__
+-#endif
+-#ifndef _POSIX_PTHREAD_SEMANTICS
+-# undef _POSIX_PTHREAD_SEMANTICS
+-#endif
+-#ifndef _TANDEM_SOURCE
+-# undef _TANDEM_SOURCE
+-#endif
+-
+-/* Define like PROTOTYPES; this can be used by system headers. */
+-#undef __PROTOTYPES
+-
+ /* Define to empty if `const' does not conform to ANSI C. */
+ #undef const
+ 
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/makeopts.in asterisk-1.8.7.1.wat/makeopts.in
+--- asterisk-1.8.7.1/makeopts.in	2011-08-25 11:27:06.000000000 -0400
++++ asterisk-1.8.7.1.wat/makeopts.in	2011-11-25 17:32:16.000000000 -0500
+@@ -205,6 +205,9 @@
+ PRI_INCLUDE=@PRI_INCLUDE@
+ PRI_LIB=@PRI_LIB@
+ 
++WAT_INCLUDE=@WAT_INCLUDE@
++WAT_LIB=@WAT_LIB@
++
+ RESAMPLE_INCLUDE=@RESAMPLE_INCLUDE@
+ RESAMPLE_LIB=@RESAMPLE_LIB@
+ 
+diff -dur --exclude=configure --new-file asterisk-1.8.7.1/menuselect/test/menuselect-tree asterisk-1.8.7.1.wat/menuselect/test/menuselect-tree
+--- asterisk-1.8.7.1/menuselect/test/menuselect-tree	2009-07-20 17:00:37.000000000 -0400
++++ asterisk-1.8.7.1.wat/menuselect/test/menuselect-tree	2011-11-25 16:35:02.000000000 -0500
+@@ -219,6 +219,7 @@
+ 	<depend>tonezone</depend>
+ 	<use>pri</use>
+ 	<use>ss7</use>
++	<use>wat</use>
+ </member>
+ <member name="chan_features" displayname="Feature Proxy Channel" remove_on_change="channels/chan_features.o channels/chan_features.so">
+         <defaultenabled>no</defaultenabled>

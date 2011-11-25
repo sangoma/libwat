@@ -172,6 +172,8 @@ eval "mkdir $rel_name/build"
 eval "cp -rf ../../README $rel_name/"
 eval "cp -rf ../../AUTHORS $rel_name/"
 
+eval "mkdir $rel_name/asterisk/"
+eval "cp -rf ../../patches/asterisk/* $rel_name/asterisk/"
 
 cd $HOME
 cd ..
@@ -191,6 +193,9 @@ cd $HOME
 tar cfz $rel_name".tgz"  $rel_name
 
 eval "../sangoma_ftp.pl $rel_name.tgz linux/libwat"
+
+tar cfz libwat-$major.$minor-current.tgz $rel_name
+eval "../sangoma_ftp.pl libwat-$major.$minor-current.tgz linux/libwat"
 
 tagname="v$major.$minor.$rev.$patch"
 
