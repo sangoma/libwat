@@ -41,6 +41,7 @@ WAT_RESPONSE_FUNC(wat_response_selint);
 WAT_RESPONSE_FUNC(wat_response_smsmode);
 WAT_RESPONSE_FUNC(wat_response_regmode);
 WAT_RESPONSE_FUNC(wat_response_dvi);
+WAT_RESPONSE_FUNC(wat_response_shssd);
 
 static wat_module_t telit_interface = {
 	.start = telit_start,
@@ -66,10 +67,13 @@ wat_status_t telit_start(wat_span_t *span)
 	wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL);
 	wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL);
 
-#if 1 /* Echo cancellation */
+	/* Enable Echo cancellation */
 	wat_cmd_enqueue(span, "AT#SHFEC=1", NULL, NULL);
 	wat_cmd_enqueue(span, "AT#SHSEC=1", NULL, NULL);
-#endif
+
+	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
+	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL);
+
 	return WAT_SUCCESS;
 }
 
@@ -90,8 +94,6 @@ WAT_RESPONSE_FUNC(wat_response_selint)
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable interface type\n");
-		WAT_FUNC_DBG_END
-		return 1;
 	}
 	WAT_FUNC_DBG_END
 	return 1;
@@ -102,8 +104,6 @@ WAT_RESPONSE_FUNC(wat_response_smsmode)
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable sms mode\n");
-		WAT_FUNC_DBG_END
-		return 1;
 	}
 	WAT_FUNC_DBG_END
 	return 1;
@@ -114,8 +114,6 @@ WAT_RESPONSE_FUNC(wat_response_regmode)
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable reg mode\n");
-		WAT_FUNC_DBG_END
-		return 1;
 	}
 	WAT_FUNC_DBG_END
 	return 1;
@@ -128,6 +126,16 @@ WAT_RESPONSE_FUNC(wat_response_dvi)
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Digital Voice Interface\n");
 		WAT_FUNC_DBG_END
 		return 1;
+	}
+	WAT_FUNC_DBG_END
+	return 1;
+}
+
+WAT_RESPONSE_FUNC(wat_response_shssd)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to disable Sidetone\n");
 	}
 	WAT_FUNC_DBG_END
 	return 1;

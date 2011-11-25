@@ -43,11 +43,12 @@
 /*ENUMS & Defines ******************************************************************/
 
 #define WAT_MAX_SPANS		32
-#define WAT_MAX_NUMBER_SZ	32 /* DAVIDY TODO: Find real max sizes based on specs */
-#define WAT_MAX_NAME_SZ		24 /* DAVIDY TODO: Find real max sizes based on specs */
-#define WAT_MAX_SMS_SZ		1024 /* DAVIDY TODO: Find real max sizes based on specs */
-#define WAT_MAX_CMD_SZ		2048 /* DAVIDY TODO: Find real max sizes based on specs */
+#define WAT_MAX_NUMBER_SZ	32 /* TODO: Find real max sizes based on specs */
+#define WAT_MAX_NAME_SZ		24 /* TODO: Find real max sizes based on specs */
+#define WAT_MAX_SMS_SZ		1024 /* TODO: Find real max sizes based on specs */
+#define WAT_MAX_CMD_SZ		2048 /* TODO: Find real max sizes based on specs */
 #define WAT_MAX_TYPE_SZ		12
+#define WAT_MAX_OPERATOR_SZ	32	/* TODO: Find real max sizes based on specs */
 
 #define WAT_MAX_CALLS_PER_SPAN			16
 #define WAT_MAX_SMSS_PER_SPAN			16
@@ -202,6 +203,7 @@ typedef struct {
 	wat_net_stat_t stat;
 	uint8_t lac;	/* Local Area Code for the currently registered on cell */
 	uint8_t ci;		/* Cell Id for currently registered on cell */
+	char operator_name[WAT_MAX_OPERATOR_SZ];
 } wat_net_info_t;
 
 typedef struct {
@@ -315,6 +317,7 @@ typedef void (*wat_sms_ind_func_t)(uint8_t span_id, wat_sms_event_t *sms_event);
 typedef void (*wat_sms_sts_func_t)(uint8_t span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
 typedef void (*wat_cmd_sts_func_t)(uint8_t span_id, wat_cmd_status_t *status);
 typedef int (*wat_span_write_func_t)(uint8_t span_id, void *data, uint32_t len);
+
 typedef struct _wat_interface {
 	/* Call-backs */
 	wat_sigstatus_change_func_t wat_sigstatus_change;
@@ -339,7 +342,6 @@ typedef struct _wat_interface {
 	wat_rel_cfm_func_t wat_rel_cfm;
 	wat_sms_ind_func_t wat_sms_ind;
 	wat_sms_sts_func_t wat_sms_sts;
-	wat_cmd_sts_func_t wat_cmd_sts;
 	wat_span_write_func_t wat_span_write;
 } wat_interface_t;
 
@@ -372,7 +374,7 @@ WAT_DECLARE(wat_status_t) wat_con_req(uint8_t span_id, uint8_t call_id, wat_con_
 WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_event_t *sms_event);
-WAT_DECLARE(wat_status_t) wat_exec_at(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj);
+WAT_DECLARE(wat_status_t) wat_cmd_req(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj);
 
 #endif /* _LIBWAT_H */
 

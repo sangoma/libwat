@@ -7,7 +7,7 @@ SET(DAHDI_TESTS
 	test_dahdi_sms)
 
 IF (IS_DIRECTORY /usr/include/dahdi)
-message("DAHDI test applications will be included")
+message("DAHDI installation detected")
 FOREACH(TEST ${DAHDI_TESTS})
 	ADD_EXECUTABLE(${TEST}
 	${PROJECT_SOURCE_DIR}/test/${TEST}.c

@@ -293,16 +293,18 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
 static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
 static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error);
-static void wat_remove_prefix(char *string, const char *prefix);
+static wat_bool_t wat_match_prefix(char *string, const char *prefix);
 
-static void wat_remove_prefix(char *string, const char *prefix)
+static wat_bool_t wat_match_prefix(char *string, const char *prefix)
 {
 	int prefix_len = strlen(prefix);
 	if (!strncmp(string, prefix, prefix_len)) {
 		int len = strlen(&string[prefix_len]);
 		memmove(string, &string[prefix_len], len);
 		memset(&string[len], 0, strlen(&string[len]));
+		return WAT_TRUE;
 	}
+	return WAT_FALSE;
 }
 
 static char *wat_strerror(int error, struct error_code error_table[])
@@ -832,7 +834,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 		return 1;
 	}
 
-	wat_remove_prefix(tokens[0], "+CREG: ");
+	wat_match_prefix(tokens[0], "+CREG: ");
 	
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
@@ -873,14 +875,33 @@ WAT_RESPONSE_FUNC(wat_response_cnmi)
 /* Set Operator Selection */
 WAT_RESPONSE_FUNC(wat_response_cops)
 {
+	int consumed_tokens = 1;
 	WAT_RESPONSE_FUNC_DBG_START
-	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Operator Selection\n");
-		WAT_FUNC_DBG_END
-		return 1;
+
+	if (wat_match_prefix(tokens[0], "+COPS: ") == WAT_TRUE) {
+		/* This is a response to AT+COPS? */
+		char *cmdtokens[4];
+		/* Format: +COPS: X,X,<operator name> */
+
+		consumed_tokens = 2;
+		memset(cmdtokens, 0, sizeof(cmdtokens));
+
+		if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse COPS entry:%s\n", tokens[0]);
+		} else {
+			strncpy(span->net_info.operator_name, cmdtokens[2], sizeof(span->net_info.operator_name));
+		}
+		wat_free_tokens(cmdtokens);
+	} else {
+		/* This is a response to AT+COPS=X,X */
+
+		consumed_tokens = 1;
+		if (success != WAT_TRUE) {
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Operator Selection\n");
+		}
 	}
 	WAT_FUNC_DBG_END
-	return 1;
+	return consumed_tokens;
 }
 
 WAT_RESPONSE_FUNC(wat_response_cnum)
@@ -906,9 +927,8 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		return 1;
 	}
 
-	wat_remove_prefix(tokens[0], "+CNUM: ");
+	wat_match_prefix(tokens[0], "+CNUM: ");
 
-	/* TODO: Do a complete parsing of the parameters */	
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 
 	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
@@ -942,7 +962,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		return 1;
 	}
 
-	wat_remove_prefix(tokens[0], "+CSQ: ");
+	wat_match_prefix(tokens[0], "+CSQ: ");
 	
 	if (sscanf(tokens[0], "%d,%d\n", &rssi, &ber) == 2) {
 		char dest[30];
@@ -1047,7 +1067,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		<alpha>: string type, alphanumeric representation of <number> corresponding to entry found in phonebook
 	*/
 
-	wat_remove_prefix(tokens[0], "+CLCC: ");
+	wat_match_prefix(tokens[0], "+CLCC: ");
 
 	for (i = 0; strncmp(tokens[i], "OK", 2); i++) {
 		unsigned id, dir, stat;
@@ -1056,7 +1076,9 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 
 		if (wat_cmd_entry_tokenize(tokens[i], cmdtokens) < 8) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLCC entry:%s\n", tokens[i]);
+			WAT_FUNC_DBG_END
 			wat_free_tokens(cmdtokens);
+			return 1;
 		}
 
 		id = atoi(cmdtokens[0]);
@@ -1349,7 +1371,7 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 	/* Format +CMT <alpha>, <length> */
 	/* token [1] has PDU data */
 
-	wat_remove_prefix(tokens[0], "+CMT: ");
+	wat_match_prefix(tokens[0], "+CMT: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 
@@ -1410,7 +1432,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 
 	WAT_NOTIFY_FUNC_DBG_START
 
-	wat_remove_prefix(tokens[0], "+CLIP: ");
+	wat_match_prefix(tokens[0], "+CLIP: ");
 
 	wat_log_span(span, WAT_LOG_DEBUG, "Incoming CLIP:%s\n", tokens[0]);
 
@@ -1514,7 +1536,7 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 	
 	WAT_NOTIFY_FUNC_DBG_START
 
-	wat_remove_prefix(tokens[0], "+CREG: ");
+	wat_match_prefix(tokens[0], "+CREG: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens);

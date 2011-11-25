@@ -80,6 +80,7 @@ WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
 WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
 
 
+WAT_RESPONSE_FUNC(wat_user_cmd_response);
 static wat_span_t *wat_get_span(uint8_t span_id);
 
 WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age)
@@ -95,29 +96,41 @@ WAT_DECLARE(wat_status_t) wat_register(wat_interface_t *interface)
 	memset(g_spans, 0, sizeof(g_spans));
 
 	if (!interface->wat_log ||
+		!interface->wat_log_span ||
 		!interface->wat_malloc ||
 		!interface->wat_calloc ||
-		!interface->wat_free) {
+		!interface->wat_free ||
+		!interface->wat_span_write) {
 		return WAT_FAIL;
 	}
 
-	
-#if 0 /* Put warnings here instead */
-	wat_assert_return(interface->wat_sigstatus_change, WAT_FAIL, "No wat_sigstatus_change callback\n");
-	wat_assert_return(interface->wat_span_write, WAT_FAIL, "No wat_span_write callback\n");
-	wat_assert_return(interface->wat_log, WAT_FAIL, "No wat_log callback\n");
-	wat_assert_return(interface->wat_calloc, WAT_FAIL, "No wat_calloc callback\n");
-	wat_assert_return(interface->wat_malloc, WAT_FAIL, "No wat_malloc callback\n");
-	wat_assert_return(interface->wat_safe_free, WAT_FAIL, "No wat_safe_free callback\n");
-	wat_assert_return(interface->wat_alarm, WAT_FAIL, "No wat_alarm callback\n");
-	wat_assert_return(interface->wat_con_ind, WAT_FAIL, "No wat_con_ind callback\n");
-	wat_assert_return(interface->wat_con_cfm, WAT_FAIL, "No wat_con_cfm callback\n");
-	wat_assert_return(interface->wat_rel_ind, WAT_FAIL, "No wat_rel_ind callback\n");
-	wat_assert_return(interface->wat_rel_cfm, WAT_FAIL, "No wat_rel_cfm callback\n");
-	wat_assert_return(interface->wat_sms_ind, WAT_FAIL, "No wat_sms_ind callback\n");
-	wat_assert_return(interface->wat_sms_cfm, WAT_FAIL, "No wat_sms_cfm callback\n");
-	wat_assert_return(interface->wat_cmd_cfm, WAT_FAIL, "No wat_cmd_cfm callback\n");
-#endif
+	if (!interface->wat_sigstatus_change) {
+		wat_log(WAT_LOG_WARNING, "No wat_sigstatus_change callback\n");
+	}
+
+	if (!interface->wat_alarm) {
+		wat_log(WAT_LOG_WARNING, "No wat_alarm callback\n");
+	}
+
+	if (!interface->wat_con_ind) {
+		wat_log(WAT_LOG_WARNING, "No wat_con_ind callback\n");
+	}
+
+	if (!interface->wat_rel_ind) {
+		wat_log(WAT_LOG_WARNING, "No wat_rel_ind callback\n");
+	}
+
+	if (!interface->wat_rel_cfm) {
+		wat_log(WAT_LOG_WARNING, "No wat_rel_cfm callback\n");
+	}
+
+	if (!interface->wat_sms_ind) {
+		wat_log(WAT_LOG_WARNING, "No wat_sms_ind callback\n");
+	}
+
+	if (!interface->wat_sms_sts) {
+		wat_log(WAT_LOG_WARNING, "No wat_sms_sts callback\n");
+	}
 
 	memcpy(&g_interface, interface, sizeof(*interface));
 
@@ -296,7 +309,7 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 
 	/* Check Registration Status in case module is already registered */
 	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);
-	
+
 	return WAT_SUCCESS;
 }
 
@@ -407,20 +420,24 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 WAT_DECLARE(const wat_chip_info_t*) wat_span_get_chip_info(uint8_t span_id)
 {
 	wat_span_t *span;
+	WAT_SPAN_FUNC_DBG_START
 
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
-	
+
+	WAT_FUNC_DBG_END
 	return &span->chip_info;
 }
 
 WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id)
 {
 	wat_span_t *span;
+	WAT_SPAN_FUNC_DBG_START
 
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
 
+	WAT_FUNC_DBG_END
 	return &span->sim_info;
 }
 
@@ -428,11 +445,12 @@ WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id)
 {
 	wat_span_t *span;
 
+	WAT_SPAN_FUNC_DBG_START
+
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
 
-	WAT_SPAN_FUNC_DBG_START
-
+	WAT_FUNC_DBG_END
 	return &span->net_info;
 }
 
@@ -440,9 +458,12 @@ WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id)
 {
 	wat_span_t *span;
 
+	WAT_SPAN_FUNC_DBG_START
+
 	span = wat_get_span(span_id);
 	wat_assert_return(span, NULL, "Invalid span");
 
+	WAT_FUNC_DBG_END
 	return &span->sig_info;
 }
 
@@ -604,7 +625,6 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 	return WAT_SUCCESS;
 }
 
-WAT_RESPONSE_FUNC(wat_user_cmd_response);
 WAT_RESPONSE_FUNC(wat_user_cmd_response)
 {
 	int processed_tokens = 0;
@@ -614,7 +634,7 @@ WAT_RESPONSE_FUNC(wat_user_cmd_response)
 	return processed_tokens;
 }
 
-WAT_DECLARE(wat_status_t) wat_exec_at(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj)
+WAT_DECLARE(wat_status_t) wat_cmd_req(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj)
 {
 	wat_user_cmd_t *user_cmd = NULL;
 	wat_span_t *span = NULL;
@@ -706,6 +726,9 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 	if (g_interface.wat_sigstatus_change) {
 		g_interface.wat_sigstatus_change(span->id, span->sigstatus);
 	}
+
+	/* Get the Operator Name */
+	wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL);
 	return WAT_SUCCESS;
 }
 

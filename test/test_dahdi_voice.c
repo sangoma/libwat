@@ -77,7 +77,6 @@ void on_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_eve
 void on_rel_cfm(unsigned char span_id, uint8_t call_id);
 void on_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event);
 void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status);
-void on_cmd_sts(unsigned char span_id, wat_cmd_status_t *status);
 
 int on_span_write(unsigned char span_id, void *buffer, unsigned len)
 {
@@ -157,12 +156,6 @@ void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status)
 	return;
 }
 
-void on_cmd_sts(unsigned char span_id, wat_cmd_status_t *status)
-{
-	return;
-}
-
-
 static void handle_sig(int sig)
 {
 	switch(sig) {
@@ -237,7 +230,6 @@ int main (int argc, char *argv[])
 	gen_interface.wat_rel_cfm = on_rel_cfm;
 	gen_interface.wat_sms_ind = on_sms_ind;
 	gen_interface.wat_sms_sts = on_sms_sts;
-	gen_interface.wat_cmd_sts = on_cmd_sts;
 	
 	if (wat_register(&gen_interface)) {
 		fprintf(stderr, "Failed to register WAT Library !!!\n");

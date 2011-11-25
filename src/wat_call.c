@@ -136,6 +136,7 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 
 				sprintf(cmd, "ATD%s;", call->called_num.digits);
 				wat_cmd_enqueue(span, cmd, wat_response_atd, call);
+
 				wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &call->timeouts[WAT_PROGRESS_MONITOR]);
 			}
 		}
