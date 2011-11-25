@@ -1596,6 +1596,8 @@ WAT_SCHEDULED_FUNC(wat_cmd_timeout)
 	char command[WAT_MAX_CMD_SZ];
 	wat_span_t *span = (wat_span_t *) data;
 
+	wat_assert_return_void(span->cmd, "Command timeout, but we do not have an active command?");
+	
 	wat_log_span(span, WAT_LOG_ERROR, "Timeout to execute command:%s\n", span->cmd->cmd);
 
 	/* Resend the command */
