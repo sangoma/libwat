@@ -29,9 +29,6 @@
 
 #include "wat_declare.h"
 
-#if 1
-#define WAT_FUNC_DEBUG 1
-#endif
 /* Debugging */
 #define WAT_DEBUG_UART_RAW		(1 << 0) /* Show raw uart reads */
 #define WAT_DEBUG_UART_DUMP		(1 << 1) /* Show uart commands */
