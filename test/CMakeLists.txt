@@ -1,5 +1,5 @@
 
-
+INCLUDE_DIRECTORIES("${PROJECT_SOURCE_DIR}/src/include")
 
 #DAHDI test applications
 SET(DAHDI_TESTS
