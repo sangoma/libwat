@@ -1593,23 +1593,13 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 
 WAT_SCHEDULED_FUNC(wat_cmd_timeout)
 {
-	char command[WAT_MAX_CMD_SZ];
 	wat_span_t *span = (wat_span_t *) data;
 
 	wat_assert_return_void(span->cmd, "Command timeout, but we do not have an active command?");
 	
-	wat_log_span(span, WAT_LOG_ERROR, "Timeout to execute command:%s\n", span->cmd->cmd);
+	wat_log_span(span, WAT_LOG_ERROR, "Timed out executing command: '%s', retrying one more time without timeout\n", span->cmd->cmd);
 
-	/* Resend the command */
-	if (g_debug & WAT_DEBUG_UART_DUMP) {
-		char mydata[WAT_MAX_CMD_SZ];
-
-		wat_log_span(span, WAT_LOG_DEBUG, "[TX AT] %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd)));
-	}
-
-	sprintf(command, "%s\r\n ", span->cmd->cmd);
-
-	wat_span_write(span, command, strlen(command));
+	wat_write_command(span);
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc)

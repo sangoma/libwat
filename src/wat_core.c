@@ -68,8 +68,6 @@ void wat_span_run_cmds(wat_span_t *span)
 		/* Check if there are any commands waiting to be transmitted */
 		cmd = wat_queue_dequeue(span->cmd_queue);
 		if (cmd) {
-			char command[WAT_MAX_CMD_SZ];
-
 			span->cmd = cmd;
 			span->cmd_busy = 1;
 
@@ -78,15 +76,7 @@ void wat_span_run_cmds(wat_span_t *span)
 				wat_log_span(span, WAT_LOG_DEBUG, "Dequeuing command %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd)));
 			}
 
-			if (g_debug & WAT_DEBUG_UART_DUMP) {
-				char mydata[WAT_MAX_CMD_SZ];
-
-				wat_log_span(span, WAT_LOG_DEBUG, "[TX AT] %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd)));
-			}
-
-			sprintf(command, "%s\r\n ", span->cmd->cmd);
-
- 			wat_span_write(span, command, strlen(command));
+			wat_write_command(span);
 			wat_sched_timer(span->sched, "command timeout", span->config.timeout_command, wat_cmd_timeout, (void*) span, &span->timeouts[WAT_TIMEOUT_CMD]);
 		}
 	}

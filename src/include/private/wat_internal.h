@@ -36,6 +36,17 @@
 #include "wat_buffer.h"
 #include "wat_sched.h"
 
+#define WAT_CMD_END "\r"
+#define wat_write_command(span) \
+	do { \
+		char __cmd_buf[WAT_MAX_CMD_SZ]; \
+		if (g_debug & WAT_DEBUG_UART_DUMP) { \
+			char mydata[WAT_MAX_CMD_SZ]; \
+			wat_log_span(span, WAT_LOG_DEBUG, "[TX AT] %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd))); \
+		} \
+		snprintf(__cmd_buf, sizeof(__cmd_buf), "%s%s", (span)->cmd->cmd, WAT_CMD_END); \
+		wat_span_write(span, __cmd_buf, strlen(__cmd_buf)); \
+	} while (0);
 #define WAT_EVENT_QUEUE_SZ				20
 #define WAT_CMD_QUEUE_SZ				100
 //#define WAT_SMS_QUEUE_SZ				50
