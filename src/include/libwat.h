@@ -51,6 +51,7 @@
 #define WAT_MAX_SMSS_PER_SPAN			16
 #define WAT_MAX_ERROR_SZ				40
 
+#define WAT_MIN_DTMF_DURATION_MS 100
 typedef size_t wat_size_t;
 
 typedef enum {
@@ -417,6 +418,8 @@ WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_event_t *sms_event);
 WAT_DECLARE(wat_status_t) wat_cmd_req(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj);
+WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const char *dtmf, wat_at_cmd_response_func cb, void *obj);
+WAT_DECLARE(wat_status_t) wat_set_dtmf_duration(uint8_t span_id, int duration_ms);
 
 #endif /* _LIBWAT_H */
 

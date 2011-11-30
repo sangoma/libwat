@@ -577,6 +577,33 @@ WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id)
 	return WAT_SUCCESS;
 }
 
+WAT_DECLARE(wat_status_t) wat_set_dtmf_duration(uint8_t span_id, int duration_ms)
+{
+	char duration_cmd[WAT_MAX_CMD_SZ];
+	int duration = 0;
+	wat_span_t *span = NULL;
+	span = wat_get_span(span_id);
+	if (!span) {
+		return WAT_EINVAL;
+	}
+	if (duration_ms < WAT_MIN_DTMF_DURATION_MS) {
+		duration_ms = WAT_MIN_DTMF_DURATION_MS;
+	}
+	duration = duration_ms / 10;
+	snprintf(duration_cmd, sizeof(duration_cmd), "AT+VTD=%d", duration);
+	wat_cmd_enqueue(span, duration_cmd, NULL, NULL);
+}
+
+WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const char *dtmf, wat_at_cmd_response_func cb, void *obj)
+{
+	char dtmf_cmd[WAT_MAX_CMD_SZ];
+	if (!dtmf) {
+		return WAT_EINVAL;
+	}
+	snprintf(dtmf_cmd, sizeof(dtmf_cmd), "AT+VTS=\"%s\"", dtmf);
+	return wat_cmd_req(span_id, dtmf_cmd, cb, obj);
+}
+
 WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id)
 {
 	wat_span_t *span;
