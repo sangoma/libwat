@@ -84,7 +84,7 @@
 #define wat_set_flag(obj, flag) 	((obj)->flags |= (1 << flag))
 #define wat_clear_flag(obj, flag)	((obj)->flags &= ~(1 << flag))
 
-#define ARRAY_LEN(_array) sizeof(_array)/sizeof(_array[0])
+#define wat_array_len(_array) sizeof(_array)/sizeof(_array[0])
 
 extern wat_interface_t g_interface;
 extern uint32_t	g_debug;
@@ -413,6 +413,8 @@ wat_status_t wat_span_call_create(wat_span_t *span, wat_call_t **call, uint8_t i
 void wat_span_call_destroy(wat_call_t **incall);
 wat_call_t *wat_span_get_call_by_state(wat_span_t *span, wat_call_state_t state);
 wat_call_t *wat_span_get_call_by_id(wat_span_t *span, uint16_t id);
+
+wat_bool_t wat_match_prefix(char *string, const char *prefix);
 
 #ifdef WAT_FUNC_DEBUG
 #define WAT_FUNC_DBG_START	wat_log(WAT_LOG_DEBUG, "Entering function %s\n", __FUNCTION__);

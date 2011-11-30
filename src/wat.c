@@ -592,6 +592,7 @@ WAT_DECLARE(wat_status_t) wat_set_dtmf_duration(uint8_t span_id, int duration_ms
 	duration = duration_ms / 10;
 	snprintf(duration_cmd, sizeof(duration_cmd), "AT+VTD=%d", duration);
 	wat_cmd_enqueue(span, duration_cmd, NULL, NULL);
+	return WAT_SUCCESS;
 }
 
 WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const char *dtmf, wat_at_cmd_response_func cb, void *obj)

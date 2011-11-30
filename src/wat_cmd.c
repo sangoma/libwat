@@ -296,9 +296,8 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
 static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
 static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error);
-static wat_bool_t wat_match_prefix(char *string, const char *prefix);
 
-static wat_bool_t wat_match_prefix(char *string, const char *prefix)
+wat_bool_t wat_match_prefix(char *string, const char *prefix)
 {
 	int prefix_len = strlen(prefix);
 	if (!strncmp(string, prefix, prefix_len)) {
@@ -599,7 +598,6 @@ void wat_free_tokens(char *tokens[])
 
 wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_notify_func func)
 {
-	int i;
 	wat_status_t status = WAT_FAIL;
 	wat_notify_t *new_notify = NULL;
 	wat_iterator_t *iter = NULL;
@@ -615,30 +613,28 @@ wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_noti
 
 			notify->func = func;
 			status = WAT_SUCCESS;
-		}
-	}
-
-	/* TODO: Create a function: wat_span_get_free_notify that returns a pointer to a
-	free location */
-	for (i = 1; i < sizeof(span->notifys)/sizeof(span->notifys[0]); i++) {
-		if (!span->notifys[i]) {
-			new_notify = wat_calloc(1, sizeof(*new_notify));
-			wat_assert_return(new_notify, WAT_FAIL, "Failed to alloc memory\n");
-
-			new_notify->prefix = wat_strdup(prefix);
-			new_notify->func = func;
-			
-			span->notifys[i] = new_notify;
-			span->notify_count++;
-			status = WAT_SUCCESS;
 			goto done;
 		}
 	}
 
-	wat_log(WAT_LOG_CRIT, "Failed to register new notifier, no space left in notify list\n");
+	if (span->notify_count == wat_array_len(span->notifys)) {
+		wat_log(WAT_LOG_CRIT, "Failed to register new notifier, no space left in notify list\n");
+		goto done;
+	}
+
+	new_notify = wat_calloc(1, sizeof(*new_notify));
+	wat_assert_return(new_notify, WAT_FAIL, "Failed to alloc memory\n");
+
+	new_notify->prefix = wat_strdup(prefix);
+	new_notify->func = func;
+	
+	span->notifys[span->notify_count] = new_notify;
+	span->notify_count++;
+
+	status = WAT_SUCCESS;
 
 done:
-			wat_iterator_free(iter);
+	wat_iterator_free(iter);
 	return status;
 }
 

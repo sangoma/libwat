@@ -158,8 +158,7 @@ wat_iterator_t *wat_span_get_notify_iterator(const wat_span_t *span, wat_iterato
 	iter->index = 1;
 
 	if (!span->notifys[iter->index]) {
-		/* If the first element in the array is NULL, there are no elements
-			in the array, return NULL */
+		/* If the first element in the array is NULL, there are no elements in the array, return NULL */
 		wat_safe_free(iter);
 		return NULL;
 	}

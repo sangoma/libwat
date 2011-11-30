@@ -42,6 +42,7 @@ WAT_RESPONSE_FUNC(wat_response_smsmode);
 WAT_RESPONSE_FUNC(wat_response_regmode);
 WAT_RESPONSE_FUNC(wat_response_dvi);
 WAT_RESPONSE_FUNC(wat_response_shssd);
+WAT_RESPONSE_FUNC(wat_response_codecinfo);
 
 static wat_module_t telit_interface = {
 	.start = telit_start,
@@ -53,6 +54,32 @@ wat_status_t telit_init(wat_span_t *span)
 {
 	return wat_module_register(span, &telit_interface);
 }
+
+WAT_NOTIFY_FUNC(wat_notify_codec_info)
+{
+	unsigned count;
+	char *cmdtokens[10];
+	int consumed_tokens = 0;
+	
+	WAT_NOTIFY_FUNC_DBG_START
+
+	wat_match_prefix(tokens[0], "#CODECINFO: ");
+
+	memset(cmdtokens, 0, sizeof(cmdtokens));
+	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+
+	if (count < 0) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse #CODECINFO event '%s'\n", tokens[0]);
+		consumed_tokens = 1;
+	} else {
+		wat_log_span(span, WAT_LOG_DEBUG, "Codec in use: %s\n", tokens[0]);
+		consumed_tokens = 1;
+	}
+
+	wat_free_tokens(cmdtokens);
+	return consumed_tokens;
+}
+
 
 wat_status_t telit_start(wat_span_t *span)
 {
@@ -73,6 +100,11 @@ wat_status_t telit_start(wat_span_t *span)
 
 	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
 	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL);
+
+	/* Enable codec notifications 
+	 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
+	wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL);
+	wat_cmd_register(span, "#CODECINFO", wat_notify_codec_info);
 
 	return WAT_SUCCESS;
 }
@@ -142,5 +174,14 @@ WAT_RESPONSE_FUNC(wat_response_shssd)
 }
 
 
+WAT_RESPONSE_FUNC(wat_response_codecinfo)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable codec notifications\n");
+	}
+	WAT_FUNC_DBG_END
+	return 1;
+}
 
 

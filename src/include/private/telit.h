@@ -26,5 +26,6 @@
 #define _TELIT_H
 
 wat_status_t telit_init(wat_span_t *span);
+WAT_NOTIFY_FUNC(wat_notify_codec_info);
 
 #endif /* _TELIT_H */
