@@ -111,6 +111,12 @@ wat_status_t telit_start(wat_span_t *span)
 	 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
 	wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL);
 	wat_cmd_register(span, "#CODECINFO", wat_notify_codec_info);
+	
+	/* Make sure the DIALMODE is set to 0 to receive an OK code as soon as possible
+	 * the option of using DIALMODE=2 is tempting as provides progress status 
+	 * notifications (DIALING, RINGING, CONNECTED, RELEASED, DISCONNECTED), but the modem
+	 * will not accept any further commands in the meantime, which is not convenient */
+	wat_cmd_enqueue(span, "AT#DIALMODE=0", NULL, NULL);
 
 	return WAT_SUCCESS;
 }
