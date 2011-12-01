@@ -54,6 +54,25 @@
 #define WAT_MIN_DTMF_DURATION_MS 100
 typedef size_t wat_size_t;
 
+/*! \brief Codec modes enabled in a given span 
+ * warning: Since telit GSM module is the first implemented
+ * we made this definitions match the telit spec. There is
+ * also a list of codec string names (WAT_CODEC_NAMES) that must be
+ * kept in order with this list, do not change the order of
+ * codecs here unless you really know what you're doing
+ * */
+typedef enum {
+	WAT_CODEC_ALL    = 0,        /*! All modes enabled */
+	WAT_CODEC_FR     = (1 << 0), /*! Full rate */
+	WAT_CODEC_EFR    = (1 << 1), /*! Enhanced full rate */
+	WAT_CODEC_HR     = (1 << 2), /*! Half rate */
+	WAT_CODEC_AMR_FR = (1 << 3), /*! AMR full rate */
+	WAT_CODEC_AMR_HR = (1 << 4), /*! AMR half rate */
+} wat_codec_t;
+
+/*! Valid names you can use as wat_encode_codec() list of codecs */
+#define WAT_CODEC_NAMES "All", "Full-Rate", "Enhanced-Full-Rate", "Half-Rate", "AMR-Full-Rate", "AMR-Half-Rate"
+
 typedef enum {
 	WAT_SIGSTATUS_DOWN,
 	WAT_SIGSTATUS_UP,
@@ -339,6 +358,7 @@ typedef struct _wat_span_config_t {
 	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */	
+	wat_codec_t codec_mask; /* Which codecs to advertise */
 } wat_span_config_t;
 
 typedef void (*wat_sigstatus_change_func_t)(uint8_t span_id, wat_sigstatus_t sigstatus);
@@ -419,7 +439,9 @@ WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id);
 WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_event_t *sms_event);
 WAT_DECLARE(wat_status_t) wat_cmd_req(uint8_t span_id, const char *at_cmd, wat_at_cmd_response_func cb, void *obj);
 WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const char *dtmf, wat_at_cmd_response_func cb, void *obj);
-WAT_DECLARE(wat_status_t) wat_set_dtmf_duration(uint8_t span_id, int duration_ms);
+WAT_DECLARE(wat_status_t) wat_span_set_dtmf_duration(uint8_t span_id, int duration_ms);
+WAT_DECLARE(wat_status_t) wat_span_set_codec(uint8_t span_id, wat_codec_t codec_mask);
+WAT_DECLARE(wat_codec_t) wat_encode_codec(const char *codec);
 
 #endif /* _LIBWAT_H */
 

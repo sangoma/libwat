@@ -34,6 +34,7 @@
 wat_status_t telit_start(wat_span_t *span);
 wat_status_t telit_restart(wat_span_t *span);
 wat_status_t telit_shutdown(wat_span_t *span);
+wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask);
 
 WAT_RESPONSE_FUNC(wat_response_atz);
 WAT_RESPONSE_FUNC(wat_response_ate);
@@ -43,11 +44,13 @@ WAT_RESPONSE_FUNC(wat_response_regmode);
 WAT_RESPONSE_FUNC(wat_response_dvi);
 WAT_RESPONSE_FUNC(wat_response_shssd);
 WAT_RESPONSE_FUNC(wat_response_codecinfo);
+WAT_RESPONSE_FUNC(wat_response_set_codec);
 
 static wat_module_t telit_interface = {
 	.start = telit_start,
 	.restart = telit_restart,
 	.shutdown = telit_shutdown,
+	.set_codec = telit_set_codec
 };
 
 wat_status_t telit_init(wat_span_t *span)
@@ -124,6 +127,16 @@ wat_status_t telit_shutdown(wat_span_t *span)
 	return WAT_FAIL;
 }
 
+wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
+{
+	/* since telit is the first module ever written we got to choose the codec mask to 
+	 * match their spec and we can bypass mapping from wat codec values to telit values */
+	char codec_cmd[WAT_MAX_CMD_SZ];
+	snprintf(codec_cmd, sizeof(codec_cmd), "AT#CODEC=%d", codec_mask);
+	wat_cmd_enqueue(span, codec_cmd, wat_response_set_codec, NULL);
+	return WAT_SUCCESS;
+}
+
 WAT_RESPONSE_FUNC(wat_response_selint)
 {
 	WAT_RESPONSE_FUNC_DBG_START
@@ -182,6 +195,16 @@ WAT_RESPONSE_FUNC(wat_response_codecinfo)
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable codec notifications\n");
+	}
+	WAT_FUNC_DBG_END
+	return 1;
+}
+
+WAT_RESPONSE_FUNC(wat_response_set_codec)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to set codec preferences!\n");
 	}
 	WAT_FUNC_DBG_END
 	return 1;

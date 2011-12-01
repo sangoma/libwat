@@ -284,6 +284,8 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Call module specific start here */
 	span->module.start(span);
 
+	wat_span_set_codec(span_id, span->config.codec_mask);
+
 	/* Check the PIN status, this will also report if there is no SIM inserted */
 	wat_cmd_enqueue(span, "AT+CPIN?", wat_response_cpin, NULL);
 
@@ -577,13 +579,13 @@ WAT_DECLARE(wat_status_t) wat_rel_cfm(uint8_t span_id, uint8_t call_id)
 	return WAT_SUCCESS;
 }
 
-WAT_DECLARE(wat_status_t) wat_set_dtmf_duration(uint8_t span_id, int duration_ms)
+WAT_DECLARE(wat_status_t) wat_span_set_dtmf_duration(uint8_t span_id, int duration_ms)
 {
 	char duration_cmd[WAT_MAX_CMD_SZ];
 	int duration = 0;
 	wat_span_t *span = NULL;
 	span = wat_get_span(span_id);
-	if (!span) {
+	if (!span || !span->running) {
 		return WAT_EINVAL;
 	}
 	if (duration_ms < WAT_MIN_DTMF_DURATION_MS) {
@@ -603,6 +605,17 @@ WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const 
 	}
 	snprintf(dtmf_cmd, sizeof(dtmf_cmd), "AT+VTS=\"%s\"", dtmf);
 	return wat_cmd_req(span_id, dtmf_cmd, cb, obj);
+}
+
+WAT_DECLARE(wat_status_t) wat_span_set_codec(uint8_t span_id, wat_codec_t codec_mask)
+{
+	wat_span_t *span = NULL;
+	span = wat_get_span(span_id);
+	if (!span || !span->running) {
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid span (unknown or not running)\n");
+		return WAT_EINVAL;
+	}
+	return span->module.set_codec(span, codec_mask);
 }
 
 WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id)
@@ -813,6 +826,38 @@ WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause)
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status)
 {
 	return wat_pin_stat2str(pin_status);
+}
+
+static const char *wat_codec_names[] = { WAT_CODEC_NAMES };
+WAT_DECLARE(wat_codec_t) wat_encode_codec(const char *codec)
+{
+	wat_codec_t codec_mask = 0;
+	char *c = 0;
+	int i = 0;
+	if (!codec) {
+		return codec_mask;
+	}
+	while (*codec) {
+		c = strchr(codec, ',');
+		if (c) {
+			*c = '\0';
+		}
+		for (i = 1; i < wat_array_len(wat_codec_names); i++) {
+			if (!strcasecmp(codec, wat_codec_names[i])) {
+				codec_mask |= (1 << (i-1));
+				break;
+			}
+		}
+		if (i == wat_array_len(wat_codec_names)) {
+			wat_log(WAT_LOG_WARNING, "Unrecognized codec %s\n", codec);
+		}
+		if (c) {
+			codec = (++c);
+		} else {
+			break;
+		}
+	}
+	return codec_mask;
 }
 
 /* For Emacs:

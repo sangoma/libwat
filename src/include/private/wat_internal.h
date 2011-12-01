@@ -115,14 +115,16 @@ typedef enum {
 	WAT_PROGRESS_MONITOR,
 } wat_timeout_id_t;
 
-typedef wat_status_t (wat_module_start_func)(wat_span_t *span);
-typedef wat_status_t (wat_module_restart_func)(wat_span_t *span);
-typedef wat_status_t (wat_module_shutdown_func)(wat_span_t *span);
+typedef wat_status_t (*wat_module_start_func)(wat_span_t *span);
+typedef wat_status_t (*wat_module_restart_func)(wat_span_t *span);
+typedef wat_status_t (*wat_module_shutdown_func)(wat_span_t *span);
+typedef wat_status_t (*wat_module_set_codec_func)(wat_span_t *span, wat_codec_t codec_mask);
 
 struct wat_module {
-	wat_module_start_func *start;
-	wat_module_restart_func *restart;
-	wat_module_shutdown_func *shutdown;
+	wat_module_start_func    start;
+	wat_module_restart_func  restart;
+	wat_module_shutdown_func shutdown;
+	wat_module_set_codec_func set_codec;
 };
 
 wat_status_t wat_module_register(wat_span_t *, wat_module_t *module);
