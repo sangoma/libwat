@@ -101,6 +101,9 @@ wat_status_t telit_start(wat_span_t *span)
 	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
 	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL);
 
+	/* I guess we want full CPU power! */
+	wat_cmd_enqueue(span, "AT#CPUMODE=1", NULL, NULL);
+
 	/* Enable codec notifications 
 	 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
 	wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL);
