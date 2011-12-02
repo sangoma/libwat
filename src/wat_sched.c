@@ -327,6 +327,24 @@ done:
 	return status;
 }
 
+/* Unconditionally remove the timer from the schedule, 
+ * re-arrange pointers and free the timer
+ * The schedule must be already locked */
+static void destroy_timer(wat_sched_t *sched, wat_timer_t *timer)
+{
+	if (timer == sched->timers) {
+		/* it's the head timer, put a new head */
+		sched->timers = timer->next;
+	}
+	if (timer->prev) {
+		timer->prev->next = timer->next;
+	}
+	if (timer->next) {
+		timer->next->prev = timer->prev;
+	}
+	wat_safe_free(timer);
+}
+
 WAT_DECLARE(wat_status_t) wat_sched_cancel_timer(wat_sched_t *sched, wat_timer_id_t timerid)
 {
 	wat_status_t status = WAT_FAIL;
@@ -343,17 +361,7 @@ WAT_DECLARE(wat_status_t) wat_sched_cancel_timer(wat_sched_t *sched, wat_timer_i
 	/* look for the timer and destroy it */
 	for (timer = sched->timers; timer; timer = timer->next) {
 		if (timer->id == timerid) {
-			if (timer == sched->timers) {
-				/* it's the head timer, put a new head */
-				sched->timers = timer->next;
-			}
-			if (timer->prev) {
-				timer->prev->next = timer->next;
-			}
-			if (timer->next) {
-				timer->next->prev = timer->prev;
-			}
-			wat_safe_free(timer);
+			destroy_timer(sched, timer);
 			status = WAT_SUCCESS;
 			break;
 		}
@@ -362,6 +370,29 @@ WAT_DECLARE(wat_status_t) wat_sched_cancel_timer(wat_sched_t *sched, wat_timer_i
 	wat_mutex_unlock(sched->mutex);
 
 	return status;
+}
+
+WAT_DECLARE(wat_status_t) wat_sched_cancel_timers_by_data(wat_sched_t *sched, void *filter)
+{
+	wat_timer_t *timer = NULL;
+
+	wat_assert_return(sched != NULL, WAT_EINVAL, "sched is null!\n");
+
+	wat_mutex_lock(sched->mutex);
+
+	/* look for the any timer matching the filter data and destroy it */
+rescan:
+	for (timer = sched->timers; timer; timer = timer->next) {
+		if (timer->usrdata == filter) {
+			destroy_timer(sched, timer);
+			/* linked list was modified, let's rescan to be safe */
+			goto rescan;
+		}
+	}
+
+	wat_mutex_unlock(sched->mutex);
+
+	return WAT_SUCCESS;
 }
 
 WAT_DECLARE(wat_status_t) wat_sched_destroy(wat_sched_t **insched)

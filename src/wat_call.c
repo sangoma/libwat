@@ -71,8 +71,8 @@ done:
 
 void wat_span_call_destroy(wat_call_t **incall)
 {
-	wat_call_t *call;
-	wat_span_t *span;
+	wat_call_t *call = NULL;
+	wat_span_t *span = NULL;
 	wat_assert_return_void(incall, "Call was null");
 	wat_assert_return_void(*incall, "Call was null");
 	wat_assert_return_void((*incall)->span, "Call had no span");
@@ -80,6 +80,9 @@ void wat_span_call_destroy(wat_call_t **incall)
 	call = *incall;
 	*incall = NULL;
 	span = call->span;
+
+	/* The call we're about to destroy could be related to scheduled timers in its span, find them if any and cancel them */
+	wat_sched_cancel_timers_by_data(span->sched, call);
 
 	if (!span->calls[call->id]) {
 		wat_log_span(span, WAT_LOG_CRIT, "Could not find call to destroy inside span (id:%d)\n", call->id);

@@ -55,6 +55,13 @@ WAT_DECLARE(wat_status_t) wat_sched_timer(wat_sched_t *sched, const char *name,
  */
 WAT_DECLARE(wat_status_t) wat_sched_cancel_timer(wat_sched_t *sched, wat_timer_id_t timer);
 
+/*! 
+ * \brief Cancel all timers found with the given filter data
+ * \param sched The scheduling context (required)
+ * \param timer The data to use for the filter (required, but may be NULL to destroy all timers with NULL user data)
+ */
+WAT_DECLARE(wat_status_t) wat_sched_cancel_timers_by_data(wat_sched_t *sched, void *filter);
+
 /*! \brief Destroy the context and all of the scheduled timers in it */
 WAT_DECLARE(wat_status_t) wat_sched_destroy(wat_sched_t **sched);
 

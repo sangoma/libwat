@@ -74,24 +74,25 @@ typedef enum {
 	WAT_TERM_SMS,
 } wat_term_t;
 
-struct terminator {
-	char *terminator;
+typedef struct wat_terminator {
+	char *termstr;
 	wat_bool_t success;
 	wat_term_t term_type;
-};
+	wat_bool_t call_progress_info;
+} wat_terminator_t;
 
-static struct terminator terminators[] = {
-	{ "OK", WAT_TRUE, WAT_TERM_OK },
-	{ "CONNECT", WAT_TRUE, WAT_TERM_CONNECT },
-	{ "BUSY", WAT_FALSE, WAT_TERM_BUSY },
-	{ "ERROR", WAT_FALSE, WAT_TERM_ERR },
-	{ "NO DIALTONE", WAT_FALSE, WAT_TERM_NO_DIALTONE },
-	{ "NO ANSWER", WAT_FALSE, WAT_TERM_NO_ANSWER },
-	{ "NO CARRIER", WAT_FALSE, WAT_TERM_NO_CARRIER },
-	{ "+CMS ERROR:", WAT_FALSE, WAT_TERM_CMS_ERR },
-	{ "+CME ERROR:", WAT_FALSE, WAT_TERM_CME_ERR },
-	{ "+EXT ERROR:", WAT_FALSE, WAT_TERM_EXT_ERR },
-	{ ">", WAT_TRUE, WAT_TERM_SMS }
+static wat_terminator_t terminators[] = {
+	{ "OK", WAT_TRUE, WAT_TERM_OK, WAT_FALSE },
+	{ "CONNECT", WAT_TRUE, WAT_TERM_CONNECT, WAT_TRUE },
+	{ "BUSY", WAT_FALSE, WAT_TERM_BUSY, WAT_TRUE },
+	{ "ERROR", WAT_FALSE, WAT_TERM_ERR, WAT_TRUE },
+	{ "NO DIALTONE", WAT_FALSE, WAT_TERM_NO_DIALTONE, WAT_TRUE },
+	{ "NO ANSWER", WAT_FALSE, WAT_TERM_NO_ANSWER, WAT_TRUE},
+	{ "NO CARRIER", WAT_FALSE, WAT_TERM_NO_CARRIER, WAT_TRUE },
+	{ "+CMS ERROR:", WAT_FALSE, WAT_TERM_CMS_ERR, WAT_FALSE },
+	{ "+CME ERROR:", WAT_FALSE, WAT_TERM_CME_ERR, WAT_FALSE },
+	{ "+EXT ERROR:", WAT_FALSE, WAT_TERM_EXT_ERR, WAT_FALSE },
+	{ ">", WAT_TRUE, WAT_TERM_SMS, WAT_FALSE },
 };
 
 struct enum_code {
@@ -295,7 +296,7 @@ static struct enum_code ext_codes[] = {
 static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed);
 static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
 static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
-static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error);
+static wat_terminator_t *wat_match_terminator(const char* token, char **error);
 
 wat_bool_t wat_match_prefix(char *string, const char *prefix)
 {
@@ -347,30 +348,31 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	return WAT_SUCCESS;
 }
 
-static wat_status_t wat_match_terminator(const char* token, wat_bool_t *success, char **error)
+static wat_terminator_t *wat_match_terminator(const char* token, char **error)
 {
-	int i;
+	int i = 0;
+	wat_terminator_t *terminator = NULL;
 
-	for (i = 0; i < sizeof(terminators)/sizeof(terminators[0]); i++) {
-		if (!strncmp(terminators[i].terminator, token, strlen(terminators[i].terminator))) {
-			*success = terminators[i].success;
-			switch(terminators[i].term_type) {
+	for (i = 0; i < wat_array_len(terminators); i++) {
+		terminator = &terminators[i];
+		if (!strncmp(terminator->termstr, token, strlen(terminator->termstr))) {
+			switch(terminator->term_type) {
 				case WAT_TERM_CMS_ERR:					
-					*error = wat_strerror(atoi(&token[strlen(terminators[i].terminator) + 1]), cms_codes);
+					*error = wat_strerror(atoi(&token[strlen(terminator->termstr) + 1]), cms_codes);
 					break;
 				case WAT_TERM_CME_ERR:
-					*error = wat_strerror(atoi(&token[strlen(terminators[i].terminator) + 1]), cme_codes);
+					*error = wat_strerror(atoi(&token[strlen(terminator->termstr) + 1]), cme_codes);
 					break;
 				case WAT_TERM_EXT_ERR:
-					*error = wat_strerror(atoi(&token[strlen(terminators[i].terminator) + 1]), ext_codes);
+					*error = wat_strerror(atoi(&token[strlen(terminator->termstr) + 1]), ext_codes);
 					break;
 				default:
 					break;
 			}
-			return WAT_SUCCESS;
+			return terminator;
 		}
 	}
-	return WAT_FAIL;
+	return NULL;
 }
 
 wat_status_t wat_cmd_process(wat_span_t *span)
@@ -384,7 +386,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 		char *tokens[WAT_TOKENS_SZ];
 		int tokens_consumed = 0;
 		int tokens_unused = 0;
-		wat_bool_t success = WAT_FALSE;
+		wat_terminator_t *terminator = NULL;
 		wat_status_t status =- WAT_FAIL;
 
 		memset(tokens, 0, sizeof(tokens));
@@ -399,14 +401,14 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 			for (i = 0; tokens[i]; i++) {
 				char *error = NULL;
 
-				status = wat_match_terminator(tokens[i], &success, &error);
-				if (status == WAT_SUCCESS) {
-					if (!tokens_unused && !success && !span->cmd_busy) {
+				terminator = wat_match_terminator(tokens[i], &error);
+				if (terminator) {
+					if (terminator->call_progress_info) {
 						/* This could be a hangup from the remote side, schedule a CLCC to find out which call hung-up */
 						wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL);
 						tokens_consumed++;
-					} else {					
-						tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], success, error);
+					} else {
+						tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], terminator->success, error);
 						tokens_unused = 0;
 					}
 				} else {
