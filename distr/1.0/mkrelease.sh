@@ -62,7 +62,6 @@ major=""
 minor=""
 patch=""
 tag=""
-mpapi="No"
 
 while [ 1 ]
 do
@@ -207,11 +206,6 @@ if [ $tag = "y" ]; then
 	echo "$cmd"
 	eval "$cmd"
 	git push origin $tagname
-	cd common
-	echo "$cmd"
-	eval "$cmd"
-	git push origin $tagname
-	cd $HOME
 fi
 
 echo
