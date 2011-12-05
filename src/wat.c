@@ -281,6 +281,10 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 	/* Set Operator mode */
 	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL);
 
+	/* Set the Call Class to voice  */
+	/* TODO: The FCLASS should be set before sending ATD command for each call */
+	wat_cmd_enqueue(span, "AT+FCLASS=8", NULL, NULL);
+
 	/* Call module specific start here */
 	span->module.start(span);
 
