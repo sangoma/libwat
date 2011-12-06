@@ -997,7 +997,18 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		char dest[30];
 		span->sig_info.rssi = rssi;
 		span->sig_info.ber = ber;
-		wat_log_span(span, WAT_LOG_NOTICE, "Signal strength:%s (BER:%s)\n", wat_decode_rssi(dest, rssi), wat_csq_ber2str(ber));
+
+		if (span->sig_info.rssi == 0 || span->sig_info.rssi == 1 || span->sig_info.rssi == 99) {
+			span->alarm = WAT_ALARM_NO_SIGNAL;
+		} else if ((113-(2*span->sig_info.rssi)) > span->config.signal_threshold) {
+			span->alarm = WAT_ALARM_LO_SIGNAL;
+		}
+
+		if (span->alarm && g_interface.wat_alarm) {
+			g_interface.wat_alarm(span->id, span->alarm);
+		}
+
+		wat_log_span(span, WAT_LOG_DEBUG, "Signal strength:%s (BER:%s)\n", wat_decode_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSQ %s\n", tokens[0]);
 	}
@@ -1608,6 +1619,14 @@ WAT_SCHEDULED_FUNC(wat_scheduled_clcc)
 {
 	wat_call_t *call = (wat_call_t *)data;
 	wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
+}
+
+WAT_SCHEDULED_FUNC(wat_scheduled_csq)
+{
+	wat_span_t *span = (wat_span_t *)data;
+	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, span);
+	
+	wat_sched_timer(span->sched, "signal_monitor", span->config.signal_poll_interval, wat_scheduled_csq, (void*) span, NULL);
 }
 
 char* format_at_data(char *dest, void *indata, wat_size_t len)

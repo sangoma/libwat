@@ -79,9 +79,16 @@ typedef enum {
 } wat_sigstatus_t;
 
 typedef enum {
+	WAT_ALARM_NO_ALARM,
 	WAT_ALARM_NO_SIGNAL,
-	WAT_ALARM_NO_SIM,
+	WAT_ALARM_LO_SIGNAL,
+	WAT_ALARM_INVALID,
 } wat_alarm_t;
+
+#define WAT_ALARM_STRINGS "No Alarm", "No Signal", "Lo Signal", "Invalid"
+
+WAT_STR2ENUM_P(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t);
+
 
 typedef enum {
 	WAT_SMS_PDU,
@@ -357,7 +364,8 @@ typedef struct _wat_span_config_t {
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
 	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
-	uint32_t signal_poll_interval;	/* How often to check for signal quality */	
+	uint32_t signal_poll_interval;	/* How often to check for signal quality */
+	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
 	wat_codec_t codec_mask; /* Which codecs to advertise */
 } wat_span_config_t;
 
@@ -422,9 +430,11 @@ WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id);
 WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id);
 WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id);
 WAT_DECLARE(const wat_pin_stat_t*) wat_span_get_pin_info(uint8_t span_id);
+WAT_DECLARE(wat_alarm_t) wat_span_get_alarms(uint8_t span_id);
 WAT_DECLARE(const char *) wat_span_get_last_error(uint8_t span_id);
 
 WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi);
+WAT_DECLARE(const char*) wat_decode_alarm(unsigned alarm);
 WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);

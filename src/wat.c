@@ -82,6 +82,9 @@ WAT_STR2ENUM(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t, WAT_SMS_
 WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
 WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
 
+WAT_ENUM_NAMES(WAT_ALARM_NAMES, WAT_ALARM_STRINGS)
+WAT_STR2ENUM(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t, WAT_ALARM_NAMES, WAT_ALARM_INVALID)
+
 
 WAT_RESPONSE_FUNC(wat_user_cmd_response);
 static wat_span_t *wat_get_span(uint8_t span_id);
@@ -312,12 +315,14 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 
 	/* Signal Quality */
 	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, NULL);
-
+	
 	/* Enable Network Registration Unsolicited result code */
 	wat_cmd_enqueue(span, "AT+CREG=1", NULL, NULL);
 
 	/* Check Registration Status in case module is already registered */
 	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);
+
+	wat_sched_timer(span->sched, "signal_monitor", span->config.signal_poll_interval, wat_scheduled_csq, (void*) span, NULL);
 
 	return WAT_SUCCESS;
 }
@@ -484,6 +489,18 @@ WAT_DECLARE(const wat_pin_stat_t*) wat_span_get_pin_info(uint8_t span_id)
 	WAT_SPAN_FUNC_DBG_START
 	WAT_FUNC_DBG_END
 	return &span->pin_status;
+}
+
+WAT_DECLARE(wat_alarm_t) wat_span_get_alarms(uint8_t span_id)
+{
+	wat_span_t *span;
+
+	span = wat_get_span(span_id);
+	wat_assert_return(span, WAT_ALARM_NO_ALARM, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
+	WAT_FUNC_DBG_END
+	return span->alarm;
 }
 
 WAT_DECLARE(const char *) wat_span_get_last_error(uint8_t span_id)
@@ -832,6 +849,11 @@ WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi)
 			}
 	}
 	return dest;
+}
+
+WAT_DECLARE(const char*) wat_decode_alarm(unsigned in_alarm)
+{
+	return wat_alarm2str(in_alarm);
 }
 
 WAT_DECLARE(const char *) wat_decode_ber(unsigned ber)

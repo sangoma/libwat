@@ -114,6 +114,7 @@ typedef enum {
 	WAT_TIMEOUT_CLIP,
 	WAT_TIMEOUT_CMD,	/* General command time-out, i.e we did not get a response from GSM module */
 	WAT_PROGRESS_MONITOR,
+	WAT_SIGNAL_MONITOR
 } wat_timeout_id_t;
 
 typedef wat_status_t (*wat_module_start_func)(wat_span_t *span);
@@ -290,6 +291,7 @@ struct wat_span {
 	uint8_t running:1;			/* Span was started */
 
 	char last_error[WAT_ERROR_SZ];
+	wat_alarm_t alarm;
 
 	wat_sigstatus_t sigstatus;
 
@@ -380,6 +382,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip);
 WAT_NOTIFY_FUNC(wat_notify_creg);
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc);
+WAT_SCHEDULED_FUNC(wat_scheduled_csq);
 WAT_SCHEDULED_FUNC(wat_cmd_timeout);
 
 wat_status_t wat_call_create(wat_span_t *span, wat_call_t **call, wat_direction_t dir);
