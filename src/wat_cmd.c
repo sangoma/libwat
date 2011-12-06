@@ -387,7 +387,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 		int tokens_consumed = 0;
 		int tokens_unused = 0;
 		wat_terminator_t *terminator = NULL;
-		wat_status_t status =- WAT_FAIL;
+		wat_status_t status = WAT_FAIL;
 
 		memset(tokens, 0, sizeof(tokens));
 
@@ -418,7 +418,11 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 						tokens_unused++;
 					}
 				}
+				if (error != NULL) {
+					strncpy(span->last_error, error, sizeof(span->last_error));
+				}
 			}
+
 			wat_free_tokens(tokens);
 			if (tokens_consumed) {
 				/* If we handled this token, remove it from the buffer */
@@ -691,7 +695,7 @@ WAT_RESPONSE_FUNC(wat_response_atz)
 	int tokens_consumed = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to reset module\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to reset module (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -710,7 +714,7 @@ WAT_RESPONSE_FUNC(wat_response_ate)
 	int tokens_consumed = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to disable echo mode\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to disable echo mode (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -729,7 +733,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmm)
 {
 	WAT_RESPONSE_FUNC_DBG_START	
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer name\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer name (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -744,7 +748,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer id\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer id (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -759,7 +763,7 @@ WAT_RESPONSE_FUNC(wat_response_cpin)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain PIN status\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain PIN status (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 2;
 	}
@@ -782,7 +786,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmr)
 	unsigned start = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module revision identification\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module revision identification (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -801,7 +805,7 @@ WAT_RESPONSE_FUNC(wat_response_cgsn)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module serial number\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module serial number (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -816,7 +820,7 @@ WAT_RESPONSE_FUNC(wat_response_cimi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module International Subscriber Identify\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module International Subscriber Identify (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -832,7 +836,7 @@ WAT_RESPONSE_FUNC(wat_response_clip)
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		span->clip = WAT_FALSE;
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Calling Line Presentation\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Calling Line Presentation (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -854,7 +858,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 	WAT_RESPONSE_FUNC_DBG_START
 	
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Network Registration Report\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Network Registration Report (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -889,7 +893,7 @@ WAT_RESPONSE_FUNC(wat_response_cnmi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable New Messages Indications to TE\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to enable New Messages Indications to TE (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -914,7 +918,7 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 		if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse COPS entry:%s\n", tokens[0]);
 		} else {
-			strncpy(span->net_info.operator_name, cmdtokens[2], sizeof(span->net_info.operator_name));
+			strncpy(span->net_info.operator_name, wat_string_clean(cmdtokens[2]), sizeof(span->net_info.operator_name));
 		}
 		wat_free_tokens(cmdtokens);
 	} else {
@@ -922,7 +926,7 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 
 		consumed_tokens = 1;
 		if (success != WAT_TRUE) {
-			wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Operator Selection\n");
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to enable Operator Selection (%s)\n", error);
 		}
 	}
 	WAT_FUNC_DBG_END
@@ -935,7 +939,7 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 	char *cmdtokens[5];
 
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -963,8 +967,8 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		return 2;
 	}
 
-	strncpy(span->sim_info.subscriber_type, cmdtokens[0], sizeof(span->sim_info.subscriber_type));	
-	strncpy(span->sim_info.subscriber.digits, cmdtokens[1], sizeof(span->sim_info.subscriber.digits));
+	strncpy(span->sim_info.subscriber_type, wat_string_clean(cmdtokens[0]), sizeof(span->sim_info.subscriber_type));
+	strncpy(span->sim_info.subscriber.digits, wat_string_clean(cmdtokens[1]), sizeof(span->sim_info.subscriber.digits));
 	wat_decode_type_of_address(atoi(cmdtokens[2]), &span->sim_info.subscriber.type, &span->sim_info.subscriber.plan);
 
 	wat_log_span(span, WAT_LOG_NOTICE, "Subscriber:%s type:%s plan:%s <%s> \n",
@@ -982,7 +986,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 	WAT_RESPONSE_FUNC_DBG_START
 
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Signal Strength\n");
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Signal Strength (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
@@ -1009,7 +1013,7 @@ WAT_RESPONSE_FUNC(wat_response_ata)
 	if (success) {		
 		wat_call_set_state(call, WAT_CALL_STATE_UP);
 	} else {
-		wat_log_span(span, WAT_LOG_INFO, "[id:%d] Failed to answer call\n", call->id);
+		wat_log_span(span, WAT_LOG_INFO, "[id:%d] Failed to answer call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
 	}
@@ -1026,7 +1030,7 @@ WAT_RESPONSE_FUNC(wat_response_ath)
 	if (success) {
 		wat_call_set_state(call, WAT_CALL_STATE_HANGUP_CMPL);
 	} else {
-		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to hangup call\n", call->id);
+		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to hangup call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
 	}
@@ -1041,7 +1045,7 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 	WAT_RESPONSE_FUNC_DBG_START
 
 	if (!success) {
-		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to make outbound call\n", call->id);
+		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to make outbound call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
 		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
 	}

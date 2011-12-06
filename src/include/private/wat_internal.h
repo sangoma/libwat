@@ -54,6 +54,7 @@
 #define WAT_BUFFER_SZ					500
 #define WAT_TOKENS_SZ					20
 #define WAT_TIMEOUTS_SZ					30
+#define WAT_ERROR_SZ					50			
 #define WAT_MAX_NOTIFYS_PER_SPAN		100
 
 #define WAT_SCHEDULE_NEXT_DEFAULT_TIME	1000 /* TODO: May not need this */
@@ -287,6 +288,8 @@ struct wat_span {
 	uint8_t id;					/* User Id */
 	uint8_t configured:1;		/* Span has been configured */
 	uint8_t running:1;			/* Span was started */
+
+	char last_error[WAT_ERROR_SZ];
 
 	wat_sigstatus_t sigstatus;
 

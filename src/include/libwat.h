@@ -197,7 +197,7 @@ typedef struct _wat_chip_info {
 	char serial[32];
 } wat_chip_info_t;
 
-typedef struct _wat_sim_info {	
+typedef struct _wat_sim_info {
 	wat_number_t subscriber;
 	char subscriber_type[WAT_MAX_TYPE_SZ];
 	char imsi[32];
@@ -406,7 +406,7 @@ typedef struct _wat_interface {
 } wat_interface_t;
 
 /* Functions  *********************************************************************/
-/* DAVIDY: TODO: add Doxygen headers */
+/* TODO: add Doxygen headers */
 WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age);
 WAT_DECLARE(wat_status_t) wat_register(wat_interface_t *interface);
 WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *span_config);
@@ -422,6 +422,7 @@ WAT_DECLARE(const wat_sim_info_t*) wat_span_get_sim_info(uint8_t span_id);
 WAT_DECLARE(const wat_net_info_t*) wat_span_get_net_info(uint8_t span_id);
 WAT_DECLARE(const wat_sig_info_t*) wat_span_get_sig_info(uint8_t span_id);
 WAT_DECLARE(const wat_pin_stat_t*) wat_span_get_pin_info(uint8_t span_id);
+WAT_DECLARE(const char *) wat_span_get_last_error(uint8_t span_id);
 
 WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi);
 WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);

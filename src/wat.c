@@ -486,6 +486,23 @@ WAT_DECLARE(const wat_pin_stat_t*) wat_span_get_pin_info(uint8_t span_id)
 	return &span->pin_status;
 }
 
+WAT_DECLARE(const char *) wat_span_get_last_error(uint8_t span_id)
+{
+	wat_span_t *span;
+
+	span = wat_get_span(span_id);
+	wat_assert_return(span, NULL, "Invalid span");
+
+	WAT_SPAN_FUNC_DBG_START
+	
+	if (strlen(span->last_error) > 0) {
+		WAT_FUNC_DBG_END
+		return span->last_error;
+	}
+	WAT_FUNC_DBG_END
+	return NULL;
+}
+
 WAT_DECLARE(wat_status_t) wat_con_cfm(uint8_t span_id, uint8_t call_id)
 {
 	wat_span_t *span;
