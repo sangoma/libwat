@@ -132,7 +132,7 @@ wat_iterator_t *wat_span_get_call_iterator(const wat_span_t *span, wat_iterator_
 		return NULL;
 	}	
 	iter->index = 1;
-	while(iter->index <= sizeof(span->calls)/sizeof(span->calls[0])) {
+	while(iter->index < wat_array_len(span->calls)) {
 		/* Could have empty pointers in the middle of array, so find the next
 		one that's not empty */
 		if (span->calls[iter->index]) {
@@ -173,7 +173,7 @@ wat_iterator_t *wat_iterator_next(wat_iterator_t *iter)
 	switch (iter->type) {		
 		case WAT_ITERATOR_CALLS:
 			wat_assert_return(iter->index, NULL, "calls iterator index cannot be zero!\n");
-			while (iter->index < sizeof(iter->span->calls)/sizeof(iter->span->calls[0])) {
+			while (iter->index < wat_array_len(iter->span->calls)) {
 				iter->index++;
 				if (iter->span->calls[iter->index]) {
 					return iter;
@@ -205,7 +205,7 @@ void *wat_iterator_current(wat_iterator_t *iter)
 	switch (iter->type) {
 		case WAT_ITERATOR_CALLS:
 			wat_assert_return(iter->index, NULL, "calls iterator index cannot be zero!\n");
-			wat_assert_return(iter->index <= sizeof(iter->span->calls)/sizeof(iter->span->calls[0]), NULL, "channel iterator index bigger than calls size!\n");
+			wat_assert_return(iter->index <= wat_array_len(iter->span->calls), NULL, "channel iterator index bigger than calls size!\n");
 			return iter->span->calls[iter->index];
 		case WAT_ITERATOR_NOTIFYS:
 			wat_assert_return(iter->index, NULL, "notify iterator index cannot be zero!\n");

@@ -983,7 +983,7 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 WAT_RESPONSE_FUNC(wat_response_csq)
 {
 	unsigned rssi, ber;
-	wat_alarm_t new_alarm = WAT_ALARM_ALARM_CLEARED;
+	wat_alarm_t new_alarm = WAT_ALARM_NONE;
 
 	WAT_RESPONSE_FUNC_DBG_START
 
@@ -1009,7 +1009,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 
 			new_alarm = WAT_ALARM_LO_SIGNAL;
 		} else {
-			new_alarm = WAT_ALARM_ALARM_CLEARED;
+			new_alarm = WAT_ALARM_NONE;
 		}
 
 		if (new_alarm != span->alarm) {

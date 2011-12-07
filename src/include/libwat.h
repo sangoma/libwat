@@ -79,7 +79,7 @@ typedef enum {
 } wat_sigstatus_t;
 
 typedef enum {
-	WAT_ALARM_ALARM_CLEARED,
+	WAT_ALARM_NONE,
 	WAT_ALARM_NO_SIGNAL,
 	WAT_ALARM_LO_SIGNAL,
 	WAT_ALARM_INVALID,
