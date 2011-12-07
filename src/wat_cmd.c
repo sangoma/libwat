@@ -983,6 +983,8 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 WAT_RESPONSE_FUNC(wat_response_csq)
 {
 	unsigned rssi, ber;
+	wat_alarm_t new_alarm = WAT_ALARM_ALARM_CLEARED;
+
 	WAT_RESPONSE_FUNC_DBG_START
 
 	if (success != WAT_TRUE) {
@@ -999,13 +1001,22 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 		span->sig_info.ber = ber;
 
 		if (span->sig_info.rssi == 0 || span->sig_info.rssi == 1 || span->sig_info.rssi == 99) {
-			span->alarm = WAT_ALARM_NO_SIGNAL;
-		} else if ((113-(2*span->sig_info.rssi)) > span->config.signal_threshold) {
-			span->alarm = WAT_ALARM_LO_SIGNAL;
+			new_alarm = WAT_ALARM_NO_SIGNAL;
+		} else if ((span->sig_info.rssi >= 2 && span->sig_info.rssi <= 30) &&
+					((113-(2*span->sig_info.rssi)) > span->config.signal_threshold)) {
+
+			wat_log_span(span, WAT_LOG_DEBUG, "Low Signal threshold reached (signal strength:%d threshold:%d)\n", (113-(2*span->sig_info.rssi)), span->config.signal_threshold);
+
+			new_alarm = WAT_ALARM_LO_SIGNAL;
+		} else {
+			new_alarm = WAT_ALARM_ALARM_CLEARED;
 		}
 
-		if (span->alarm && g_interface.wat_alarm) {
-			g_interface.wat_alarm(span->id, span->alarm);
+		if (new_alarm != span->alarm) {
+			span->alarm = new_alarm;
+			if (g_interface.wat_alarm) {
+				g_interface.wat_alarm(span->id, span->alarm);
+			}
 		}
 
 		wat_log_span(span, WAT_LOG_DEBUG, "Signal strength:%s (BER:%s)\n", wat_decode_rssi(dest, rssi), wat_csq_ber2str(ber));

@@ -496,7 +496,7 @@ WAT_DECLARE(wat_alarm_t) wat_span_get_alarms(uint8_t span_id)
 	wat_span_t *span;
 
 	span = wat_get_span(span_id);
-	wat_assert_return(span, WAT_ALARM_NO_ALARM, "Invalid span");
+	wat_assert_return(span, WAT_ALARM_NO_SIGNAL, "Invalid span");
 
 	WAT_SPAN_FUNC_DBG_START
 	WAT_FUNC_DBG_END
