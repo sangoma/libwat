@@ -1422,6 +1422,13 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 	/* Format +CMT <alpha>, <length> */
 	/* token [1] has PDU data */
 
+	if (tokens[1] == NULL) {
+		/* We did not receive the contents yet */
+		wat_log_span(span, WAT_LOG_DEBUG, "Did not receive SMS body yet\n");
+		WAT_FUNC_DBG_END
+		return 1;
+	}
+
 	wat_match_prefix(tokens[0], "+CMT: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));

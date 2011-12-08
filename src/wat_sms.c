@@ -367,12 +367,12 @@ static int wat_decode_sms_pdu_message_7_bit(char *message, char *data, wat_size_
 
 	memset(data_pdu, 0, sizeof(data_pdu));
 
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < len - 1; i++) {
 		data_pdu[i] = hexstr_to_val(&data[i*2]);
 	}
 
 	/* 7-bit encoding ---> 8-bit encoding */
-	pdu_to_ascii(data_pdu, len, message);
+	pdu_to_ascii(data_pdu, len - 1, message);
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "Message:%s\n", message);
