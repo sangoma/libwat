@@ -118,6 +118,10 @@ wat_status_t telit_start(wat_span_t *span)
 	 * will not accept any further commands in the meantime, which is not convenient */
 	wat_cmd_enqueue(span, "AT#DIALMODE=0", NULL, NULL);
 
+	/* Enable automatic Band selection */
+	wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL);
+	wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL);
+
 	return WAT_SUCCESS;
 }
 
