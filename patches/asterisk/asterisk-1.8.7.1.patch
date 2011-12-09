@@ -1148,7 +1148,7 @@ index 8611b9a..dc1ee5a 100644
  	ast_data_register_multiple(dahdi_data_providers, ARRAY_LEN(dahdi_data_providers));
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..564718d
+index 0000000..9429dc2
 --- /dev/null
 +++ b/channels/sig_wat.c
 @@ -0,0 +1,1073 @@
@@ -2042,24 +2042,24 @@ index 0000000..564718d
 +		ast_cli(fd, "   PIN Error:%s\n\n", wat_decode_pin_status(*pin_status));
 +	}
 +
++	net_info = wat_span_get_net_info(wat->wat_span_id);
++	if (net_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get Network information\n", wat->span +1);
++	} else {
++		ast_cli(fd, "   Status: %s\n", wat_net_stat2str(net_info->stat));
++		ast_cli(fd, "   Operator: %s\n\n", net_info->operator_name);
++	}
++
++	sig_info = wat_span_get_sig_info(wat->wat_span_id);
++	if (sig_info == NULL) {
++		ast_cli(fd, "Span %d:Failed to get Signal information\n", wat->span +1);
++	} else {
++		char dest[30];
++		ast_cli(fd, "   Signal strength: %s\n", wat_decode_rssi(dest, sig_info->rssi));
++		ast_cli(fd, "   Signal BER: %s\n\n", wat_decode_ber(sig_info->ber));
++	}
++
 +	if (alarm != WAT_ALARM_NO_SIGNAL) {
-+		net_info = wat_span_get_net_info(wat->wat_span_id);
-+		if (net_info == NULL) {
-+			ast_cli(fd, "Span %d:Failed to get Network information\n", wat->span +1);
-+		} else {
-+			ast_cli(fd, "   Status: %s\n", wat_net_stat2str(net_info->stat));
-+			ast_cli(fd, "   Operator: %s\n\n", net_info->operator_name);
-+		}
-+
-+		sig_info = wat_span_get_sig_info(wat->wat_span_id);
-+		if (sig_info == NULL) {
-+			ast_cli(fd, "Span %d:Failed to get Signal information\n", wat->span +1);
-+		} else {
-+			char dest[30];
-+			ast_cli(fd, "   Signal strength: %s\n", wat_decode_rssi(dest, sig_info->rssi));
-+			ast_cli(fd, "   Signal BER: %s\n\n", wat_decode_ber(sig_info->ber));
-+		}
-+
 +		sim_info = wat_span_get_sim_info(wat->wat_span_id);
 +		if (sim_info == NULL) {
 +			ast_cli(fd, "Span %d:Failed to get SIM information\n", wat->span +1);
@@ -2741,6 +2741,30 @@ index c30a343..e26df91 100644
  AST_EXT_LIB_CHECK([OPENR2], [openr2], [openr2_chan_new], [openr2.h])
  
  if test "${USE_PWLIB}" != "no"; then
+diff --git a/git-interactive-merge.sh b/git-interactive-merge.sh
+new file mode 100755
+index 0000000..ec8bd06
+--- /dev/null
++++ b/git-interactive-merge.sh
+@@ -0,0 +1,18 @@
++#!/bin/bash
++#git-interactive-merge
++from=$1
++to=$2
++git checkout $from
++git checkout -b ${from}_tmp
++git rebase -i $to
++if [ $? -ne 0 ];then
++ echo "Git rebase failed, fix conflicts and:"
++ echo "  #>git rebase --continue"
++ echo "  #>git checkout $to"
++ echo "  #>git pull . ${from}_tmp"
++ echo "  #>git branch -d ${from}_tmp"
++fi
++
++git checkout $to
++git pull .${from}_tmp
++git branch -d ${from}_tmp
 diff --git a/include/asterisk/autoconfig.h.in b/include/asterisk/autoconfig.h.in
 index fad00f3..689e6af 100644
 --- a/include/asterisk/autoconfig.h.in
