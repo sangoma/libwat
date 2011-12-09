@@ -706,6 +706,11 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 		return WAT_FAIL;
 	}
 
+	if (sms_event->len <= 0) {
+		WAT_FUNC_DBG_END
+		return WAT_EINVAL;
+	}
+
 	memset(&event, 0, sizeof(event));
 	
 	event.id = WAT_EVENT_SMS_REQ;
