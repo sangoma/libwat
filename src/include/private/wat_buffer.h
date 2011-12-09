@@ -31,6 +31,7 @@ typedef struct {
 	wat_size_t capacity;
 	wat_size_t size;
 	wat_mutex_t *mutex;
+	uint8_t new_data:1;
 	void **data;
 } wat_buffer_t;
 
@@ -42,7 +43,7 @@ wat_status_t wat_buffer_peep(wat_buffer_t *buffer, void *data, wat_size_t *len);
 wat_status_t wat_buffer_dequeue(wat_buffer_t *buffer, void *data, wat_size_t len);
 wat_status_t wat_buffer_flush(wat_buffer_t *buffer, wat_size_t len);
 wat_status_t wat_buffer_reset(wat_buffer_t *buffer);
-
+wat_bool_t	wat_buffer_new_data(wat_buffer_t *buffer);
 #endif /* _WAT_BUFFER_H */
 
 /* For Emacs:

@@ -295,7 +295,7 @@ static struct enum_code ext_codes[] = {
 
 static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed);
 static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
-static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error);
+static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_terminator_t *terminator, char *error);
 static wat_terminator_t *wat_match_terminator(const char* token, char **error);
 
 wat_bool_t wat_match_prefix(char *string, const char *prefix)
@@ -379,7 +379,12 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 {
 	char data[WAT_BUFFER_SZ];	
 	unsigned i = 0;
-	wat_size_t len = 0;	
+	wat_size_t len = 0;
+
+	if (wat_buffer_new_data(span->buffer) == WAT_FALSE) {
+		/* If we did not get new data since last peep, no need to try parsing */
+		return WAT_SUCCESS;
+	}
 
 	if (wat_buffer_peep(span->buffer, data, &len) == WAT_SUCCESS) {
 		wat_size_t consumed;
@@ -408,7 +413,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 						wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL);
 						tokens_consumed++;
 					} else {
-						tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], terminator->success, error);
+						tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], terminator, error);
 						tokens_unused = 0;
 					}
 				} else {
@@ -435,20 +440,24 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 	return WAT_SUCCESS;
 }
 
-static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_bool_t success, char *error)
+static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_terminator_t *terminator, char *error)
 {
 	int tokens_consumed = 0;
 	wat_cmd_t *cmd;
-	
+
 	wat_assert_return(span->cmd, WAT_FAIL, "We did not have a command pending\n");
 	
 	cmd = span->cmd;
 	if (g_debug & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Handling response for cmd:%s\n", cmd->cmd);
 	}
+
+	if (terminator->term_type == WAT_TERM_SMS) {		
+		wat_sms_set_state(span->outbound_sms, WAT_SMS_STATE_SEND_BODY);
+	}
 	
 	if (cmd->cb) {
-		tokens_consumed = cmd->cb(span, tokens, success, cmd->obj, error);
+		tokens_consumed = cmd->cb(span, tokens, terminator->success, cmd->obj, error);
 	} else {
 		tokens_consumed = 1;
 	}
@@ -1307,7 +1316,6 @@ WAT_RESPONSE_FUNC(wat_response_cmgf)
 	return 1;
 }
 
-
 WAT_RESPONSE_FUNC(wat_response_cmgs_start)
 {
 	wat_sms_t *sms;
@@ -1426,7 +1434,7 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 		/* We did not receive the contents yet */
 		wat_log_span(span, WAT_LOG_DEBUG, "Did not receive SMS body yet\n");
 		WAT_FUNC_DBG_END
-		return 1;
+		return 0;
 	}
 
 	wat_match_prefix(tokens[0], "+CMT: ");

@@ -128,6 +128,7 @@ wat_status_t wat_buffer_enqueue(wat_buffer_t *buffer, void *data, wat_size_t len
 	
 	buffer->size += len;
 
+	buffer->new_data = 1;
 	wat_mutex_unlock(buffer->mutex);
 
 	return WAT_SUCCESS;
@@ -143,6 +144,7 @@ wat_status_t wat_buffer_peep(wat_buffer_t *buffer, void *data, wat_size_t *len)
 	wat_size_t read_after_wrap = 0;
 
 	wat_mutex_lock(buffer->mutex);
+	buffer->new_data = 0;
 
 	if (!buffer->size) {
 		wat_mutex_unlock(buffer->mutex);
@@ -173,6 +175,13 @@ wat_status_t wat_buffer_peep(wat_buffer_t *buffer, void *data, wat_size_t *len)
 	return WAT_SUCCESS;
 }
 
+wat_bool_t wat_buffer_new_data(wat_buffer_t *buffer)
+{
+	if (buffer->new_data) {
+		return WAT_TRUE;
+	}
+	return WAT_FALSE;
+}
 
 wat_status_t wat_buffer_dequeue(wat_buffer_t *buffer, void *data, wat_size_t len)
 {

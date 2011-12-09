@@ -124,7 +124,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 
 					/* TODO set the TON/NPI as well */
 					sprintf(cmd, "AT+CMGS=\"%s\"", sms->called_num.digits);
-					wat_cmd_enqueue(span, cmd, wat_response_cmgs_start, sms);
+					wat_cmd_enqueue(span, cmd, NULL, NULL);
 				}
 			}
 			break;
