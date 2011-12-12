@@ -230,7 +230,7 @@ WAT_DECLARE(wat_status_t) wat_span_start(uint8_t span_id)
 		return WAT_FAIL;
 	}
 
-	if (wat_queue_create(&span->sms_queue, WAT_SMS_QUEUE_SZ) != WAT_SUCCESS) {
+	if (wat_queue_create(&span->sms_queue, WAT_MAX_SMSS_PER_SPAN) != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to create queue\n");
 		return WAT_FAIL;
 	}

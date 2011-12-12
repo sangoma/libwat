@@ -48,7 +48,7 @@
 #define WAT_MAX_OPERATOR_SZ	32	/* TODO: Find real max sizes based on specs */
 
 #define WAT_MAX_CALLS_PER_SPAN			16
-#define WAT_MAX_SMSS_PER_SPAN			16
+#define WAT_MAX_SMSS_PER_SPAN			64
 #define WAT_MAX_ERROR_SZ				40
 
 #define WAT_MIN_DTMF_DURATION_MS 100

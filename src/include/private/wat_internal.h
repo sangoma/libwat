@@ -49,15 +49,11 @@
 	} while (0);
 #define WAT_EVENT_QUEUE_SZ				20
 #define WAT_CMD_QUEUE_SZ				100
-//#define WAT_SMS_QUEUE_SZ				50
-#define WAT_SMS_QUEUE_SZ				5
 #define WAT_BUFFER_SZ					500
 #define WAT_TOKENS_SZ					20
 #define WAT_TIMEOUTS_SZ					30
 #define WAT_ERROR_SZ					50			
 #define WAT_MAX_NOTIFYS_PER_SPAN		100
-
-#define WAT_SCHEDULE_NEXT_DEFAULT_TIME	1000 /* TODO: May not need this */
 
 #define wat_log_span(span, level, a, ...) if (g_interface.wat_log_span) g_interface.wat_log_span(span->id, level,a, ##__VA_ARGS__)
 
