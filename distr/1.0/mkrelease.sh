@@ -174,14 +174,27 @@ eval "cp -rf ../../AUTHORS $rel_name/"
 eval "mkdir $rel_name/asterisk/"
 eval "cp -rf ../../asterisk/* $rel_name/asterisk/"
 
+#update changelog
+cd ..
+eval "./gen_changelog.pl --project_name=LibWAT --version=${major}.${minor}.${rev} --project_dir="..""
+if [ $? -ne 0 ]; then
+	echo "Failed to generate changelog"
+	exit 1
+fi
+
+cd $HOME
+eval "cp -rf ../Changelog $rel_name"
+if [ $? -ne 0 ]; then
+	echo "Failed to copy changelog"
+	exit 1
+fi
+
 cd $HOME
 cd ..
 gitinfo_libwat=`git log -n1 --oneline | cut -d' ' -f 1`
 
 
 cd $HOME
-
-cp ChangeLog $rel_name
 
 cd $rel_name 
 find . | xargs touch -t 200808010900
