@@ -172,7 +172,7 @@ eval "cp -rf ../../README $rel_name/"
 eval "cp -rf ../../AUTHORS $rel_name/"
 
 eval "mkdir $rel_name/asterisk/"
-eval "cp -rf ../../patches/asterisk/* $rel_name/asterisk/"
+eval "cp -rf ../../asterisk/* $rel_name/asterisk/"
 
 cd $HOME
 cd ..
