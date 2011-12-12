@@ -123,7 +123,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 					memset(cmd, 0, sizeof(cmd));
 
 					/* TODO set the TON/NPI as well */
-					sprintf(cmd, "AT+CMGS=\"%s\"", sms->called_num.digits);
+					sprintf(cmd, "AT+CMGS=\"%s\"", wat_string_clean(sms->called_num.digits));
 					wat_cmd_enqueue(span, cmd, NULL, NULL);
 				}
 			}
@@ -474,7 +474,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 	i += ret;
 
-	ret = wat_decode_sms_pdu_sender(&sms_event.pdu.sender, &data[i]);
+	ret = wat_decode_sms_pdu_sender(&sms_event.calling_num, &data[i]);
 	if (ret <= 0) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SENDER from SMS PDU data [%s]\n", &data[i]);
 		/* TODO print SMS PDU here */

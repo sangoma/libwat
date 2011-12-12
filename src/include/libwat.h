@@ -306,7 +306,6 @@ typedef struct _wat_sms_pdu_timestamp {
 typedef struct _wat_sms_event_pdu {
 	wat_number_t smsc;
 	wat_sms_pdu_deliver_t sms_deliver;
-	wat_number_t sender;
 	
 	uint8_t tp_pid;		/* Protocol Identifier */
 	uint8_t tp_dcs;		/* Daca coding scheme */
