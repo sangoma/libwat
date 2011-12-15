@@ -24,7 +24,7 @@ index 055bf7d..d487501 100644
  console_video.o vgrabbers.o console_board.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_oss)
  
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index 4104c0f..9e836b8 100644
+index 4104c0f..9b9c019 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -44,6 +44,7 @@
@@ -802,49 +802,16 @@ index 4104c0f..9e836b8 100644
  	ast_mutex_lock(&monlock);
  	if (monitor_thread && (monitor_thread != AST_PTHREADT_STOP) && (monitor_thread != AST_PTHREADT_NULL)) {
  		cancel_code = pthread_cancel(monitor_thread);
-@@ -17614,6 +18108,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
- 				} else if (!strcasecmp(v->value, "mfcr2")) {
- 					confp->chan.sig = SIG_MFCR2;
- #endif
-+#ifdef HAVE_WAT
-+				} else if (!strcasecmp(v->value, "gsm")) {
-+					confp->chan.sig = SIG_GSM;
-+#endif
- 				} else if (!strcasecmp(v->value, "auto")) {
- 					confp->is_sig_auto = 1;
- 				} else {
-@@ -18378,18 +18876,223 @@ static int setup_dahdi(int reload)
- 		}
- 	}
- #endif
-+#ifdef HAVE_WAT
-+	if (reload != 1) {		
-+		int x;		
-+		for (x = 0; x < NUM_SPANS; x++) {
-+			if (wats[x].wat.pvt) {
-+				prepare_wat(wats + x);				
-+				if (sig_wat_start_wat(&wats[x].wat)) {
-+					ast_log(LOG_ERROR, "Unable to start sig-channel on span %d\n", x + 1);
-+					return -1;
-+				} else
-+					ast_verb(2, "Starting signalling monitor on span %d\n", x + 1);
-+			}
-+		}
-+	}
-+#endif
- 	/* And start the monitor for the first time */
- 	restart_monitor();
- 	return 0;
- }
+@@ -16940,6 +17434,189 @@ static struct ast_cli_entry dahdi_ss7_cli[] = {
+ };
+ #endif	/* defined(HAVE_SS7) */
  
-+
 +#if defined(HAVE_WAT)
-+/* TODO: move these to sig_wat.c so we do not need to patch chan_dahdi as much */
 +static int wat_action_send_sms(struct mansession *s, const struct message *m)
 +{
-+	int span;
++	int span;	
 +	const char *span_string = astman_get_header(m, "Span");
-+	const char *destination = astman_get_header(m, "CalledNumber");
++	const char *destination = astman_get_header(m, "To");
 +	const char *message = astman_get_header(m, "Message");
 +
 +	if (ast_strlen_zero(span_string)) {
@@ -942,7 +909,6 @@ index 4104c0f..9e836b8 100644
 +
 +	if (a->argc < 4)
 +		return CLI_SHOWUSAGE;
-+
 +	span = atoi(a->argv[3]);
 +	if ((span < 1) || (span > NUM_SPANS)) {
 +		ast_cli(a->fd, "Invalid span '%s'.  Should be a number from %d to %d\n", a->argv[3], 1, NUM_SPANS);
@@ -1023,6 +989,43 @@ index 4104c0f..9e836b8 100644
 +};
 +#endif	/* defined(HAVE_WAT) */
 +
+ static int __unload_module(void)
+ {
+ 	struct dahdi_pvt *p;
+@@ -17614,6 +18291,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+ 				} else if (!strcasecmp(v->value, "mfcr2")) {
+ 					confp->chan.sig = SIG_MFCR2;
+ #endif
++#ifdef HAVE_WAT
++				} else if (!strcasecmp(v->value, "gsm")) {
++					confp->chan.sig = SIG_GSM;
++#endif
+ 				} else if (!strcasecmp(v->value, "auto")) {
+ 					confp->is_sig_auto = 1;
+ 				} else {
+@@ -18378,6 +19059,21 @@ static int setup_dahdi(int reload)
+ 		}
+ 	}
+ #endif
++#ifdef HAVE_WAT
++	if (reload != 1) {		
++		int x;		
++		for (x = 0; x < NUM_SPANS; x++) {
++			if (wats[x].wat.pvt) {
++				prepare_wat(wats + x);				
++				if (sig_wat_start_wat(&wats[x].wat)) {
++					ast_log(LOG_ERROR, "Unable to start sig-channel on span %d\n", x + 1);
++					return -1;
++				} else
++					ast_verb(2, "Starting signalling monitor on span %d\n", x + 1);
++			}
++		}
++	}
++#endif
+ 	/* And start the monitor for the first time */
+ 	restart_monitor();
+ 	return 0;
+@@ -18386,10 +19082,14 @@ static int setup_dahdi(int reload)
  static int load_module(void)
  {
  	int res;
@@ -1038,7 +1041,7 @@ index 4104c0f..9e836b8 100644
  #ifdef HAVE_PRI
  	memset(pris, 0, sizeof(pris));
  	for (y = 0; y < NUM_SPANS; y++) {
-@@ -18417,6 +19120,13 @@ static int load_module(void)
+@@ -18417,6 +19117,13 @@ static int load_module(void)
  	ss7_set_error(dahdi_ss7_error);
  	ss7_set_message(dahdi_ss7_message);
  #endif /* HAVE_SS7 */
@@ -1052,7 +1055,7 @@ index 4104c0f..9e836b8 100644
  	res = setup_dahdi(0);
  	/* Make sure we can register our DAHDI channel type */
  	if (res)
-@@ -18438,7 +19148,9 @@ static int load_module(void)
+@@ -18438,7 +19145,9 @@ static int load_module(void)
  	ast_cli_register_multiple(dahdi_mfcr2_cli, sizeof(dahdi_mfcr2_cli)/sizeof(dahdi_mfcr2_cli[0]));
  	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
  #endif
@@ -1063,7 +1066,7 @@ index 4104c0f..9e836b8 100644
  	ast_cli_register_multiple(dahdi_cli, ARRAY_LEN(dahdi_cli));
  
  	memset(round_robin, 0, sizeof(round_robin));
-@@ -18450,6 +19162,10 @@ static int load_module(void)
+@@ -18450,6 +19159,10 @@ static int load_module(void)
  	ast_manager_register("DAHDIShowChannels", 0, action_dahdishowchannels, "Show status DAHDI channels");
  	ast_manager_register("DAHDIRestart", 0, action_dahdirestart, "Fully Restart DAHDI channels (terminates calls)");
  
@@ -1076,10 +1079,10 @@ index 4104c0f..9e836b8 100644
  	return res;
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..857a91d
+index 0000000..1239e62
 --- /dev/null
 +++ b/channels/sig_wat.c
-@@ -0,0 +1,1138 @@
+@@ -0,0 +1,1156 @@
 +/*
 + * Asterisk -- An open source telephony toolkit.
 + *
@@ -1116,6 +1119,7 @@ index 0000000..857a91d
 +#include "asterisk/cli.h"
 +#include "asterisk/stringfields.h"
 +#include "asterisk/manager.h"
++#include "asterisk/version.h"
 +
 +#include "sig_wat.h"
 +
@@ -1129,6 +1133,11 @@ index 0000000..857a91d
 +		sig_wat_lock_private(p); \
 +} while (0)
 +
++
++#if defined(ASTERISK_COMPILING_TRUNK)
++#undef ASTERISK_VERSION_NUM
++#define ASTERISK_VERSION_NUM 20000
++#endif
 +
 +#define WAT_NOT_IMPL ast_log(LOG_WARNING, "Function not implemented (%s:%s:%d)\n", __FILE__, __FUNCTION__, __LINE__);
 +
@@ -1332,7 +1341,7 @@ index 0000000..857a91d
 +
 +	wat->pvt->remotehangup = 0;
 +
-+#if ASTERISK_VERSION_NUM >= 10800	
++#if ASTERISK_VERSION_NUM >= 10800
 +	if (wat->pvt->use_callerid) {
 +#else
 +	if (wat->pvt->calls->get_use_callerid(wat->pvt->chan_pvt)) {
@@ -1340,7 +1349,7 @@ index 0000000..857a91d
 +		/* TODO: Set plan etc.. properly */
 +		strcpy(cid_num, con_event->calling_num.digits);
 +	}
-+	
++
 +	if (ast_exists_extension(NULL, context, "s", 1, cid_num)) {
 +		sig_wat_unlock_private(wat->pvt);
 +		chan = sig_wat_new_ast_channel(wat->pvt, AST_STATE_RING, 0, con_event->sub, NULL);
@@ -1457,6 +1466,92 @@ index 0000000..857a91d
 +	return;
 +}
 +
++void sig_wat_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];
++	ast_assert(wat != NULL);
++	ast_verb(3, "Span %d: SMS received from %s\n %s\n", wat->span + 1, sms_event->calling_num.digits, sms_event->message);
++
++	if (sms_event->type == WAT_SMS_TXT) {
++		manager_event(EVENT_FLAG_CALL, "WATIncomingSms",
++						"Span: %d\r\n"
++						"From: %s (type:%d plan:%d)\r\n"
++						"Type: %s\r\n"
++						"Timestamp: %02d/%02d/%02d %02d:%02d:%02d (zone:%d)\r\n"
++						"Message-Length: %u\r\n"
++						"Message: %s\r\n\r\n",
++						wat->span + 1,
++						sms_event->calling_num.digits, sms_event->calling_num.type, sms_event->calling_num.plan,
++						(sms_event->type == WAT_SMS_TXT) ? "Text": "PDU",
++						sms_event->scts.year, sms_event->scts.month, sms_event->scts.day,
++						sms_event->scts.hour, sms_event->scts.minute, sms_event->scts.second,
++						sms_event->scts.timezone,
++						sms_event->len,
++						sms_event->message);
++	} else {
++		manager_event(EVENT_FLAG_CALL, "WATIncomingSms",
++						"Span: %d\r\n"
++						"From: %s (type:%d plan:%d)\r\n"
++						"Service-Centre: %s (type:%d plan:%d)\r\n"
++						"Timestamp: %02d/%02d/%02d %02d:%02d:%02d (zone:%d)\r\n"
++						"Type: %s\r\n"
++						"More-Messages-To-Send: %s\r\n"
++						"Reply-Path: %s\r\n"
++						"User-Data-Header-Indicator: %s\r\n"
++						"Status-Report-Indication: %s\r\n"
++						"Message-Length: %u\r\n"
++						"Message: %s\r\n\r\n",
++						wat->span + 1,
++						sms_event->calling_num.digits, sms_event->calling_num.type, sms_event->calling_num.plan,
++						sms_event->pdu.smsc.digits, sms_event->pdu.smsc.type, sms_event->pdu.smsc.plan,
++						sms_event->scts.year, sms_event->scts.month, sms_event->scts.day,
++						sms_event->scts.hour, sms_event->scts.minute, sms_event->scts.second,
++						sms_event->scts.timezone,
++						(!sms_event->pdu.sms_deliver.tp_mti) ? "SMS-DELIVER" : "Unknown",
++						(sms_event->pdu.sms_deliver.tp_mms) ? "Yes" : "No",
++						(sms_event->pdu.sms_deliver.tp_rp) ? "Yes" : "No",
++						(sms_event->pdu.sms_deliver.tp_udhi) ? "Yes" : "No",
++						(sms_event->pdu.sms_deliver.tp_sri) ? "Yes" : "No",
++						sms_event->len,
++						sms_event->message);
++	}
++}
++
++void sig_wat_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *sms_status)
++{
++	struct sig_wat_span *wat = wat_spans[span_id];	
++	ast_assert(wat != NULL);
++	
++	if (sms_status->success) {
++		ast_verb(3, "Span %d: SMS sent OK (id:%d)\n", wat->span + 1, sms_id);
++	} else {
++		if (sms_status->error) {
++			ast_verb(3, "Span %d: Failed to send SMS cause:%s error:%s (id:%d)\n",
++													wat->span + 1,
++													wat_decode_sms_cause(sms_status->cause),
++													sms_status->error,
++													sms_id);
++		} else {
++			ast_verb(3, "Span %d: Failed to send SMS cause:%s (id:%d)\n",
++													wat->span + 1,
++													wat_decode_sms_cause(sms_status->cause),
++													sms_id);
++		}
++
++	}
++
++	sig_wat_lock_private(wat->pvt);
++	if (!wat->smss[sms_id]) {
++		ast_log(LOG_ERROR, "Span %d: Could not find record for transmitted SMS (id:%d)\n", wat->span + 1, sms_id);
++		sig_wat_unlock_private(wat->pvt);
++		return;
++	}	
++	ast_free(wat->smss[sms_id]);
++	wat->smss[sms_id] = NULL;
++	sig_wat_unlock_private(wat->pvt);
++	return;
++}
++
 +int sig_wat_call(struct sig_wat_chan *p, struct ast_channel *ast, char *rdest)
 +{
 +	int i,j;
@@ -1556,84 +1651,6 @@ index 0000000..857a91d
 +	}
 +
 +	return res;
-+}
-+
-+void sig_wat_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event)
-+{
-+	struct sig_wat_span *wat = wat_spans[span_id];
-+	ast_assert(wat != NULL);
-+	ast_verb(3, "Span %d: SMS received from %s\n %s\n", wat->span + 1, sms_event->calling_num.digits, sms_event->message);
-+
-+	if (sms_event->type == WAT_SMS_TXT) {
-+		manager_event(EVENT_FLAG_CALL, "WATIncomingSms",
-+											"Span: %d\r\n"
-+											"CallingNumber: %s (type:%d plan:%d)\r\n"
-+											"Type: %s\r\n"
-+											"Timestamp: %02d/%02d/%02d %02d:%02d:%02d (zone:%d)\r\n"
-+											"MessageLength: %u\r\n"
-+											"Message: %s\r\n\r\n",
-+											wat->span + 1,
-+											sms_event->calling_num.digits, sms_event->calling_num.type, sms_event->calling_num.plan,
-+											(sms_event->type == WAT_SMS_TXT) ? "Text": "PDU",
-+											sms_event->scts.year, sms_event->scts.month, sms_event->scts.day,
-+											sms_event->scts.hour, sms_event->scts.minute, sms_event->scts.second,
-+											sms_event->scts.timezone,
-+											sms_event->len,
-+											sms_event->message);
-+	} else {
-+		manager_event(EVENT_FLAG_CALL, "WATIncomingSms",
-+											"Span: %d\r\n"
-+											"CallingNumber: %s (type:%d plan:%d)\r\n"
-+											"ServiceCentre: %s (type:%d plan:%d)\r\n"
-+											"Type: %s\r\n"
-+											"Timestamp: %02d/%02d/%02d %02d:%02d:%02d (zone:%d)\r\n"
-+											"MessageLength: %u\r\n"
-+											"Message: %s\r\n\r\n",
-+											wat->span + 1,
-+											sms_event->calling_num.digits, sms_event->calling_num.type, sms_event->calling_num.plan,
-+											sms_event->pdu.smsc.digits, sms_event->pdu.smsc.type, sms_event->pdu.smsc.plan,
-+											(sms_event->type == WAT_SMS_TXT) ? "Text": "PDU",
-+											sms_event->scts.year, sms_event->scts.month, sms_event->scts.day,
-+											sms_event->scts.hour, sms_event->scts.minute, sms_event->scts.second,
-+											sms_event->scts.timezone,
-+											sms_event->len,
-+											sms_event->message);
-+	}
-+}
-+
-+void sig_wat_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *sms_status)
-+{
-+	struct sig_wat_span *wat = wat_spans[span_id];
-+	ast_assert(wat != NULL);
-+
-+	if (sms_status->success) {
-+		ast_verb(3, "Span %d: SMS sent OK (id:%d)\n", wat->span + 1, sms_id);
-+	} else {
-+		if (sms_status->error) {
-+			ast_verb(3, "Span %d: Failed to send SMS cause:%s error:%s (id:%d)\n",
-+					 wat->span + 1,
-+	  wat_decode_sms_cause(sms_status->cause),
-+						   sms_status->error,
-+		 sms_id);
-+		} else {
-+			ast_verb(3, "Span %d: Failed to send SMS cause:%s (id:%d)\n",
-+					 wat->span + 1,
-+	  wat_decode_sms_cause(sms_status->cause),
-+						   sms_id);
-+		}
-+
-+	}
-+
-+	sig_wat_lock_private(wat->pvt);
-+	if (!wat->smss[sms_id]) {
-+		ast_log(LOG_ERROR, "Span %d: Could not find record for transmitted SMS (id:%d)\n", wat->span + 1, sms_id);
-+		sig_wat_unlock_private(wat->pvt);
-+		return;
-+	}
-+	ast_free(wat->smss[sms_id]);
-+	wat->smss[sms_id] = NULL;
-+	sig_wat_unlock_private(wat->pvt);
-+	return;
 +}
 +
 +static void sig_wat_deadlock_avoidance_private(struct sig_wat_chan *p)
@@ -2192,7 +2209,7 @@ index 0000000..857a91d
 +
 +int sig_wat_digit_begin(struct sig_wat_chan *p, struct ast_channel *ast, char digit)
 +{
-+	struct sig_wat_span *wat;
++	struct sig_wat_span *wat;	
 +	int count = 0;
 +	char dtmf[2] = { digit, '\0' };
 +
@@ -2216,6 +2233,10 @@ index 0000000..857a91d
 +
 +	return 0;
 +}
++
++#if defined(ASTERISK_COMPILING_TRUNK)
++#undef ASTERISK_VERSION_NUM
++#endif
 +
 +#endif /* HAVE_WAT */
 diff --git a/channels/sig_wat.h b/channels/sig_wat.h
@@ -2450,6 +2471,48 @@ index 4ba5af5..1c3ecd3 100644
  AST_EXT_LIB_CHECK([SS7], [ss7], [ss7_pollflags], [libss7.h])
  
  AST_EXT_LIB_CHECK([OPENR2], [openr2], [openr2_chan_new], [openr2.h])
+diff --git a/git-interactive-merge-continue.sh b/git-interactive-merge-continue.sh
+new file mode 100755
+index 0000000..24015ee
+--- /dev/null
++++ b/git-interactive-merge-continue.sh
+@@ -0,0 +1,15 @@
++#!/bin/bash
++#git-interactive-merge-continue
++from=$1
++to=$2
++
++
++git rebase --continue
++if [ $? -ne 0 ];then
++ echo "Git rebase failed, fix conflicts and:"
++ echo "  #>./git-interactive-merge-continue.sh ${from} ${to}"
++fi
++
++git checkout $to
++git pull . ${from}_tmp
++git branch -d ${from}_tmp
+diff --git a/git-interactive-merge.sh b/git-interactive-merge.sh
+new file mode 100755
+index 0000000..ac2350f
+--- /dev/null
++++ b/git-interactive-merge.sh
+@@ -0,0 +1,15 @@
++#!/bin/bash
++#git-interactive-merge
++from=$1
++to=$2
++git checkout $from
++git checkout -b ${from}_tmp
++git rebase -i $to
++if [ $? -ne 0 ];then
++ echo "Git rebase failed, fix conflicts and:"
++ echo "  #>./git-interactive-merge-continue.sh ${from} ${to}"
++fi
++
++git checkout $to
++git pull . ${from}_tmp
++git branch -d ${from}_tmp
 diff --git a/include/asterisk/autoconfig.h.in b/include/asterisk/autoconfig.h.in
 index 9c213a5..4efc96d 100644
 --- a/include/asterisk/autoconfig.h.in
