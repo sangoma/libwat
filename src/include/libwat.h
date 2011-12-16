@@ -427,6 +427,7 @@ typedef struct _wat_span_config_t {
 	/* Timeouts */
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
 	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
+	uint32_t cmd_interval;		/* Minimum amount of time between sending 2 commands to the chip */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
