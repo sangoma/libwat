@@ -36,8 +36,7 @@ SET(wat_SOURCES
 		wat_mutex.c
 		wat_sched.c
 		wat_buffer.c
-		telit.c
-		pduconv.c)
+		telit.c)
 
 SET(wat_PUBLIC_HEADERS
 		wat_declare.h

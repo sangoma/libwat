@@ -284,14 +284,76 @@ typedef struct _wat_con_event {
 	char calling_name[WAT_MAX_NAME_SZ];
 } wat_con_event_t;
 
+typedef enum {
+	WAT_SMS_PDU_MTI_SMS_DELIVER,
+	WAT_SMS_PDU_MTI_SMS_DELIVER_REPORT,
+	WAT_SMS_PDU_MTI_SMS_STATUS_REPORT,
+	WAT_SMS_PDU_MTI_SMS_COMMAND,
+	WAT_SMS_PDU_MTI_SMS_SUBMIT,
+	WAT_SMS_PDU_MTI_SMS_SUBMIT_REPORT,
+	WAT_SMS_PDU_MTI_INVALID,
+} wat_sms_pdu_mti_t;
+
+#define WAT_SMS_PDU_MTI_STRINGS "SMS-DELIVER", "SMS-DELIVER-REPORT", "SMS-STATUS-REPORT", "SMS-COMMAND", "SMS-SUBMIT", "SMS-SUBMIT-REPORT", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_mti, wat_sms_pdu_mti2str, wat_sms_pdu_mti_t);
+
+/* Defined in GSM 03.38 */
+typedef enum {
+	WAT_SMS_PDU_DCS_GRP_GEN,				/* General */
+	WAT_SMS_PDU_DCS_GRP_RESERVED,			/* Reserved coding groups */
+	WAT_SMS_PDU_DCS_GRP_MWI_DISCARD_MSG,	/* Message Wating Indication Group: Discard Message */
+	WAT_SMS_PDU_DCS_GRP_MWI_STORE_MSG_1,	/* Message Waiting Indication Group: Store Message (type #1) */
+	WAT_SMS_PDU_DCS_GRP_MWI_STORE_MSG_2,	/* Message Waiting Indication Group: Store Message (type #1) */
+	WAT_SMS_PDU_DCS_GRP_DATA_CODING,		/* Data coding/Message class */
+	WAT_SMS_PDU_DCS_GRP_INVALID,
+} wat_sms_pdu_dcs_grp_t;
+
+#define WAT_SMS_PDU_DCS_GRP_STRINGS "General", "Reserved", "MWI-Discard Message", "MWI-Store Message", "MWI-Store Message", "Data coding", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_grp, wat_sms_pdu_dcs_grp2str, wat_sms_pdu_dcs_grp_t);
+
+typedef enum {
+	WAT_SMS_PDU_DCS_MSG_CLASS_GENERAL,
+	WAT_SMS_PDU_DCS_MSG_CLASS_ME_SPECIFIC,
+	WAT_SMS_PDU_DCS_MSG_CLASS_SIM_SPECIFIC,
+	WAT_SMS_PDU_DCS_MSG_CLASS_TE_SPECIFIC, /* See GSM TS 07.05 */
+	WAT_SMS_PDU_DCS_MSG_CLASS_INVALID,
+} wat_sms_pdu_dcs_msg_cls_t;
+
+typedef enum {
+	WAT_SMS_PDU_DCS_IND_TYPE_VOICEMAIL_MSG_WAITING,
+	WAT_SMS_PDU_DCS_IND_TYPE_FAX_MSG_WAITING,
+	WAT_SMS_PDU_DCS_IND_TYPE_ELECTRONIC_MAIL_MSG_WAITING,
+	WAT_SMS_PDU_DCS_IND_TYPE_OTHER_MSG_WAITING,
+	WAT_SMS_PDU_DCS_IND_TYPE_INVALID,
+} wat_sms_pdu_dcs_ind_type_t;
+
+typedef enum {
+	WAT_SMS_PDU_DCS_ALPHABET_7BIT,
+	WAT_SMS_PDU_DCS_ALPHABET_8BIT,
+	WAT_SMS_PDU_DCS_ALPHABET_UCS2,
+	WAT_SMS_PDU_DCS_ALPHABET_INVALID,
+} wat_sms_pdu_dcs_alphabet_t;
+
+#define WAT_SMS_PDU_DCS_ALPHABET_STRINGS "7-bit", "8-bit", "USC2", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t);
+
 typedef struct _wat_sms_pdu_deliver {
 	/* From  www.dreamfabric.com/sms/deliver_fo.html */
 	uint8_t tp_rp:1; /* Reply Path */
 	uint8_t tp_udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
 	uint8_t tp_sri:1; /* Status report indication. 1 => Status report is going to be returned to the SME */
 	uint8_t tp_mms:1; /* More messages to send. 0 => There are more messages to send  */
-	uint8_t tp_mti:2; /* Message type indicator. 0 => this PDU is an SMS-DELIVER */
+	wat_sms_pdu_mti_t tp_mti; /* Message type indicator */
 } wat_sms_pdu_deliver_t;
+
+typedef struct _wat_sms_pdu_dcs {
+	wat_sms_pdu_dcs_grp_t grp;
+	uint8_t compressed:1; /* Compression defined in GSM TS 03.42 */
+	wat_sms_pdu_dcs_msg_cls_t msg_class; /* Message Class */
+	uint8_t ind_active:1;	/* Set indication Active */
+	wat_sms_pdu_dcs_ind_type_t ind_type;
+	wat_sms_pdu_dcs_alphabet_t alphabet;
+} wat_sms_pdu_dcs_t;
 
 typedef struct _wat_sms_pdu_timestamp {
 	int year;
@@ -308,7 +370,9 @@ typedef struct _wat_sms_event_pdu {
 	wat_sms_pdu_deliver_t sms_deliver;
 	
 	uint8_t tp_pid;		/* Protocol Identifier */
-	uint8_t tp_dcs;		/* Daca coding scheme */
+	uint8_t tp_dcs;		/* Data coding scheme */
+	
+	wat_sms_pdu_dcs_t dcs;	/* Values are derived from tp_dcs */
 	uint8_t tp_udl;
 
 	uint8_t tp_udhl;
@@ -318,13 +382,14 @@ typedef struct _wat_sms_event_pdu {
 	uint8_t refnr;
 	uint8_t total;
 	uint8_t seq;
-
+	
 } wat_sms_event_pdu_t;
 
 typedef struct _wat_sms_event {
 	wat_number_t calling_num;
 	wat_number_t called_num;
 	wat_sms_type_t type;				/* PDU or Plain Text */
+
 	uint32_t len;						/* Length of message */
 	wat_timestamp_t scts;
 	wat_sms_event_pdu_t pdu;
@@ -362,6 +427,7 @@ typedef struct _wat_span_config_t {
 	/* Timeouts */
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
 	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
+	uint32_t cmd_interval;		/* Minimum amount of time between sending 2 commands to the chip */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
@@ -437,6 +503,9 @@ WAT_DECLARE(const char*) wat_decode_alarm(unsigned alarm);
 WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
+WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti);
+WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
+
 
 #define WAT_AT_CMD_RESPONSE_ARGS (uint8_t span_id, char *tokens[], wat_bool_t success, void *obj, char *error)
 #define WAT_AT_CMD_RESPONSE_FUNC(name) static int (name)  WAT_AT_CMD_RESPONSE_ARGS

@@ -54,6 +54,11 @@ WAT_STR2ENUM(wat_str2wat_clcc_stat, wat_clcc_stat2str, wat_clcc_stat_t, WAT_CLCC
 WAT_ENUM_NAMES(WAT_PIN_CHIP_STAT_NAMES, WAT_PIN_CHIP_STAT_STRINGS)
 WAT_STR2ENUM(wat_str2wat_chip_pin_stat, wat_chip_pin_stat2str, wat_pin_stat_t, WAT_PIN_CHIP_STAT_NAMES, WAT_PIN_INVALID)
 
+
+
+
+WAT_SCHEDULED_FUNC(wat_cmd_complete);
+
 typedef struct {
 	unsigned id;
 	unsigned dir;
@@ -440,6 +445,28 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 	return WAT_SUCCESS;
 }
 
+
+WAT_SCHEDULED_FUNC(wat_cmd_complete)
+{
+	wat_cmd_t *cmd;
+	wat_span_t *span = (wat_span_t *) data;
+
+	cmd = span->cmd;
+	wat_assert_return_void(span->cmd, "Command complete, but we do not have an active command?");
+
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Command complete\n");
+	}
+
+	span->cmd = NULL;
+
+	wat_safe_free(cmd->cmd);
+	wat_safe_free(cmd);
+	span->cmd_busy = 0;
+	
+	return;
+}
+
 static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_terminator_t *terminator, char *error)
 {
 	int tokens_consumed = 0;
@@ -464,12 +491,10 @@ static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_termina
 
 	wat_sched_cancel_timer(span->sched, span->timeouts[WAT_TIMEOUT_CMD]);
 
-	span->cmd = NULL;
-
-	wat_safe_free(cmd->cmd);
-	wat_safe_free(cmd);
-	span->cmd_busy = 0;
 	wat_log_span(span, WAT_LOG_DEBUG, "Response consumed %d tokens\n", tokens_consumed);
+
+	/* Some chip manufacturers recommend a grace period between receiving a response and sending another command */
+	wat_sched_timer(span->sched, "command_interval", span->config.cmd_interval, wat_cmd_complete, (void*) span, NULL);	
 	return tokens_consumed;
 }
 
@@ -567,14 +592,9 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 	}
 
 	if (has_token) {
-#if 1
 		/* We are in the middle of receiving a Command wait for the rest */
 		wat_free_tokens(tokens);
 		return WAT_FAIL;
-#else
-		/* We only got half a token, need to free this pointer */
-		wat_safe_free(token_str);
-#endif
 	}
 
 	/* No more tokens left in buffer */

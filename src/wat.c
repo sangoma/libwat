@@ -79,6 +79,15 @@ WAT_STR2ENUM(wat_str2wat_sms_state, wat_sms_state2str, wat_sms_state_t, WAT_SMS_
 WAT_ENUM_NAMES(WAT_SMS_CAUSE_NAMES, WAT_SMS_CAUSE_STRINGS)
 WAT_STR2ENUM(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t, WAT_SMS_CAUSE_NAMES, WAT_SMS_CAUSE_UNKNOWN)
 
+WAT_ENUM_NAMES(WAT_SMS_PDU_MTI_NAMES, WAT_SMS_PDU_MTI_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_mti, wat_sms_pdu_mti2str, wat_sms_pdu_mti_t, WAT_SMS_PDU_MTI_NAMES, WAT_SMS_PDU_MTI_INVALID)
+
+WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_GRP_NAMES, WAT_SMS_PDU_DCS_GRP_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_grp, wat_sms_pdu_dcs_grp2str, wat_sms_pdu_dcs_grp_t, WAT_SMS_PDU_DCS_GRP_NAMES, WAT_SMS_PDU_DCS_GRP_INVALID)
+
+WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_ALPHABET_NAMES, WAT_SMS_PDU_DCS_ALPHABET_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t, WAT_SMS_PDU_DCS_ALPHABET_NAMES, WAT_SMS_PDU_DCS_ALPHABET_INVALID)
+
 WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
 WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
 
@@ -874,6 +883,28 @@ WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause)
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status)
 {
 	return wat_pin_stat2str(pin_status);
+}
+
+WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti)
+{
+	return wat_sms_pdu_mti2str(mti);
+}
+
+WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs)
+{
+	unsigned len = 0;
+	
+	len += sprintf(dest, "grp:%s ", wat_sms_pdu_dcs_grp2str(dcs->grp));
+
+	if (dcs->compressed) {
+		len += sprintf(dest, "compressed ");
+	}
+
+	if (dcs->alphabet != WAT_SMS_PDU_DCS_ALPHABET_INVALID) {
+		len += sprintf(dest, "alphabet:%s ", wat_sms_pdu_dcs_alphabet2str(dcs->alphabet));
+	}
+	
+	return dest;
 }
 
 static const char *wat_codec_names[] = { WAT_CODEC_NAMES };
