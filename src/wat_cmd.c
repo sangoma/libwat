@@ -567,14 +567,9 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 	}
 
 	if (has_token) {
-#if 1
 		/* We are in the middle of receiving a Command wait for the rest */
 		wat_free_tokens(tokens);
 		return WAT_FAIL;
-#else
-		/* We only got half a token, need to free this pointer */
-		wat_safe_free(token_str);
-#endif
 	}
 
 	/* No more tokens left in buffer */
