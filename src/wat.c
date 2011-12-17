@@ -178,7 +178,28 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	
 	span->id = span_id;
 	span->configured = 1;
+
 	memcpy(&span->config, span_config, sizeof(*span_config));
+
+	/* if the user does not know what a given timer should be, we provide defaults */
+	if (!span->config.timeout_cid_num) {
+		span->config.timeout_cid_num = WAT_DEFAULT_TIMEOUT_CID_NUM;
+	}
+	if (!span->config.timeout_command) {
+		span->config.timeout_command = WAT_DEFAULT_TIMEOUT_COMMAND;
+	}
+	if (!span->config.cmd_interval) {
+		span->config.cmd_interval = WAT_DEFAULT_COMMAND_INTERVAL;
+	}
+	if (!span->config.progress_poll_interval) {
+		span->config.progress_poll_interval = WAT_DEFAULT_PROGRESS_POLL_INTERVAL;
+	}
+	if (!span->config.signal_poll_interval) {
+		span->config.signal_poll_interval = WAT_DEFAULT_SIGNAL_POLL_INTERVAL;
+	}
+	if (!span->config.signal_threshold) {
+		span->config.signal_threshold = WAT_DEFAULT_SIGNAL_THRESHOLD;
+	}
 
 	wat_log_span(span, WAT_LOG_DEBUG, "Configured span for %s module\n", wat_moduletype2str(span_config->moduletype));
 	return WAT_SUCCESS;
