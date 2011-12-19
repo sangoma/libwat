@@ -85,8 +85,8 @@ WAT_STR2ENUM(wat_str2wat_sms_pdu_mti, wat_sms_pdu_mti2str, wat_sms_pdu_mti_t, WA
 WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_GRP_NAMES, WAT_SMS_PDU_DCS_GRP_STRINGS)
 WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_grp, wat_sms_pdu_dcs_grp2str, wat_sms_pdu_dcs_grp_t, WAT_SMS_PDU_DCS_GRP_NAMES, WAT_SMS_PDU_DCS_GRP_INVALID)
 
-WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_ALPHABET_NAMES, WAT_SMS_PDU_DCS_ALPHABET_STRINGS)
-WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t, WAT_SMS_PDU_DCS_ALPHABET_NAMES, WAT_SMS_PDU_DCS_ALPHABET_INVALID)
+WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_CHARSET_NAMES, WAT_SMS_PDU_DCS_CHARSET_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_charset, wat_sms_pdu_dcs_charset2str, wat_sms_pdu_dcs_charset_t, WAT_SMS_PDU_DCS_CHARSET_NAMES, WAT_SMS_PDU_DCS_CHARSET_INVALID)
 
 WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
 WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
@@ -890,20 +890,13 @@ WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti)
 	return wat_sms_pdu_mti2str(mti);
 }
 
-WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs)
+WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone)
 {
-	unsigned len = 0;
-	
-	len += sprintf(dest, "grp:%s ", wat_sms_pdu_dcs_grp2str(dcs->grp));
-
-	if (dcs->compressed) {
-		len += sprintf(dest, "compressed ");
-	}
-
-	if (dcs->alphabet != WAT_SMS_PDU_DCS_ALPHABET_INVALID) {
-		len += sprintf(dest, "alphabet:%s ", wat_sms_pdu_dcs_alphabet2str(dcs->alphabet));
-	}
-	
+	int hours = timezone/4;
+	int minutes = (timezone % 4)*15;
+	sprintf(dest, "%s%02d%02d",
+				(timezone & 0x80) ? "-":"+",
+				hours, minutes);
 	return dest;
 }
 

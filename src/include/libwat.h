@@ -328,14 +328,14 @@ typedef enum {
 } wat_sms_pdu_dcs_ind_type_t;
 
 typedef enum {
-	WAT_SMS_PDU_DCS_ALPHABET_7BIT,
-	WAT_SMS_PDU_DCS_ALPHABET_8BIT,
-	WAT_SMS_PDU_DCS_ALPHABET_UCS2,
-	WAT_SMS_PDU_DCS_ALPHABET_INVALID,
-} wat_sms_pdu_dcs_alphabet_t;
+	WAT_SMS_PDU_DCS_CHARSET_7BIT,
+	WAT_SMS_PDU_DCS_CHARSET_8BIT,
+	WAT_SMS_PDU_DCS_CHARSET_16BIT, /* UCS2, UTF-8 */
+	WAT_SMS_PDU_DCS_CHARSET_INVALID,
+} wat_sms_pdu_dcs_charset_t;
 
-#define WAT_SMS_PDU_DCS_ALPHABET_STRINGS "7-bit", "8-bit", "USC2", "Invalid"
-WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t);
+#define WAT_SMS_PDU_DCS_CHARSET_STRINGS "7-bit", "8-bit", "UTF-8", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_charset, wat_sms_pdu_dcs_charset2str, wat_sms_pdu_dcs_charset_t);
 
 typedef struct _wat_sms_pdu_deliver {
 	/* From  www.dreamfabric.com/sms/deliver_fo.html */
@@ -352,7 +352,7 @@ typedef struct _wat_sms_pdu_dcs {
 	wat_sms_pdu_dcs_msg_cls_t msg_class; /* Message Class */
 	uint8_t ind_active:1;	/* Set indication Active */
 	wat_sms_pdu_dcs_ind_type_t ind_type;
-	wat_sms_pdu_dcs_alphabet_t alphabet;
+	wat_sms_pdu_dcs_charset_t charset;
 } wat_sms_pdu_dcs_t;
 
 typedef struct _wat_sms_pdu_timestamp {
@@ -435,6 +435,7 @@ typedef struct _wat_span_config_t {
 } wat_span_config_t;
 
 typedef void (*wat_sigstatus_change_func_t)(uint8_t span_id, wat_sigstatus_t sigstatus);
+typedef void (*wat_netstatus_change_func_t)(uint8_t span_id, wat_net_stat_t netstatus);
 typedef void (*wat_alarm_func_t)(uint8_t span_id, wat_alarm_t alarm);
 typedef void (*wat_log_func_t)(uint8_t level, char *fmt, ...);
 typedef void* (*wat_malloc_func_t)(size_t size);
@@ -454,6 +455,7 @@ typedef int (*wat_span_write_func_t)(uint8_t span_id, void *data, uint32_t len);
 typedef struct _wat_interface {
 	/* Call-backs */
 	wat_sigstatus_change_func_t wat_sigstatus_change;
+	wat_netstatus_change_func_t wat_netstatus_change;
 	wat_alarm_func_t wat_alarm;
 
 	/* Memory management */
@@ -504,8 +506,8 @@ WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
 WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti);
-WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
 
+WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone);
 
 #define WAT_AT_CMD_RESPONSE_ARGS (uint8_t span_id, char *tokens[], wat_bool_t success, void *obj, char *error)
 #define WAT_AT_CMD_RESPONSE_FUNC(name) static int (name)  WAT_AT_CMD_RESPONSE_ARGS

@@ -227,6 +227,7 @@ static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string)
 		}		
 	}
 	wat_free_tokens(sctstokens);
+
 	return 0;
 }
 
@@ -342,7 +343,7 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 	dcs->grp = WAT_SMS_PDU_DCS_GRP_INVALID;
 	dcs->msg_class = WAT_SMS_PDU_DCS_MSG_CLASS_INVALID;
 	dcs->ind_type = WAT_SMS_PDU_DCS_IND_TYPE_INVALID;
-	dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_INVALID;
+	dcs->charset = WAT_SMS_PDU_DCS_CHARSET_INVALID;
 	
 	if (!(dcs_grp & 0xFF00)) {
 		dcs->grp = WAT_SMS_PDU_DCS_GRP_GEN;
@@ -362,7 +363,7 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 
 	if (!dcs_val) {
 		/* Special case */
-		dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_7BIT;
+		dcs->charset = WAT_SMS_PDU_DCS_CHARSET_7BIT;
 		return 0;
 	}
 
@@ -376,7 +377,7 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 				dcs->msg_class = WAT_SMS_PDU_DCS_MSG_CLASS_INVALID;
 			}
 
-			dcs->alphabet = (dcs_val >> 2) & 0x03;
+			dcs->charset = (dcs_val >> 2) & 0x03;
 			break;
 		case WAT_SMS_PDU_DCS_GRP_MWI_DISCARD_MSG:
 		case WAT_SMS_PDU_DCS_GRP_MWI_STORE_MSG_1:
@@ -386,9 +387,9 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 			break;
 		case WAT_SMS_PDU_DCS_GRP_DATA_CODING:
 			if (bit(dcs_val, 2)) {
-				dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_7BIT;
+				dcs->charset = WAT_SMS_PDU_DCS_CHARSET_7BIT;
 			} else {
-				dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_8BIT;
+				dcs->charset = WAT_SMS_PDU_DCS_CHARSET_8BIT;
 			}
 
 			dcs->msg_class = dcs_val & 0x03;
@@ -624,7 +625,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
-		wat_log(WAT_LOG_DEBUG, "DCS - Grp:%s Alphabet:%s\n", wat_sms_pdu_dcs_grp2str(sms_event.pdu.dcs.grp), wat_sms_pdu_dcs_alphabet2str(sms_event.pdu.dcs.alphabet));
+		wat_log(WAT_LOG_DEBUG, "DCS - Grp:%s Alphabet:%s\n", wat_sms_pdu_dcs_grp2str(sms_event.pdu.dcs.grp), wat_sms_pdu_dcs_charset2str(sms_event.pdu.dcs.charset));
 	}
 
 	ret = wat_decode_sms_pdu_scts(&sms_event.scts, &data[i]);
@@ -679,14 +680,19 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		
 	}
 
-	switch (sms_event.pdu.tp_dcs) {
+	switch (sms_event.pdu.dcs.charset) {
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
-		case 0:
+		case WAT_SMS_PDU_DCS_CHARSET_7BIT:
 			/* Default Aplhabet, phase 2 */
 			sms_event.len = wat_decode_sms_pdu_message_7_bit(sms_event.message, sizeof(sms_event.message), &data[i], contents_len , sms_event.pdu.seq);
 			break;
+		case WAT_SMS_PDU_DCS_CHARSET_8BIT:
+		case WAT_SMS_PDU_DCS_CHARSET_16BIT:
+			sms_event.len = contents_len;
+			memcpy(sms_event.message, &data[i], contents_len);
+			break;
 		default:
-			wat_log_span(span, WAT_LOG_ERROR, "Dont' know how to decode incoming SMS message with coding scheme:0x%x\n", sms_event.pdu.tp_dcs);
+			wat_log_span(span, WAT_LOG_ERROR, "Don't know how to decode incoming SMS message with coding scheme:0x%x\n", sms_event.pdu.tp_dcs);
 			break;
 	}
 
