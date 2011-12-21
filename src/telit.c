@@ -151,6 +151,7 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 
 wat_status_t telit_wait_sim(wat_span_t *span)
 {
+	wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
 	wat_cmd_register(span, "#QSS", wat_notify_qss);
 	wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL);
 	wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL);
@@ -175,6 +176,7 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 				/* Do nothing as we will get a notification once SMS and Phonebook access are possible */
 					break;
 				case 3: /* SIM inserted and READY (SMS and Phonebook access are possible) */
+					wat_log_span(span, WAT_LOG_INFO, "SIM access ready\n");
 					wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
 					break;
 			}
@@ -217,6 +219,7 @@ WAT_RESPONSE_FUNC(wat_response_qss)
 					/* Do nothing as we will get a notification once SMS and Phonebook access are possible */
 					break;
 				case 3: /* SIM inserted and READY (SMS and Phonebook access are possible) */
+					wat_log_span(span, WAT_LOG_INFO, "SIM access ready\n");
 					wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
 					break;
 			}
