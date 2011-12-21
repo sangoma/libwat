@@ -437,6 +437,18 @@ typedef struct _wat_span_status_t {
 	} sts;
 } wat_span_status_t;
 
+typedef enum {
+	WAT_BAND_AUTO,			/* Automatic Band Negotiation */
+	WAT_BAND_900_1800,		/* GSM 900 MHz + DCS 1800 MHz */
+	WAT_BAND_900_1900,		/* GSM 900 MHz + PCS 1900 MHz */
+	WAT_BAND_850_1800,		/* GSM 850 MHz + DCS 1800 MHz */
+	WAT_BAND_850_1900,		/* GSM 850 MHz + PCS 1900 MHz */
+	WAT_BAND_INVALID,
+} wat_band_t;
+
+#define WAT_BAND_STRINGS "auto", "900-1800", "900-1900", "850-1800" , "850-1900", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_band, wat_band2str, wat_band_t);
+
 typedef struct _wat_span_config_t {
 	wat_moduletype_t moduletype;	
 
@@ -447,6 +459,7 @@ typedef struct _wat_span_config_t {
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
+	wat_band_t band;			/* Band frequency to be used */
 	wat_codec_t codec_mask; /* Which codecs to advertise */
 } wat_span_config_t;
 
@@ -521,6 +534,7 @@ WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
 WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti);
 WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
+WAT_DECLARE(const char *) wat_decode_band(wat_band_t band);
 
 
 #define WAT_AT_CMD_RESPONSE_ARGS (uint8_t span_id, char *tokens[], wat_bool_t success, void *obj, char *error)
@@ -537,6 +551,7 @@ WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const 
 WAT_DECLARE(wat_status_t) wat_span_set_dtmf_duration(uint8_t span_id, int duration_ms);
 WAT_DECLARE(wat_status_t) wat_span_set_codec(uint8_t span_id, wat_codec_t codec_mask);
 WAT_DECLARE(wat_codec_t) wat_encode_codec(const char *codec);
+WAT_DECLARE(wat_band_t) wat_encode_band(const char *band);
 
 #endif /* _LIBWAT_H */
 

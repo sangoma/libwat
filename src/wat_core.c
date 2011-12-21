@@ -76,6 +76,7 @@ void wat_span_run_cmds(wat_span_t *span)
 		if (cmd) {
 			if (cmd->cmd == NULL) {
 				/* This is a dummy command, just call the callback function */
+				wat_log_span(span, WAT_LOG_DEBUG, "Dequeuing dummy command %p\n", cmd->cb);
 				cmd->cb(span, NULL, WAT_SUCCESS, cmd->obj, NULL);
 				wat_safe_free(cmd);
 				return;

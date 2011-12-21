@@ -122,7 +122,26 @@ wat_status_t telit_start(wat_span_t *span)
 
 	/* Enable automatic Band selection */
 	wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL);
-	wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL);
+
+	switch (span->config.band) {
+		case WAT_BAND_900_1800:
+			wat_cmd_enqueue(span, "AT#BND=0", NULL, NULL);
+			break;
+		case WAT_BAND_900_1900:
+			wat_cmd_enqueue(span, "AT#BND=1", NULL, NULL);
+			break;
+		case WAT_BAND_850_1800:
+			wat_cmd_enqueue(span, "AT#BND=2", NULL, NULL);
+			break;
+		case WAT_BAND_850_1900:
+			wat_cmd_enqueue(span, "AT#BND=3", NULL, NULL);
+			break;
+		default:
+			wat_log_span(span, WAT_LOG_CRIT, "Unsupported band value:%d\n", span->config.band);
+		case WAT_BAND_AUTO:
+			wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL);
+			break;
+	}
 
 	return WAT_SUCCESS;
 }

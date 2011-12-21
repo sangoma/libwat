@@ -98,6 +98,8 @@ WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRE
 WAT_ENUM_NAMES(WAT_ALARM_NAMES, WAT_ALARM_STRINGS)
 WAT_STR2ENUM(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t, WAT_ALARM_NAMES, WAT_ALARM_INVALID)
 
+WAT_ENUM_NAMES(WAT_BAND_NAMES, WAT_BAND_STRINGS)
+WAT_STR2ENUM(wat_str2wat_band, wat_band2str, wat_band_t, WAT_BAND_NAMES, WAT_BAND_INVALID)
 
 WAT_RESPONSE_FUNC(wat_user_cmd_response);
 static wat_span_t *wat_get_span(uint8_t span_id);
@@ -777,6 +779,16 @@ WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status)
 WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti)
 {
 	return wat_sms_pdu_mti2str(mti);
+}
+
+WAT_DECLARE(const char *) wat_decode_band(wat_band_t band)
+{
+	return wat_band2str(band);
+}
+
+WAT_DECLARE(wat_band_t) wat_encode_band(const char *band)
+{
+	return wat_str2wat_band(band);
 }
 
 WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs)
