@@ -33,9 +33,10 @@
 #define WAT_DEBUG_UART_RAW		(1 << 0) /* Show raw uart reads */
 #define WAT_DEBUG_UART_DUMP		(1 << 1) /* Show uart commands */
 #define WAT_DEBUG_CALL_STATE	(1 << 2) /* Debug call states */
-#define WAT_DEBUG_AT_PARSE		(1 << 3) /* Debug how AT commands are parsed */
-#define WAT_DEBUG_AT_HANDLE		(1 << 4) /* Debug how AT commands are scheduled/processed */
-#define WAT_DEBUG_SMS_DECODE	(1 << 5) /* Debug how PDU is decoded */
+#define WAT_DEBUG_SPAN_STATE	(1 << 3) /* Debug call states */
+#define WAT_DEBUG_AT_PARSE		(1 << 4) /* Debug how AT commands are parsed */
+#define WAT_DEBUG_AT_HANDLE		(1 << 5) /* Debug how AT commands are scheduled/processed */
+#define WAT_DEBUG_SMS_DECODE	(1 << 6) /* Debug how PDU is decoded */
 
 /*ENUMS & Defines ******************************************************************/
 
@@ -86,9 +87,7 @@ typedef enum {
 } wat_alarm_t;
 
 #define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "Invalid"
-
 WAT_STR2ENUM_P(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t);
-
 
 typedef enum {
 	WAT_SMS_PDU,
@@ -103,7 +102,6 @@ typedef enum {
 	WAT_SMS_CAUSE_NETWORK_REFUSE,
 	WAT_SMS_CAUSE_UNKNOWN,
 } wat_sms_cause_t;
-
 #define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response", "No network",  "Network Refused", "Unknown"
 
 WAT_STR2ENUM_P(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t);
@@ -421,6 +419,24 @@ typedef struct _wat_cmd_status {
 	const char *error;
 } wat_cmd_status_t;
 
+typedef enum {
+	WAT_SPAN_STS_READY,			/* Span initialization is complete, we can now process external commands */
+	WAT_SPAN_STS_SIGSTATUS,		/* Span signalling status changed */
+	WAT_SPAN_STS_NETSTATUS, 	/* Span Network registration changed */
+	WAT_SPAN_STS_ALARM,			/* Alarm is on or cleared */
+	WAT_SPAN_STS_SIM_INFO_READY,	/* SIM information available */
+} wat_span_status_type_t;
+
+typedef struct _wat_span_status_t {
+	wat_span_status_type_t type;
+
+	union {
+		wat_sigstatus_t sigstatus;
+		wat_sim_info_t sim_info;
+		wat_alarm_t alarm;
+	} sts;
+} wat_span_status_t;
+
 typedef struct _wat_span_config_t {
 	wat_moduletype_t moduletype;	
 
@@ -434,8 +450,7 @@ typedef struct _wat_span_config_t {
 	wat_codec_t codec_mask; /* Which codecs to advertise */
 } wat_span_config_t;
 
-typedef void (*wat_sigstatus_change_func_t)(uint8_t span_id, wat_sigstatus_t sigstatus);
-typedef void (*wat_alarm_func_t)(uint8_t span_id, wat_alarm_t alarm);
+typedef void (*wat_span_sts_func_t)(uint8_t span_id, wat_span_status_t *status);
 typedef void (*wat_log_func_t)(uint8_t level, char *fmt, ...);
 typedef void* (*wat_malloc_func_t)(size_t size);
 typedef void* (*wat_calloc_func_t)(size_t nmemb, size_t size);	
@@ -453,8 +468,7 @@ typedef int (*wat_span_write_func_t)(uint8_t span_id, void *data, uint32_t len);
 
 typedef struct _wat_interface {
 	/* Call-backs */
-	wat_sigstatus_change_func_t wat_sigstatus_change;
-	wat_alarm_func_t wat_alarm;
+	wat_span_sts_func_t wat_span_sts;
 
 	/* Memory management */
 	wat_malloc_func_t wat_malloc;
@@ -463,6 +477,7 @@ typedef struct _wat_interface {
 
 	/* Logging */
 	wat_log_func_t wat_log;
+	
 	wat_log_span_func_t wat_log_span;
 
 	/* Assert */
@@ -475,6 +490,7 @@ typedef struct _wat_interface {
 	wat_rel_cfm_func_t wat_rel_cfm;
 	wat_sms_ind_func_t wat_sms_ind;
 	wat_sms_sts_func_t wat_sms_sts;
+
 	wat_span_write_func_t wat_span_write;
 } wat_interface_t;
 

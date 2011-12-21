@@ -64,8 +64,7 @@ static int g_message_count = 10;
 static int g_message_sent = 0;
 static int g_message_ack = 0;
 
-void on_sigstatus_change(unsigned char span_id, wat_sigstatus_t sigstatus);
-void on_alarm(unsigned char span_id, wat_alarm_t alarm);
+void on_span_status(unsigned char span_id, wat_span_status_t *status);
 int on_span_write(unsigned char span_id, void *buffer, unsigned len);
 
 void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event);
@@ -90,18 +89,27 @@ int on_span_write(unsigned char span_id, void *buffer, unsigned len)
 	return res;
 }
 
-void on_sigstatus_change(unsigned char span_id, wat_sigstatus_t sigstatus)
+void on_span_status(unsigned char span_id, wat_span_status_t *status)
 {
-	fprintf(stdout, "span:%d Signalling status changed %d\n", span_id, sigstatus);
-	if (sigstatus == WAT_SIGSTATUS_UP) {
-		gsm_spans[0].send_sms = 1;
-	}
-	return;
-}
+	switch (status->type) {
+		case WAT_SPAN_STS_READY:
 
-void on_alarm(unsigned char span_id, wat_alarm_t alrm)
-{
-	fprintf(stdout, "span:%d Alarm received\n", span_id);
+			break;
+		case WAT_SPAN_STS_SIGSTATUS:
+			fprintf(stdout, "span:%d Signalling status changed %d\n", span_id, status->sts.sigstatus);
+			if (status->sts.sigstatus == WAT_SIGSTATUS_UP) {
+				gsm_spans[0].send_sms = 1;
+			}
+			break;
+		case WAT_SPAN_STS_SIM_INFO_READY:
+
+			break;
+		case WAT_SPAN_STS_ALARM:
+			fprintf(stdout, "span:%d Alarm received\n", span_id);
+			break;
+		default:
+			fprintf(stdout, "Unhandled span status");
+	}
 	return;
 }
 
@@ -201,7 +209,7 @@ int main (int argc, char *argv[])
 	
 	memset(&gen_interface, 0, sizeof(gen_interface));
 	
-	gen_interface.wat_sigstatus_change = on_sigstatus_change;
+	gen_interface.wat_span_sts = on_span_status;
 	gen_interface.wat_span_write = on_span_write;
 	gen_interface.wat_log = on_log;
 	gen_interface.wat_log_span = on_log_span;
@@ -209,7 +217,6 @@ int main (int argc, char *argv[])
 	gen_interface.wat_calloc = on_calloc;
 	gen_interface.wat_free = on_free;
 	
-	gen_interface.wat_alarm = on_alarm;
 	gen_interface.wat_con_ind = on_con_ind;
 	gen_interface.wat_con_sts = on_con_sts;
 	gen_interface.wat_rel_ind = on_rel_ind;
