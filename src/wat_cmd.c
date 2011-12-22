@@ -885,9 +885,9 @@ WAT_RESPONSE_FUNC(wat_response_clip)
 /* Network Registration Report */
 WAT_RESPONSE_FUNC(wat_response_creg)
 {
- char *cmdtokens[10];
+	char *cmdtokens[10];
 	unsigned mode = 0;
- 	unsigned stat = 0;
+	unsigned stat = 0;
 	unsigned lac = 0;
 	unsigned ci = 0;
 	

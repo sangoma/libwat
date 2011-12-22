@@ -250,6 +250,34 @@ wat_status_t wat_iterator_free(wat_iterator_t *iter)
 	return WAT_SUCCESS;
 }
 
+wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
+{
+	wat_log_span(span, WAT_LOG_DEBUG, "Signalling status changed to %s\n", up ? "Up": "Down");
+
+	span->sigstatus = up ? WAT_SIGSTATUS_UP: WAT_SIGSTATUS_DOWN;
+
+	if (span->state == WAT_SPAN_STATE_RUNNING) {
+		if (g_interface.wat_span_sts) {
+			wat_span_status_t sts_event;
+
+			memset(&sts_event, 0, sizeof(sts_event));
+			sts_event.type = WAT_SPAN_STS_SIGSTATUS;
+			sts_event.sts.sigstatus = span->sigstatus;
+			g_interface.wat_span_sts(span->id, &sts_event);
+		}
+	}
+
+	if (span->sigstatus == WAT_SIGSTATUS_UP) {
+		/* Get the Operator Name */
+		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL);
+
+		/* Own Number */
+		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
+	}
+
+	return WAT_SUCCESS;
+}
+
 wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat)
 {
 	switch (stat) {
@@ -539,6 +567,20 @@ wat_status_t _wat_span_set_state(const char *func, int line, wat_span_t *span, w
 					sts_event.type = WAT_SPAN_STS_READY;					
 					g_interface.wat_span_sts(span->id, &sts_event);
 				}
+
+				if (g_interface.wat_span_sts) {
+					/* We do not send STS_SIGSTATUS events to the user app until we are in running state, 
+					   so send the first STS_SIGSTATUS event right when we finish initialization to set the
+					   initial sigstatus for the user */
+
+					wat_span_status_t sts_event;
+
+					memset(&sts_event, 0, sizeof(sts_event));
+					sts_event.type = WAT_SPAN_STS_SIGSTATUS;
+					sts_event.sts.sigstatus = span->sigstatus;
+					g_interface.wat_span_sts(span->id, &sts_event);
+				}
+
 				status = WAT_SUCCESS;
 			}
 			break;
