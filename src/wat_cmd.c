@@ -971,13 +971,14 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 
 WAT_RESPONSE_FUNC(wat_response_cnum)
 {
-	WAT_RESPONSE_FUNC_DBG_START
+	int numtokens = 0;
 	char *cmdtokens[5];
+	WAT_RESPONSE_FUNC_DBG_START
 
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number (%s)\n", error);
-		WAT_FUNC_DBG_END
-		return 1;
+		numtokens = 1;
+		goto end;
 	}
 	/* Format +CNUM: <number>, <type> */
 	/* E.g +CNUM: "TELEPHONE","+16473380980",145,7,4 */
@@ -988,33 +989,34 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		   on this SIM card
 		*/
 		sprintf(span->sim_info.subscriber.digits, "Not available");
-		WAT_FUNC_DBG_END
-		return 1;
+		numtokens = 1;
+		goto end;
 	}
 
+	numtokens = 2;
 	wat_match_prefix(tokens[0], "+CNUM: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 
 	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CNUM entry:%s\n", tokens[0]);
-		wat_free_tokens(cmdtokens);
-		WAT_FUNC_DBG_END
-		return 2;
+		wat_free_tokens(cmdtokens);		
+		goto end;
 	}
 
-	strncpy(span->sim_info.subscriber_type, wat_string_clean(cmdtokens[0]), sizeof(span->sim_info.subscriber_type));
-	strncpy(span->sim_info.subscriber.digits, wat_string_clean(cmdtokens[1]), sizeof(span->sim_info.subscriber.digits));
-	wat_decode_type_of_address(atoi(cmdtokens[2]), &span->sim_info.subscriber.type, &span->sim_info.subscriber.plan);
-
-	if (strlen(span->sim_info.subscriber.digits) <= 0 && span->cnum_retries++ < WAT_DEFAULT_CNUM_RETRIES) {
+end:
+	if (strlen(wat_string_clean(cmdtokens[1])) <= 0 && span->cnum_retries++ < WAT_DEFAULT_CNUM_RETRIES) {
 		/* Subscriber number was not available yet */
 		wat_log_span(span, WAT_LOG_DEBUG, "Subscriber not available yet\n");
 		wat_sched_timer(span->sched, "subscriber_number", WAT_DEFAULT_CNUM_POLL, wat_scheduled_cnum, (void *) span, NULL);
 	} else {
+		strncpy(span->sim_info.subscriber_type, wat_string_clean(cmdtokens[0]), sizeof(span->sim_info.subscriber_type));
+		strncpy(span->sim_info.subscriber.digits, wat_string_clean(cmdtokens[1]), sizeof(span->sim_info.subscriber.digits));
+		wat_decode_type_of_address(atoi(cmdtokens[2]), &span->sim_info.subscriber.type, &span->sim_info.subscriber.plan);
+		
 		wat_log_span(span, WAT_LOG_NOTICE, "Subscriber:%s type:%s plan:%s <%s> \n",
-										span->sim_info.subscriber.digits, wat_number_type2str(span->sim_info.subscriber.type),
-										wat_number_plan2str(span->sim_info.subscriber.plan),
+						span->sim_info.subscriber.digits, wat_number_type2str(span->sim_info.subscriber.type),
+								wat_number_plan2str(span->sim_info.subscriber.plan),
 										span->sim_info.subscriber_type);
 
 		if (g_interface.wat_span_sts) {
@@ -1029,8 +1031,10 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		}
 	}
 
+
+		
 	WAT_FUNC_DBG_END
-	return 2;
+	return numtokens;
 }
 
 WAT_RESPONSE_FUNC(wat_response_csq)
