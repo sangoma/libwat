@@ -292,6 +292,11 @@ WAT_DECLARE(void) wat_span_run(uint8_t span_id)
 	span = wat_get_span(span_id);
 	wat_assert_return_void(span, "Invalid span");
 
+	if (span->state < WAT_SPAN_STATE_START) {
+		wat_log(WAT_LOG_CRIT, "Span was not started\n");
+		return;
+	}
+
 	/* Check if there are pending events requested by the user */
 	wat_span_run_events(span);
 

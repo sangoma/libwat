@@ -61,7 +61,7 @@
 #define WAT_DEFAULT_PROGRESS_POLL_INTERVAL 750
 #define WAT_DEFAULT_SIGNAL_POLL_INTERVAL 10*1000
 #define WAT_DEFAULT_SIGNAL_THRESHOLD 90
-#define WAT_DEFAULT_CNUM_POLL		3000
+#define WAT_DEFAULT_CNUM_POLL		6000
 #define WAT_DEFAULT_CNUM_RETRIES	5
 
 #define wat_log_span(span, level, a, ...) if (g_interface.wat_log_span) g_interface.wat_log_span(span->id, level,a, ##__VA_ARGS__)
