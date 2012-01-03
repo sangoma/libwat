@@ -764,17 +764,17 @@ WAT_RESPONSE_FUNC(wat_response_ate)
 	return ++tokens_consumed;
 }
 
-/* Get Module Manufacturer Name */
+/* Get Module Model */
 WAT_RESPONSE_FUNC(wat_response_cgmm)
 {
 	WAT_RESPONSE_FUNC_DBG_START	
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer name (%s)\n", error);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module model (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
 
-	strncpy(span->chip_info.manufacturer_name, tokens[0], sizeof(span->chip_info.manufacturer_name));
+	strncpy(span->chip_info.model, tokens[0], sizeof(span->chip_info.model));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -784,12 +784,12 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer id (%s)\n", error);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
 
-	strncpy(span->chip_info.manufacturer_id, tokens[0], sizeof(span->chip_info.manufacturer_id));
+	strncpy(span->chip_info.manufacturer, tokens[0], sizeof(span->chip_info.manufacturer));
 	WAT_FUNC_DBG_END
 	return 2;
 }

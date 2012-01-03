@@ -475,7 +475,7 @@ static wat_status_t wat_span_perform_post_start(wat_span_t *span)
 
 	/* Get some information about the chip */
 	
-	/* Get Module Manufacturer Name */
+	/* Get Module Model Identification */
 	wat_cmd_enqueue(span, "AT+CGMM", wat_response_cgmm, NULL);
 
 	/* Get Module Manufacturer Identification */

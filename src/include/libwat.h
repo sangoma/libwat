@@ -196,8 +196,8 @@ typedef enum {
 /* Structures  *********************************************************************/
 
 typedef struct _wat_chip_info {
-	char manufacturer_name[32];
- 	char manufacturer_id[32];
+	char model[32];
+ 	char manufacturer[32];
 	char revision[32];
 	char serial[32];
 } wat_chip_info_t;
