@@ -190,6 +190,10 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	if (!span->config.timeout_command) {
 		span->config.timeout_command = WAT_DEFAULT_TIMEOUT_COMMAND;
 	}
+	if (!span->config.timeout_wait_sim) {
+		span->config.timeout_wait_sim = WAT_DEFAULT_TIMEOUT_WAIT_SIM;
+	}
+	
 	if (!span->config.cmd_interval) {
 		span->config.cmd_interval = WAT_DEFAULT_COMMAND_INTERVAL;
 	}

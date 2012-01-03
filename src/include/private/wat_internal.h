@@ -57,6 +57,7 @@
 
 #define WAT_DEFAULT_TIMEOUT_CID_NUM 500
 #define WAT_DEFAULT_TIMEOUT_COMMAND 20000
+#define WAT_DEFAULT_TIMEOUT_WAIT_SIM 10000
 #define WAT_DEFAULT_COMMAND_INTERVAL 20
 #define WAT_DEFAULT_PROGRESS_POLL_INTERVAL 750
 #define WAT_DEFAULT_SIGNAL_POLL_INTERVAL 10*1000
@@ -118,8 +119,9 @@ char *wat_decode_csq_rssi(char *in, unsigned rssi);
 typedef enum {
 	WAT_TIMEOUT_CLIP,
 	WAT_TIMEOUT_CMD,	/* General command time-out, i.e we did not get a response from GSM module */
+	WAT_TIMEOUT_WAIT_SIM,
 	WAT_PROGRESS_MONITOR,
-	WAT_SIGNAL_MONITOR
+	WAT_SIGNAL_MONITOR,	
 } wat_timeout_id_t;
 
 typedef wat_status_t (*wat_module_start_func)(wat_span_t *span);
@@ -370,6 +372,7 @@ wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *oa, char *scts
 wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event);
 void wat_span_run_timeouts(wat_span_t *span);
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up);
+wat_status_t wat_span_update_alarm_status(wat_span_t *span, wat_alarm_t new_alarm);
 wat_bool_t wat_sig_status_up(wat_net_stat_t stat);
 wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat);
 int wat_span_write(wat_span_t *span, void *data, uint32_t len);

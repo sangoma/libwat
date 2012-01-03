@@ -1074,17 +1074,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 			new_alarm = WAT_ALARM_NONE;
 		}
 
-		if (new_alarm != span->alarm) {
-			span->alarm = new_alarm;
-			if (g_interface.wat_span_sts) {
-				wat_span_status_t sts_event;
-
-				memset(&sts_event, 0, sizeof(sts_event));
-				sts_event.type = WAT_SPAN_STS_ALARM;
-				sts_event.sts.alarm = span->alarm;
-				g_interface.wat_span_sts(span->id, &sts_event);
-			}
-		}
+		wat_span_update_alarm_status(span, new_alarm);
 
 		wat_log_span(span, WAT_LOG_DEBUG, "Signal strength:%s (BER:%s)\n", wat_decode_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {

@@ -83,10 +83,11 @@ typedef enum {
 	WAT_ALARM_NONE,
 	WAT_ALARM_NO_SIGNAL,
 	WAT_ALARM_LO_SIGNAL,
+	WAT_ALARM_SIM_ACCESS_FAIL,
 	WAT_ALARM_INVALID,
 } wat_alarm_t;
 
-#define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "Invalid"
+#define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "SIM access failure", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t);
 
 typedef enum {
@@ -455,10 +456,12 @@ typedef struct _wat_span_config_t {
 	/* Timeouts */
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
 	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
+	uint32_t timeout_wait_sim; /* Timeout to wait for SIM to respond */
 	uint32_t cmd_interval;		/* Minimum amount of time between sending 2 commands to the chip */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
+	
 	wat_band_t band;			/* Band frequency to be used */
 	wat_codec_t codec_mask; /* Which codecs to advertise */
 } wat_span_config_t;

@@ -33,6 +33,7 @@ static wat_status_t wat_span_perform_post_start(wat_span_t *span);
 static wat_status_t wat_span_perform_stop(wat_span_t *span);
 
 WAT_RESPONSE_FUNC(wat_response_post_start_complete);
+WAT_SCHEDULED_FUNC(wat_scheduled_wait_sim);
 
 /* Check for pending commands, and execute command if module is not cmd_busy */
 void wat_span_run_events(wat_span_t *span)
@@ -250,6 +251,22 @@ wat_status_t wat_iterator_free(wat_iterator_t *iter)
 	return WAT_SUCCESS;
 }
 
+wat_status_t wat_span_update_alarm_status(wat_span_t *span, wat_alarm_t new_alarm)
+{
+	if (new_alarm != span->alarm) {
+		span->alarm = new_alarm;
+		if (g_interface.wat_span_sts) {
+			wat_span_status_t sts_event;
+
+			memset(&sts_event, 0, sizeof(sts_event));
+			sts_event.type = WAT_SPAN_STS_ALARM;
+			sts_event.sts.alarm = span->alarm;
+			g_interface.wat_span_sts(span->id, &sts_event);
+		}
+	}
+	return WAT_SUCCESS;
+}
+
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 {
 	wat_log_span(span, WAT_LOG_DEBUG, "Signalling status changed to %s\n", up ? "Up": "Down");
@@ -441,6 +458,8 @@ static wat_status_t wat_span_perform_start(wat_span_t *span)
 	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL);
 
 	span->module.wait_sim(span);
+	
+	wat_sched_timer(span->sched, "wait_sim", span->config.timeout_wait_sim, wat_scheduled_wait_sim, (void *) span, &span->timeouts[WAT_TIMEOUT_WAIT_SIM]);
 	return WAT_SUCCESS;
 }
 
@@ -554,6 +573,7 @@ wat_status_t _wat_span_set_state(const char *func, int line, wat_span_t *span, w
 				wat_log(WAT_LOG_CRIT, "Span post-start was already performed\n");
 				status = WAT_FAIL;
 			} else {
+				wat_sched_cancel_timer(span->sched, span->timeouts[WAT_TIMEOUT_WAIT_SIM]);
 				status = wat_span_perform_post_start(span);
 			}
 			break;
@@ -603,4 +623,12 @@ wat_status_t _wat_span_set_state(const char *func, int line, wat_span_t *span, w
 		span->state = new_state;
 	}
 	return status;
+}
+
+WAT_SCHEDULED_FUNC(wat_scheduled_wait_sim)
+{
+	wat_span_t *span = (wat_span_t*) data;
+
+	wat_log_span(span, WAT_LOG_ERROR, "SIM ready timeout\n");
+	wat_span_update_alarm_status(span, WAT_ALARM_SIM_ACCESS_FAIL);
 }
