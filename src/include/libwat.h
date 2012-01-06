@@ -30,13 +30,14 @@
 #include "wat_declare.h"
 
 /* Debugging */
-#define WAT_DEBUG_UART_RAW		(1 << 0) /* Show raw uart reads */
-#define WAT_DEBUG_UART_DUMP		(1 << 1) /* Show uart commands */
+#define WAT_DEBUG_UART_RAW			(1 << 0) /* Show raw uart reads */
+#define WAT_DEBUG_UART_DUMP			(1 << 1) /* Show uart commands */
 #define WAT_DEBUG_CALL_STATE		(1 << 2) /* Debug call states */
 #define WAT_DEBUG_SPAN_STATE		(1 << 3) /* Debug call states */
-#define WAT_DEBUG_AT_PARSE		(1 << 4) /* Debug how AT commands are parsed */
-#define WAT_DEBUG_AT_HANDLE		(1 << 5) /* Debug how AT commands are scheduled/processed */
+#define WAT_DEBUG_AT_PARSE			(1 << 4) /* Debug how AT commands are parsed */
+#define WAT_DEBUG_AT_HANDLE			(1 << 5) /* Debug how AT commands are scheduled/processed */
 #define WAT_DEBUG_SMS_DECODE		(1 << 6) /* Debug how PDU is decoded */
+#define WAT_DEBUG_SMS_ENCODE		(1 << 6) /* Debug how PDU is encoded */
 
 /*ENUMS & Defines ******************************************************************/
 

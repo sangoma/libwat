@@ -290,6 +290,9 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 
 		/* Own Number */
 		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
+
+		/* SMSC information */
+		wat_cmd_enqueue(span, "AT+CSCA?", wat_response_csca, NULL);
 	}
 
 	return WAT_SUCCESS;
@@ -312,11 +315,6 @@ wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat)
 
 	if (span->net_info.stat != stat) {
 		wat_log_span(span, WAT_LOG_NOTICE, "Network status changed to \"%s\"\n", wat_net_stat2str(stat));
-
-		if (g_interface.wat_netstatus_change) {
-			g_interface.wat_netstatus_change(span->id, stat);
-		}
-		
 
 		if (wat_sig_status_up(span->net_info.stat) != wat_sig_status_up(stat)) {
 			wat_span_update_sig_status(span, wat_sig_status_up(stat));

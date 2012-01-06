@@ -733,33 +733,6 @@ char *wat_strdup(const char *str)
 	return (char *) memcpy(new, str, len);
 }
 
-#if 0 /*DAVIDY FIX THIS */
-wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
-{
-	wat_log_span(span, WAT_LOG_DEBUG, "Signalling status changed to %s\n", up ? "Up": "Down");
-
-	span->sigstatus = up ? WAT_SIGSTATUS_UP: WAT_SIGSTATUS_DOWN;
-
-	if (g_interface.wat_sigstatus_change) {
-		g_interface.wat_sigstatus_change(span->id, span->sigstatus);
-	}
-
-	if (span->sigstatus == WAT_SIGSTATUS_UP) {
-		/* Get the Operator Name */
-		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL);
-
-		/* Own Number */
-		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
-
-		/* SMSC information */
-		wat_cmd_enqueue(span, "AT+CSCA?", wat_response_csca, NULL);
-	}
-
-	return WAT_SUCCESS;
-}
-
-#endif
-
 WAT_DECLARE(char*) wat_decode_rssi(char *dest, unsigned rssi)
 {
 	switch (rssi) {
