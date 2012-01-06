@@ -599,9 +599,9 @@ static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, c
 	int i;
 	int carry = 0;
 	uint8_t byte, conv_byte;
-	int message_len = 0;
-
-	memset(message, 0, 500);
+	int message_len = 0;	
+	
+	memset(message, 0, max_len);
 		
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "Decoding PDU Message (len:%d)[%s] pad:%d\n", len, data, padding);

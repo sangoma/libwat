@@ -635,6 +635,6 @@ WAT_SCHEDULED_FUNC(wat_scheduled_wait_sim)
 {
 	wat_span_t *span = (wat_span_t*) data;
 
-	wat_log_span(span, WAT_LOG_ERROR, "SIM ready timeout\n");
+	wat_log_span(span, WAT_LOG_ERROR, "SIM ready timeout (%d ms)\n", span->config.timeout_wait_sim);
 	wat_span_update_alarm_status(span, WAT_ALARM_SIM_ACCESS_FAIL);
 }
