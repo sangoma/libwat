@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-//#include <math.h>
 #include "libwat.h"
 #include "wat_internal.h"
 #include "telit.h"
@@ -34,6 +33,7 @@
 wat_status_t telit_start(wat_span_t *span);
 wat_status_t telit_restart(wat_span_t *span);
 wat_status_t telit_shutdown(wat_span_t *span);
+wat_status_t telit_wait_sim(wat_span_t *span);
 wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask);
 
 WAT_RESPONSE_FUNC(wat_response_atz);
@@ -45,12 +45,15 @@ WAT_RESPONSE_FUNC(wat_response_dvi);
 WAT_RESPONSE_FUNC(wat_response_shssd);
 WAT_RESPONSE_FUNC(wat_response_codecinfo);
 WAT_RESPONSE_FUNC(wat_response_set_codec);
+WAT_RESPONSE_FUNC(wat_response_qss);
+WAT_NOTIFY_FUNC(wat_notify_qss);
 
 static wat_module_t telit_interface = {
 	.start = telit_start,
 	.restart = telit_restart,
 	.shutdown = telit_shutdown,
-	.set_codec = telit_set_codec
+	.set_codec = telit_set_codec,
+	.wait_sim = telit_wait_sim,
 };
 
 wat_status_t telit_init(wat_span_t *span)
@@ -82,7 +85,6 @@ WAT_NOTIFY_FUNC(wat_notify_codec_info)
 	wat_free_tokens(cmdtokens);
 	return consumed_tokens;
 }
-
 
 wat_status_t telit_start(wat_span_t *span)
 {
@@ -120,7 +122,26 @@ wat_status_t telit_start(wat_span_t *span)
 
 	/* Enable automatic Band selection */
 	wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL);
-	wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL);
+
+	switch (span->config.band) {
+		case WAT_BAND_900_1800:
+			wat_cmd_enqueue(span, "AT#BND=0", NULL, NULL);
+			break;
+		case WAT_BAND_900_1900:
+			wat_cmd_enqueue(span, "AT#BND=1", NULL, NULL);
+			break;
+		case WAT_BAND_850_1800:
+			wat_cmd_enqueue(span, "AT#BND=2", NULL, NULL);
+			break;
+		case WAT_BAND_850_1900:
+			wat_cmd_enqueue(span, "AT#BND=3", NULL, NULL);
+			break;
+		default:
+			wat_log_span(span, WAT_LOG_CRIT, "Unsupported band value:%d\n", span->config.band);
+		case WAT_BAND_AUTO:
+			wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL);
+			break;
+	}
 
 	return WAT_SUCCESS;
 }
@@ -145,6 +166,89 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 	snprintf(codec_cmd, sizeof(codec_cmd), "AT#CODEC=%d", codec_mask);
 	wat_cmd_enqueue(span, codec_cmd, wat_response_set_codec, NULL);
 	return WAT_SUCCESS;
+}
+
+wat_status_t telit_wait_sim(wat_span_t *span)
+{
+	wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
+	wat_cmd_register(span, "#QSS", wat_notify_qss);
+	wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL);
+	wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL);
+	return WAT_SUCCESS;
+}
+
+WAT_NOTIFY_FUNC(wat_notify_qss)
+{
+	char *cmdtokens[4];
+	WAT_NOTIFY_FUNC_DBG_START
+
+	/* Format #QSS: 3 */
+	wat_match_prefix(tokens[0], "#QSS: ");
+
+	memset(cmdtokens, 0, sizeof(cmdtokens));
+	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
+		case 1:
+			switch(atoi(cmdtokens[0])) {
+				case 0: /* SIM not inserted */
+				case 1: /* SIM inserted */
+				case 2: /* SIM inserted and PIN unlocked */
+				/* Do nothing as we will get a notification once SMS and Phonebook access are possible */
+					break;
+				case 3: /* SIM inserted and READY (SMS and Phonebook access are possible) */
+					wat_log_span(span, WAT_LOG_INFO, "SIM access ready\n");
+					wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
+					break;
+			}
+			break;
+		case 2:
+			/* This is not a notify, but a response */
+			WAT_FUNC_DBG_END
+			return 0;
+		default:
+			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
+	}
+	return 1;
+}
+
+WAT_RESPONSE_FUNC(wat_response_qss)
+{
+	char *cmdtokens[4];
+	WAT_RESPONSE_FUNC_DBG_START
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to get SIM status\n");
+		WAT_FUNC_DBG_END
+		return 1;
+	}
+
+	/* Format #QSS: 2,3 */
+	wat_match_prefix(tokens[0], "#QSS: ");
+	if (!tokens[1]) {
+		/* This is a response to AT#QSS = 2 (enabling Unsollicited QSS events)*/
+		WAT_FUNC_DBG_END
+		return 1;
+	}
+
+	memset(cmdtokens, 0, sizeof(cmdtokens));
+	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
+		case 2:
+			switch(atoi(cmdtokens[1])) {
+				case 0: /* SIM not inserted */
+				case 1: /* SIM inserted */
+				case 2: /* SIM inserted and PIN unlocked */
+					/* Do nothing as we will get a notification once SMS and Phonebook access are possible */
+					break;
+				case 3: /* SIM inserted and READY (SMS and Phonebook access are possible) */
+					wat_log_span(span, WAT_LOG_INFO, "SIM access ready\n");
+					wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
+					break;
+			}
+			break;
+		default:
+			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
+	}
+	
+	WAT_FUNC_DBG_END
+	return 2;
 }
 
 WAT_RESPONSE_FUNC(wat_response_selint)

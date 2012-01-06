@@ -58,6 +58,7 @@ WAT_STR2ENUM(wat_str2wat_chip_pin_stat, wat_chip_pin_stat2str, wat_pin_stat_t, W
 
 
 WAT_SCHEDULED_FUNC(wat_cmd_complete);
+WAT_SCHEDULED_FUNC(wat_scheduled_cnum);
 
 typedef struct {
 	unsigned id;
@@ -333,13 +334,17 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	wat_cmd_t *cmd;
 	wat_assert_return(span->cmd_queue, WAT_FAIL, "No command queue!\n");
 
-	if (!strlen(incommand)) {
-		wat_log_span(span, WAT_LOG_DEBUG, "Invalid cmd to enqueue \"%s\"\n", incommand);
-		return WAT_FAIL;
-	}
+	if (!incommand) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Enqueued dummy cmd cb:%p\n", cb);
+	} else {
+		if (!strlen(incommand)) {
+			wat_log_span(span, WAT_LOG_DEBUG, "Invalid cmd to enqueue \"%s\"\n", incommand);
+			return WAT_FAIL;
+		}
 
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
-		wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n\n", incommand);
+		if (g_debug & WAT_DEBUG_AT_HANDLE) {
+			wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n", incommand);
+		}
 	}
 
 	/* Add a \r to finish the command */
@@ -348,7 +353,9 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	
 	cmd->cb = cb;
 	cmd->obj = obj;
-	cmd->cmd = wat_strdup(incommand);
+	if (incommand) {
+		cmd->cmd = wat_strdup(incommand);
+	}
 	wat_queue_enqueue(span->cmd_queue, cmd);	
 	return WAT_SUCCESS;
 }
@@ -757,17 +764,17 @@ WAT_RESPONSE_FUNC(wat_response_ate)
 	return ++tokens_consumed;
 }
 
-/* Get Module Manufacturer Name */
+/* Get Module Model */
 WAT_RESPONSE_FUNC(wat_response_cgmm)
 {
 	WAT_RESPONSE_FUNC_DBG_START	
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer name (%s)\n", error);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module model (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
 
-	strncpy(span->chip_info.manufacturer_name, tokens[0], sizeof(span->chip_info.manufacturer_name));
+	strncpy(span->chip_info.model, tokens[0], sizeof(span->chip_info.model));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -777,12 +784,12 @@ WAT_RESPONSE_FUNC(wat_response_cgmi)
 {
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer id (%s)\n", error);
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module manufacturer (%s)\n", error);
 		WAT_FUNC_DBG_END
 		return 1;
 	}
 
-	strncpy(span->chip_info.manufacturer_id, tokens[0], sizeof(span->chip_info.manufacturer_id));
+	strncpy(span->chip_info.manufacturer, tokens[0], sizeof(span->chip_info.manufacturer));
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -880,7 +887,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 {
 	char *cmdtokens[10];
 	unsigned mode = 0;
- 	unsigned stat = 0;
+	unsigned stat = 0;
 	unsigned lac = 0;
 	unsigned ci = 0;
 	
@@ -964,13 +971,14 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 
 WAT_RESPONSE_FUNC(wat_response_cnum)
 {
-	WAT_RESPONSE_FUNC_DBG_START
+	int numtokens = 0;
 	char *cmdtokens[5];
+	WAT_RESPONSE_FUNC_DBG_START
 
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain own number (%s)\n", error);
-		WAT_FUNC_DBG_END
-		return 1;
+		numtokens = 1;
+		goto end_fail;
 	}
 	/* Format +CNUM: <number>, <type> */
 	/* E.g +CNUM: "TELEPHONE","+16473380980",145,7,4 */
@@ -981,32 +989,57 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		   on this SIM card
 		*/
 		sprintf(span->sim_info.subscriber.digits, "Not available");
-		WAT_FUNC_DBG_END
-		return 1;
+		numtokens = 1;
+		goto end_fail;
 	}
 
+	numtokens = 2;
 	wat_match_prefix(tokens[0], "+CNUM: ");
 
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 
 	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CNUM entry:%s\n", tokens[0]);
+		wat_free_tokens(cmdtokens);		
+		goto end_fail;
+	}
+
+	if (strlen(wat_string_clean(cmdtokens[1])) <= 0) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Subscriber not available yet\n");
 		wat_free_tokens(cmdtokens);
-		WAT_FUNC_DBG_END
-		return 2;
+		goto end_fail;
 	}
 
 	strncpy(span->sim_info.subscriber_type, wat_string_clean(cmdtokens[0]), sizeof(span->sim_info.subscriber_type));
 	strncpy(span->sim_info.subscriber.digits, wat_string_clean(cmdtokens[1]), sizeof(span->sim_info.subscriber.digits));
 	wat_decode_type_of_address(atoi(cmdtokens[2]), &span->sim_info.subscriber.type, &span->sim_info.subscriber.plan);
-
+		
 	wat_log_span(span, WAT_LOG_NOTICE, "Subscriber:%s type:%s plan:%s <%s> \n",
-				span->sim_info.subscriber.digits, wat_number_type2str(span->sim_info.subscriber.type),
-				 wat_number_plan2str(span->sim_info.subscriber.plan),
-				span->sim_info.subscriber_type);
+				 span->sim_info.subscriber.digits, wat_number_type2str(span->sim_info.subscriber.type),
+						 wat_number_plan2str(span->sim_info.subscriber.plan),
+											 span->sim_info.subscriber_type);
+
+	if (g_interface.wat_span_sts) {
+		wat_span_status_t sts_event;
+		memset(&sts_event, 0, sizeof(sts_event));
+
+		memcpy(&sts_event.sts.sim_info, &span->sim_info, sizeof(span->sim_info));
+
+		sts_event.type = WAT_SPAN_STS_SIM_INFO_READY;
+		sts_event.sts.sim_info = span->sim_info;
+		g_interface.wat_span_sts(span->id, &sts_event);
+	}
+	WAT_FUNC_DBG_END
+	return numtokens;
+
+end_fail:
+	if (span->cnum_retries++ < WAT_DEFAULT_CNUM_RETRIES) {
+		/* Subscriber number was not available yet */
+		wat_sched_timer(span->sched, "subscriber_number", WAT_DEFAULT_CNUM_POLL, wat_scheduled_cnum, (void *) span, NULL);
+	}
 
 	WAT_FUNC_DBG_END
-	return 2;
+	return numtokens;
 }
 
 WAT_RESPONSE_FUNC(wat_response_csca)
@@ -1086,12 +1119,7 @@ WAT_RESPONSE_FUNC(wat_response_csq)
 			new_alarm = WAT_ALARM_NONE;
 		}
 
-		if (new_alarm != span->alarm) {
-			span->alarm = new_alarm;
-			if (g_interface.wat_alarm) {
-				g_interface.wat_alarm(span->id, span->alarm);
-			}
-		}
+		wat_span_update_alarm_status(span, new_alarm);
 
 		wat_log_span(span, WAT_LOG_DEBUG, "Signal strength:%s (BER:%s)\n", wat_decode_rssi(dest, rssi), wat_csq_ber2str(ber));
 	} else {
@@ -1704,6 +1732,12 @@ WAT_SCHEDULED_FUNC(wat_cmd_timeout)
 	wat_log_span(span, WAT_LOG_ERROR, "Timed out executing command: '%s', retrying one more time without timeout\n", span->cmd->cmd);
 
 	wat_write_command(span);
+}
+
+WAT_SCHEDULED_FUNC(wat_scheduled_cnum)
+{
+	wat_span_t *span = (wat_span_t *) data;
+	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc)

@@ -32,11 +32,11 @@
 /* Debugging */
 #define WAT_DEBUG_UART_RAW		(1 << 0) /* Show raw uart reads */
 #define WAT_DEBUG_UART_DUMP		(1 << 1) /* Show uart commands */
-#define WAT_DEBUG_CALL_STATE	(1 << 2) /* Debug call states */
-#define WAT_DEBUG_AT_PARSE		(1 << 3) /* Debug how AT commands are parsed */
-#define WAT_DEBUG_AT_HANDLE		(1 << 4) /* Debug how AT commands are scheduled/processed */
-#define WAT_DEBUG_SMS_DECODE	(1 << 5) /* Debug how PDU is decoded */
-#define WAT_DEBUG_SMS_ENCODE	(1 << 6) /* Debug how PDU is encoded */
+#define WAT_DEBUG_CALL_STATE		(1 << 2) /* Debug call states */
+#define WAT_DEBUG_SPAN_STATE		(1 << 3) /* Debug call states */
+#define WAT_DEBUG_AT_PARSE		(1 << 4) /* Debug how AT commands are parsed */
+#define WAT_DEBUG_AT_HANDLE		(1 << 5) /* Debug how AT commands are scheduled/processed */
+#define WAT_DEBUG_SMS_DECODE		(1 << 6) /* Debug how PDU is decoded */
 
 /*ENUMS & Defines ******************************************************************/
 
@@ -83,16 +83,16 @@ typedef enum {
 	WAT_ALARM_NONE,
 	WAT_ALARM_NO_SIGNAL,
 	WAT_ALARM_LO_SIGNAL,
+	WAT_ALARM_SIM_ACCESS_FAIL,
 	WAT_ALARM_INVALID,
 } wat_alarm_t;
 
-#define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "Invalid"
-
+#define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "SIM access failure", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t);
 
 typedef enum {	
-	WAT_SMS_TXT,
 	WAT_SMS_PDU,
+	WAT_SMS_TXT,
 } wat_sms_type_t;
 
 typedef enum {
@@ -103,7 +103,6 @@ typedef enum {
 	WAT_SMS_CAUSE_NETWORK_REFUSE,
 	WAT_SMS_CAUSE_UNKNOWN,
 } wat_sms_cause_t;
-
 #define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response", "No network",  "Network Refused", "Unknown"
 
 WAT_STR2ENUM_P(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t);
@@ -198,8 +197,8 @@ typedef enum {
 /* Structures  *********************************************************************/
 
 typedef struct _wat_chip_info {
-	char manufacturer_name[32];
- 	char manufacturer_id[32];
+	char model[32];
+ 	char manufacturer[32];
 	char revision[32];
 	char serial[32];
 } wat_chip_info_t;
@@ -443,22 +442,53 @@ typedef struct _wat_cmd_status {
 	const char *error;
 } wat_cmd_status_t;
 
+typedef enum {
+	WAT_SPAN_STS_READY,			/* Span initialization is complete, we can now process external commands */
+	WAT_SPAN_STS_SIGSTATUS,		/* Span signalling status changed */
+	WAT_SPAN_STS_NETSTATUS, 	/* Span Network registration changed */
+	WAT_SPAN_STS_ALARM,			/* Alarm is on or cleared */
+	WAT_SPAN_STS_SIM_INFO_READY,	/* SIM information available */
+} wat_span_status_type_t;
+
+typedef struct _wat_span_status_t {
+	wat_span_status_type_t type;
+
+	union {
+		wat_sigstatus_t sigstatus;
+		wat_sim_info_t sim_info;
+		wat_alarm_t alarm;
+	} sts;
+} wat_span_status_t;
+
+typedef enum {
+	WAT_BAND_AUTO,			/* Automatic Band Negotiation */
+	WAT_BAND_900_1800,		/* GSM 900 MHz + DCS 1800 MHz */
+	WAT_BAND_900_1900,		/* GSM 900 MHz + PCS 1900 MHz */
+	WAT_BAND_850_1800,		/* GSM 850 MHz + DCS 1800 MHz */
+	WAT_BAND_850_1900,		/* GSM 850 MHz + PCS 1900 MHz */
+	WAT_BAND_INVALID,
+} wat_band_t;
+
+#define WAT_BAND_STRINGS "auto", "900-1800", "900-1900", "850-1800" , "850-1900", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_band, wat_band2str, wat_band_t);
+
 typedef struct _wat_span_config_t {
 	wat_moduletype_t moduletype;	
 
 	/* Timeouts */
 	uint32_t timeout_cid_num; /* Timeout to wait for a CLIP */
 	uint32_t timeout_command;	/* General timeout to for the chip to respond to a command */
+	uint32_t timeout_wait_sim; /* Timeout to wait for SIM to respond */
 	uint32_t cmd_interval;		/* Minimum amount of time between sending 2 commands to the chip */
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
+	
+	wat_band_t band;			/* Band frequency to be used */
 	wat_codec_t codec_mask; /* Which codecs to advertise */
 } wat_span_config_t;
 
-typedef void (*wat_sigstatus_change_func_t)(uint8_t span_id, wat_sigstatus_t sigstatus);
-typedef void (*wat_netstatus_change_func_t)(uint8_t span_id, wat_net_stat_t netstatus);
-typedef void (*wat_alarm_func_t)(uint8_t span_id, wat_alarm_t alarm);
+typedef void (*wat_span_sts_func_t)(uint8_t span_id, wat_span_status_t *status);
 typedef void (*wat_log_func_t)(uint8_t level, char *fmt, ...);
 typedef void* (*wat_malloc_func_t)(size_t size);
 typedef void* (*wat_calloc_func_t)(size_t nmemb, size_t size);	
@@ -476,9 +506,7 @@ typedef int (*wat_span_write_func_t)(uint8_t span_id, void *data, uint32_t len);
 
 typedef struct _wat_interface {
 	/* Call-backs */
-	wat_sigstatus_change_func_t wat_sigstatus_change;
-	wat_netstatus_change_func_t wat_netstatus_change;
-	wat_alarm_func_t wat_alarm;
+	wat_span_sts_func_t wat_span_sts;
 
 	/* Memory management */
 	wat_malloc_func_t wat_malloc;
@@ -487,6 +515,7 @@ typedef struct _wat_interface {
 
 	/* Logging */
 	wat_log_func_t wat_log;
+	
 	wat_log_span_func_t wat_log_span;
 
 	/* Assert */
@@ -499,6 +528,7 @@ typedef struct _wat_interface {
 	wat_rel_cfm_func_t wat_rel_cfm;
 	wat_sms_ind_func_t wat_sms_ind;
 	wat_sms_sts_func_t wat_sms_sts;
+
 	wat_span_write_func_t wat_span_write;
 } wat_interface_t;
 
@@ -528,6 +558,8 @@ WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
 WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti);
+WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
+WAT_DECLARE(const char *) wat_decode_band(wat_band_t band);
 
 WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone);
 
@@ -545,6 +577,7 @@ WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const 
 WAT_DECLARE(wat_status_t) wat_span_set_dtmf_duration(uint8_t span_id, int duration_ms);
 WAT_DECLARE(wat_status_t) wat_span_set_codec(uint8_t span_id, wat_codec_t codec_mask);
 WAT_DECLARE(wat_codec_t) wat_encode_codec(const char *codec);
+WAT_DECLARE(wat_band_t) wat_encode_band(const char *band);
 
 #endif /* _LIBWAT_H */
 

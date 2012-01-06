@@ -55,6 +55,16 @@
 #define WAT_ERROR_SZ					50			
 #define WAT_MAX_NOTIFYS_PER_SPAN		100
 
+#define WAT_DEFAULT_TIMEOUT_CID_NUM 500
+#define WAT_DEFAULT_TIMEOUT_COMMAND 20000
+#define WAT_DEFAULT_TIMEOUT_WAIT_SIM 10000
+#define WAT_DEFAULT_COMMAND_INTERVAL 20
+#define WAT_DEFAULT_PROGRESS_POLL_INTERVAL 750
+#define WAT_DEFAULT_SIGNAL_POLL_INTERVAL 10*1000
+#define WAT_DEFAULT_SIGNAL_THRESHOLD 90
+#define WAT_DEFAULT_CNUM_POLL		6000
+#define WAT_DEFAULT_CNUM_RETRIES	5
+
 #define wat_log_span(span, level, a, ...) if (g_interface.wat_log_span) g_interface.wat_log_span(span->id, level,a, ##__VA_ARGS__)
 
 #define wat_log(level,a,...) if (g_interface.wat_log) g_interface.wat_log(level, a, ##__VA_ARGS__)
@@ -109,20 +119,23 @@ char *wat_decode_csq_rssi(char *in, unsigned rssi);
 typedef enum {
 	WAT_TIMEOUT_CLIP,
 	WAT_TIMEOUT_CMD,	/* General command time-out, i.e we did not get a response from GSM module */
+	WAT_TIMEOUT_WAIT_SIM,
 	WAT_PROGRESS_MONITOR,
-	WAT_SIGNAL_MONITOR
+	WAT_SIGNAL_MONITOR,	
 } wat_timeout_id_t;
 
 typedef wat_status_t (*wat_module_start_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_restart_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_shutdown_func)(wat_span_t *span);
+typedef wat_status_t (*wat_module_wat_sim_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_set_codec_func)(wat_span_t *span, wat_codec_t codec_mask);
 
 struct wat_module {
-	wat_module_start_func    start;
-	wat_module_restart_func  restart;
-	wat_module_shutdown_func shutdown;
-	wat_module_set_codec_func set_codec;
+	wat_module_start_func    	start;
+	wat_module_restart_func  	restart;
+	wat_module_shutdown_func 	shutdown;
+	wat_module_set_codec_func 	set_codec;
+	wat_module_wat_sim_func 	wait_sim;
 };
 
 wat_status_t wat_module_register(wat_span_t *, wat_module_t *module);
@@ -281,10 +294,24 @@ typedef struct {
 	uint8_t busy:1;
 } wat_channel_t;
 
+typedef enum {
+	WAT_SPAN_STATE_INIT,			/* Initial state */	
+	WAT_SPAN_STATE_START,			/* Span is starting, waiting for SIM to be ready */
+	WAT_SPAN_STATE_POST_START,		/* SIM access is possible, perform SIM or Network dependent chip initialization commands */
+	WAT_SPAN_STATE_RUNNING,			/* Span is running and ready to accept external commands */
+	WAT_SPAN_STATE_STOP,		/* Span is stopping */
+	WAT_SPAN_STATE_SHUTDOWN,		/* Not used yet, will be used when live SIM swapping is implemented */
+	WAT_SPAN_STATE_INVALID,
+} wat_span_state_t;
+
+#define WAT_SPAN_STATE_STRINGS "init", "start", "post-start", "running", "stop", "shutdown", "invalid"
+WAT_STR2ENUM_P(wat_str2wat_span_state, wat_span_state2str, wat_span_state_t);
+
 struct wat_span {
 	uint8_t id;					/* User Id */
 	uint8_t configured:1;		/* Span has been configured */
-	uint8_t running:1;			/* Span was started */
+
+	wat_span_state_t state;
 
 	char last_error[WAT_ERROR_SZ];
 	wat_alarm_t alarm;
@@ -310,6 +337,8 @@ struct wat_span {
 	uint8_t	cmd_busy:1;			/* If currently executing a command */
 	wat_cmd_t *cmd;				/* Current command being executed */
 	wat_queue_t *cmd_queue;		/* Commands waiting to be executed */
+
+	uint8_t cnum_retries;		/* Number of times we have retried to get subscriber number */
 
 	wat_channel_t *channel;
 
@@ -342,6 +371,7 @@ wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *oa, char *scts
 wat_status_t wat_event_process(wat_span_t *span, wat_event_t *event);
 void wat_span_run_timeouts(wat_span_t *span);
 wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up);
+wat_status_t wat_span_update_alarm_status(wat_span_t *span, wat_alarm_t new_alarm);
 wat_bool_t wat_sig_status_up(wat_net_stat_t stat);
 wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat);
 int wat_span_write(wat_span_t *span, void *data, uint32_t len);
@@ -392,6 +422,9 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 
 wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, wat_call_state_t new_state);
 #define wat_call_set_state(call, new_state) _wat_call_set_state(__FUNCTION__, __LINE__, call, new_state)
+
+wat_status_t _wat_span_set_state(const char *func, int line, wat_span_t *span, wat_span_state_t new_state);
+#define wat_span_set_state(span, new_state) _wat_span_set_state(__FUNCTION__, __LINE__, span, new_state)
 
 typedef enum {
 	WAT_ITERATOR_CALLS =1,

@@ -1,30 +1,24 @@
 /*
- * libwat: Wireless AT commands library
+ * Test libwat with Sangoma Wanpipe API
  *
- * Written by David Yat Sin <dyatsin@sangoma.com>
- *
+ * Moises Silva <moy@sangoma.com>
  * Copyright (C) 2011, Sangoma Technologies.
- * All Rights Reserved.
- */
-
-/*
- * See http://www.asterisk.org for more information about
- * the Asterisk project. Please do not directly contact
- * any of the maintainers of this project for assistance;
- * the project provides a web site, mailing lists and IRC
- * channels for your use.
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License Version 2 as published by the
- * Free Software Foundation. See the LICENSE file included with
- * this program for more details.
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
  *
- * In addition, when this program is distributed with Asterisk in
- * any form that would qualify as a 'combined work' or as a
- * 'derivative work' (but not mere aggregation), you can redistribute
- * and/or modify the combination under the terms of the license
- * provided with that copy of Asterisk, instead of the license
- * terms granted here.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Contributors:
+ *
  */
 #define _GNU_SOURCE
 
@@ -39,7 +33,7 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 
-#include <dahdi/user.h>
+#include <libsangoma.h>
 
 #include "libwat.h"
 #include "test_utils.h"
@@ -48,17 +42,16 @@
 #define BLOCK_SIZE 3000
 
 typedef struct _wat_span {
-	int fd;
+	sng_fd_t dev;
+	sangoma_wait_obj_t *waitable;
 	unsigned char wat_span_id;
 	wat_span_config_t wat_span_config;
-	int dchan_up;
 	uint8_t answer_call:1; /* Incoming call pending */
 	uint8_t hangup_call:1;	 /* Hangup call pending */
 	uint8_t release_call:1;	 /* Release call pending */
 	uint8_t make_call:1;	 /* Send an outbound call */
 	uint16_t wat_call_id; /* Call ID of call if there is a call active */
 } gsm_span_t;
-
 
 int end = 0;
 int g_make_call = 0;
@@ -80,18 +73,17 @@ void on_sms_sts(unsigned char span_id, uint8_t sms_id, wat_sms_status_t *status)
 int on_span_write(unsigned char span_id, void *buffer, unsigned len)
 {
 	int res;
-	uint8_t writebuf[BLOCK_SIZE];
+	wp_tdm_api_tx_hdr_t tx_hdr;
 
-	/* add 2 bytes of fake CRC */
-	memcpy(writebuf, buffer, len + 2);
+	memset(&tx_hdr, 0, sizeof(tx_hdr));
 
-	/* fprintf(stdout, "Writing len:%d\n", len); */
-	res = write(gsm_spans[0].fd, writebuf, len);
+	res = sangoma_writemsg(gsm_spans[0].dev, &tx_hdr, sizeof(tx_hdr), buffer, len, 0);
 	if (res != len) {
-		fprintf(stdout, "Failed to write to dahdi device (res:%u len:%u)\n", res, len);
+		fprintf(stdout, "Failed to write to sangoma device (res:%u len:%u)\n", res, len);
 	}
 	return res;
 }
+
 
 void on_span_status(unsigned char span_id, wat_span_status_t *status)
 {
@@ -107,6 +99,7 @@ void on_span_status(unsigned char span_id, wat_span_status_t *status)
 					gsm_spans[0].make_call = 1;
 				}
 			}
+			return;
 			break;
 		case WAT_SPAN_STS_SIM_INFO_READY:
 
@@ -185,24 +178,26 @@ int main (int argc, char *argv[])
 	int x;
 	int res;
 	int count = 0;
-	struct pollfd fds[1];
-	struct dahdi_params p;
-	struct dahdi_bufferinfo bi;
-	struct dahdi_spaninfo si;
+	sangoma_wait_obj_t *waitable_objs[1];
+	uint32_t input_flags[1];
+	uint32_t output_flags[1];
+	sangoma_status_t sangstatus;
+	int spanno = 0;
+	int channo = 0;
 
 	unsigned char inbuf[BLOCK_SIZE];
 
 	if (argc < 2) {
-		fprintf(stderr, "Usage: %s <DAHDI channel number> [make_call, hangup_call] [number-to-dial]\n\
+		fprintf(stderr, "Usage: %s <sXcY> [make_call, hangup_call] [number-to-dial]\n\
 							make_call:   Make a call once the link is up\n\
 							hangup_call: Hangup all incoming calls\n\
 							default:     Answer all incoming call\n\n", argv[0]);
 		exit(1);
 	}
 
-	x = atoi(argv[1]);
-	if (x < 1) {
-		fprintf(stderr, "Invalid channel number\n");
+	x = sscanf(argv[1], "s%dc%d", &spanno, &channo);
+	if (x != 2) {
+		fprintf(stderr, "Invalid span/channel string provided (for span 1 chan 1 you must provide string s1c1)\n");
 		exit(1);
 	}
 
@@ -253,54 +248,19 @@ int main (int argc, char *argv[])
 	gsm_spans[0].wat_span_config.timeout_cid_num = 10;
 
 	fprintf(stdout, "Opening device %s\n", argv[1]);
-	
-	gsm_spans[0].fd = open("/dev/dahdi/channel", O_RDWR);
-	if (gsm_spans[0].fd < 0) {
+
+	gsm_spans[0].dev = sangoma_open_tdmapi_span_chan(spanno, channo);
+	if (gsm_spans[0].dev < 0) {
+		fprintf(stderr, "Unable to open %s:%s\n", argv[1], strerror(errno));
+		exit(1);
+	}
+
+	sangstatus = sangoma_wait_obj_create(&gsm_spans[0].waitable, gsm_spans[0].dev, SANGOMA_DEVICE_WAIT_OBJ_SIG);
+	if (sangstatus != SANG_STATUS_SUCCESS) {
 		fprintf(stderr, "Unable to open %s:%s\n", argv[1], strerror(errno));
 		exit(1);
 	}
 	
-	if (ioctl(gsm_spans[0].fd, DAHDI_SPECIFY, &x) == -1) {
-		fprintf(stderr, "Unable to open D-channel %d(%s)\n", x, strerror(errno));
-		exit(1);
-	}
-
-	if (ioctl(gsm_spans[0].fd, DAHDI_GET_PARAMS, &p) == -1) {
-		fprintf(stderr, "Unable to get parameters for d-channel %d(%s)\n", x, strerror(errno));
-		exit(1);
-	}
-
-	if ((p.sigtype != DAHDI_SIG_HDLCFCS) && (p.sigtype != DAHDI_SIG_HARDHDLC)) {
-		close(gsm_spans[0].fd);
-		fprintf(stderr, "D-channel %d is not in HDLC/FCS mode.\n", x);
-		return -1;
-	}
-
-	memset(&si, 0, sizeof(si));
-	res = ioctl(gsm_spans[0].fd, DAHDI_SPANSTAT, &si);
-	if (res) {
-		close(gsm_spans[0].fd);
-		fprintf(stderr, "Unable to get span state for D-channel %d (%s)\n", x, strerror(errno));
-	}
-
-	if (!si.alarms) {
-		gsm_spans[0].dchan_up = 1;
-	} else {
-		gsm_spans[0].dchan_up = 0;
-	}
-
-	memset(&bi, 0, sizeof(bi));
-	bi.txbufpolicy = DAHDI_POLICY_IMMEDIATE;
-	bi.rxbufpolicy = DAHDI_POLICY_IMMEDIATE;
-	bi.numbufs = 32;
-	bi.bufsize = 1024;
-
-	if (ioctl(gsm_spans[0].fd, DAHDI_SET_BUFINFO, &bi)) {
-		fprintf(stderr, "Unable to set appropriate buffering on channel %d: %s\n", x, strerror(errno));
-		close(gsm_spans[0].fd);
-		return -1;
-	}
-
 	fprintf(stdout, "Configuring span\n");
 	if (wat_span_config(gsm_spans[0].wat_span_id, &(gsm_spans[0].wat_span_config))) {
 		fprintf(stderr, "Failed to configure span!!\n");
@@ -326,21 +286,20 @@ int main (int argc, char *argv[])
 			next = POLL_INTERVAL;
 		}
 
-		fds[0].fd = gsm_spans[0].fd;
-		fds[0].events = POLLIN | POLLPRI;
-		fds[0].revents = 0;
+		waitable_objs[0] = gsm_spans[0].waitable;
+		input_flags[0] = SANG_WAIT_OBJ_HAS_INPUT;
+		output_flags[0]= 0;
 
-		res = poll(fds, 1, POLL_INTERVAL);
-		if (!res) {
+		sangstatus = sangoma_waitfor_many(waitable_objs, input_flags, output_flags, 1, next);
+		if (sangstatus == SANG_STATUS_APIPOLL_TIMEOUT) {
 			/* Timeout - do nothing */
-		} else if (res < 0) {
+		} else if (sangstatus != SANG_STATUS_SUCCESS) {
 			fprintf(stdout, "Failed to poll d-channel\n");
 		} else {
-			if (fds[0].revents & POLLPRI) {
-				fprintf(stdout, "Event received on d-channel\n");
-			}
-			if (fds[0].revents & POLLIN) {
-				res = read(gsm_spans[0].fd, inbuf, 1024);
+			if (output_flags[0] & SANG_WAIT_OBJ_HAS_INPUT) {
+				wp_tdm_api_rx_hdr_t rx_hdr;
+				memset(&rx_hdr, 0, sizeof(rx_hdr));
+				res = sangoma_readmsg(gsm_spans[0].dev, &rx_hdr, sizeof(rx_hdr), inbuf, 1024, 0);
 				if (res < 0) {
 					fprintf(stdout, "Failed to read d-channel\n");
 					break;
@@ -348,7 +307,6 @@ int main (int argc, char *argv[])
 				/* fprintf(stdout, "Read [%s] len:%d\n", inbuf, res); */
 				wat_span_process_read(gsm_spans[0].wat_span_id, inbuf, res);
 			}
-
 		}
 
 		if (gsm_spans[0].answer_call) {
@@ -385,6 +343,6 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Failed to stop span!!\n");
 		return -1;
 	}
-	close(gsm_spans[0].fd);
+	close(gsm_spans[0].dev);
 	return 0;
 }
