@@ -31,9 +31,15 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val);
 static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data);
 static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data);
 static int wat_decode_sms_pdu_scts(wat_timestamp_t *ts, char *data);
-static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t pad_len);
+static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding);
+static int wat_encode_sms_pdu_message_7_bit(uint8_t *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding);
 
 static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string);
+
+static int wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms);
+
+static int wat_encode_sms_pdu_semi_octets(char *data, char *string, wat_size_t len);
+static int wat_decode_sms_pdu_semi_octets(char *string, char *data, wat_size_t len);
 
 
 wat_status_t wat_span_sms_create(wat_span_t *span, wat_sms_t **insms, uint8_t sms_id, wat_direction_t dir)
@@ -96,6 +102,17 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 				break;
 			}
 
+			if (sms->sms_event.type == WAT_SMS_PDU) {
+				wat_log(WAT_LOG_DEBUG, "Sending SMS in PDU mode\n");
+
+				wat_sms_encode_pdu(span, sms);
+			} else {
+				wat_log(WAT_LOG_DEBUG, "Sending SMS in TXT mode\n");
+
+				memcpy(&sms->body, sms->sms_event.content, sizeof(sms->sms_event.content));
+				sms->body_len = sms->sms_event.content_len;
+			}
+
 			if (wat_queue_enqueue(span->sms_queue, sms) != WAT_SUCCESS) {
 				wat_log_span(span, WAT_LOG_DEBUG, "[sms:%d] SMS queue full\n", sms->id);
 				sms->cause = WAT_SMS_CAUSE_QUEUE_FULL;
@@ -103,30 +120,25 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			}
 			break;
 		case WAT_SMS_STATE_START:
-			/* See if we need to adjust the sms mode */
 			span->outbound_sms = sms;
-			if (span->sms_mode != sms->type) {
-				if (sms->type == WAT_SMS_TXT) {
-					wat_cmd_enqueue(span, "AT+CMGF=1", wat_response_cmgf, sms);
-				} else {
-					wat_cmd_enqueue(span, "AT+CMGF=0", wat_response_cmgf, sms);
-				}
+			if (sms->sms_event.type == WAT_SMS_TXT) {
+				/* We need to adjust the sms mode */
+				wat_cmd_enqueue(span, "AT+CMGF=1", wat_response_cmgf, sms);
 			} else {
 				wat_sms_set_state(sms, WAT_SMS_STATE_SEND_HEADER);
 			}
 			break;
 		case WAT_SMS_STATE_SEND_HEADER:
 			{
-				if (sms->type == WAT_SMS_PDU) {
-					/* TODO: PDU not implemented */
+				char cmd[40];
+				memset(cmd, 0, sizeof(cmd));
+				if (sms->sms_event.type == WAT_SMS_PDU) {
+					sprintf(cmd, "AT+CMGS=%d", sms->pdu_len);
 				} else {
-					char cmd[40];
-					memset(cmd, 0, sizeof(cmd));
-
 					/* TODO set the TON/NPI as well */
-					sprintf(cmd, "AT+CMGS=\"%s\"", wat_string_clean(sms->called_num.digits));
-					wat_cmd_enqueue(span, cmd, NULL, NULL);
+					sprintf(cmd, "AT+CMGS=\"%s\"", sms->sms_event.to.digits);
 				}
+				wat_cmd_enqueue(span, cmd, NULL, NULL);
 			}
 			break;
 		case WAT_SMS_STATE_SEND_BODY:
@@ -142,6 +154,12 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 		case WAT_SMS_STATE_COMPLETE:
 			{
 				wat_sms_status_t sms_status;
+
+				if (sms->sms_event.type == WAT_SMS_TXT) {
+					/* Switch the GSM module back to PDU mode */
+					wat_cmd_enqueue(span, "AT+CMGF=0", NULL, NULL);
+				}
+				
 				memset(&sms_status, 0, sizeof(sms_status));
 				if (!sms->cause) {
 					sms_status.success = WAT_TRUE;
@@ -174,9 +192,9 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 
 	span->sms_write = 1;
 
-	while (sms->wrote < sms->len) {
+	while (sms->wrote < sms->body_len) {
 		memset(command, 0, sizeof(command));
-		len = sms->len - sms->wrote;
+		len = sms->body_len - sms->wrote;
 		if (len <= 0) {
 			break;
 		}
@@ -185,9 +203,10 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 			len = sizeof(command);
 		}
 		
-		memcpy(command, &sms->message[sms->wrote], len);
+		memcpy(command, &sms->body[sms->wrote], len);
 		/* We need to add an extra 2 bytes because dahdi expects a CRC */
-		len_wrote = wat_span_write(span, command, len + 2) - 2;
+		//len_wrote = wat_span_write(span, command, len + 2) - 2;
+		len_wrote = wat_span_write(span, command, len);
 
 		sms->wrote += len_wrote;
 
@@ -231,22 +250,22 @@ static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string)
 	return 0;
 }
 
-wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *oa, char *scts, char *message)
+wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *from, char *scts, char *content)
 {
 	wat_sms_event_t sms_event;
 	
 		
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
-		wat_log(WAT_LOG_DEBUG, "Decoding Text Message OA:[%s] SCTS:[%s] message:[%s]\n", oa, scts, message);
+		wat_log(WAT_LOG_DEBUG, "Decoding Text Message From:[%s] SCTS:[%s] message:[%s]\n", from, scts, content);
 	}
 	
 	memset(&sms_event, 0, sizeof(sms_event));
 
 	wat_decode_sms_text_scts(&sms_event.scts, scts);
-	strncpy(sms_event.message, message, sizeof(sms_event.message));
+	strncpy(sms_event.content, content, sizeof(sms_event.content));
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
-		wat_log(WAT_LOG_DEBUG, "SMS Message:%s\n", sms_event.message);
+		wat_log(WAT_LOG_DEBUG, "SMS Content:%s\n", sms_event.content);
 	}	
 
 	if (g_interface.wat_sms_ind) {
@@ -264,10 +283,41 @@ static int wat_decode_sms_pdu_semi_octets(char *string, char *data, wat_size_t l
 
 	for (i = 0; i < (len*2); i+=2) {
 		*p++ = data[i+1];
+		ret++;
 		if (data[i] != 'F') {
 			*p++ = data[i];
+			ret++;
 		}
 	}
+	return ret;
+}
+
+static int wat_encode_sms_pdu_semi_octets(char *data, char *string, wat_size_t len)
+{	
+	int i;
+	int ret = 0;
+	char *p = data;
+	uint8_t odd = len % 2;
+	
+	for (i = 0; i < (len - odd); i+=2) {
+		char lo_nibble[2];
+		char hi_nibble[2];
+
+		lo_nibble[0] = string[i];
+		lo_nibble[1] = '\0';
+
+		hi_nibble[0] = string[i+1];
+		hi_nibble[1] = '\0';
+		
+		*p++ = (atoi(hi_nibble) << 4)|(atoi(lo_nibble));
+		ret++;
+	}
+	
+	if (odd) {
+		*p++ = 0xF0 | string[i];
+		ret++;
+	}
+
 	return ret;
 }
 
@@ -458,7 +508,93 @@ static uint8_t hi_bits(uint8_t byte, uint8_t numbits)
 	return byte >> (8 - numbits);
 }
 
-static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t pad_len)
+static int wat_encode_sms_pdu_submit(wat_span_t *span, char *data, wat_sms_pdu_submit_t *submit)
+{
+	uint8_t octet;
+
+	octet = submit->tp_rp << 7;
+	octet |= (submit->tp_udhi & 0x1) << 6;
+	octet |= (submit->tp_srr & 0x1) << 5;
+	octet |= (submit->tp_vpf & 0x3) << 3;
+	octet |= (submit->tp_rd & 0x1) << 1;
+	octet |= 0x01; /* mti = SMS-SUBMIT */
+
+
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "SMS-SUBMIT:0x%02x\n", octet);
+	}
+
+	*data = octet;
+	return 1;
+}
+
+static int wat_encode_sms_pdu_dcs(wat_span_t *span, char *data, wat_sms_pdu_dcs_t *dcs)
+{
+	uint8_t octet = 0;
+
+	octet |= (dcs->compressed & 0x01) << 4;
+
+	/* Bit 4 - Message class present or not */
+	if (dcs->msg_class != WAT_SMS_PDU_DCS_MSG_CLASS_INVALID) {
+		octet |= 0x10;
+	}
+
+	/* Bits 3 & 2 - Alphabet */
+	octet |= (dcs->charset & 0x03) << 2;
+
+	/* Bits 0 & 1 - Message class */
+	octet |= (dcs->msg_class & 0x03);
+	
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		wat_log_span(span, WAT_LOG_DEBUG,  "TP-DCS:0x%02x\n", octet);
+	}
+		
+	*data = octet;
+	return 1;
+}
+
+static int wat_encode_sms_pdu_message_7_bit(uint8_t *message, wat_size_t max_len, char *indata, wat_size_t len, uint8_t padding)
+{
+	uint8_t carry;
+	uint8_t byte;
+	uint8_t next_byte;
+	int i;
+	uint8_t *p = &message[1];
+	char *data = NULL;
+	int message_len = 0;
+
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		wat_log(WAT_LOG_DEBUG, "Encoding PDU Message (len:%d)[%s] pad:%d\n", len, data, padding);
+	}
+	data = wat_malloc(max_len);
+	wat_assert_return(data, 0, "Failed to malloc");
+	memcpy(data, indata, max_len);
+
+	for (i = 0; i < len; i++) {
+		uint8_t j = i % 8;
+		if (j != 7) {
+			carry = lo_bits(data[i+1], (j+1));
+
+			next_byte = hi_bits(data[i+1], (7-j));
+			data[i+1] = next_byte;
+
+			byte = lo_bits(data[i], (7-j)) | carry << (7-j);
+
+			*p = byte;
+			p++;
+			message_len++;
+		}
+	}
+	*p = '\0';
+	message[0] = len;
+
+	wat_safe_free(data);
+
+	/* Return the length in septets */
+	return (len * 7) / 8 + (((len * 7) % 8) ? 1 : 0) + 1; 
+}
+
+static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding)
 {
 	int i;
 	int carry = 0;
@@ -467,22 +603,21 @@ static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, c
 
 	memset(message, 0, 500);
 		
-
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
-		wat_log(WAT_LOG_DEBUG, "Decoding PDU Message (len:%d)[%s] pad:%d\n", len, data, pad_len);
+		wat_log(WAT_LOG_DEBUG, "Decoding PDU Message (len:%d)[%s] pad:%d\n", len, data, padding);
 	}
 
 	i = 0;
-	if (pad_len) {
+	if (padding) {
 		uint8_t j = i % 7;
 		byte = hexstr_to_val(&data[(i++)*2]);
 		conv_byte = hi_bits(byte, 7-j);
 		message_len += sprintf(&message[message_len], "%c", conv_byte);
-		pad_len = 1;
+		padding = 1;
 	}
 
 	for (; message_len < len; i++) {
-		uint8_t j = (i - pad_len) % 7;
+		uint8_t j = (i - padding) % 7;
 		byte = hexstr_to_val(&data[(i)*2]);
 				
 		conv_byte = ((lo_bits(byte, (7-j))) << j) | carry;
@@ -570,7 +705,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	wat_sms_event_t sms_event;
 	int ret;
 	int i = 0;
-	wat_size_t contents_len = 0;
+	wat_size_t content_len = 0;
 
 	/* From www.dreamfabric.com/sms */
 	/* GSM 03.38 */
@@ -588,7 +723,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 	i += ret;
 
-	ret = wat_decode_sms_pdu_deliver(&sms_event.pdu.sms_deliver, &data[i]);
+	ret = wat_decode_sms_pdu_deliver(&sms_event.pdu.sms.deliver, &data[i]);
 	if (ret <= 0) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-DELIVER from SMS PDU data [%s]\n", &data[i]);
 
@@ -596,7 +731,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 	i += ret;
 
-	ret = wat_decode_sms_pdu_sender(&sms_event.calling_num, &data[i]);
+	ret = wat_decode_sms_pdu_sender(&sms_event.from, &data[i]);
 	if (ret <= 0) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SENDER from SMS PDU data [%s]\n", &data[i]);
 
@@ -641,7 +776,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		wat_log_span(span, WAT_LOG_DEBUG, "Decoding TP-UDL [%s]\n", &data[i]);
 	}
 	sms_event.pdu.tp_udl = hexstr_to_val(&data[i]);
-	contents_len = sms_event.pdu.tp_udl;
+	content_len = sms_event.pdu.tp_udl;
 	i += 2;
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
@@ -649,7 +784,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		wat_log_span(span, WAT_LOG_DEBUG, "TP-UDL:%d\n", sms_event.pdu.tp_udl);
 	}
 
-	if (sms_event.pdu.sms_deliver.tp_udhi) {
+	if (sms_event.pdu.sms.deliver.tp_udhi) {
 		if (g_debug & WAT_DEBUG_SMS_DECODE) {
 			wat_log_span(span, WAT_LOG_DEBUG, "Decoding TP-UDHL [%s]\n", &data[i]);
 		}
@@ -671,7 +806,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		sms_event.pdu.seq = hexstr_to_val(&data[i]); /* Sequence */
 		i += 2;
 
-		contents_len -= 8; /* TODO check if this should be: contents_len - sms_event.pdu.tp_udhl */
+		content_len -= 8; /* TODO check if this should be: content_len - sms_event.pdu.tp_udhl */
 		if (g_debug & WAT_DEBUG_SMS_DECODE) {
 			/* User data length */
 			wat_log_span(span, WAT_LOG_DEBUG, "TP-UDHL:%d IEI:%d IEDL:%d Ref nr:%d Total:%d Seq:%d\n",
@@ -684,12 +819,12 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
 		case WAT_SMS_PDU_DCS_CHARSET_7BIT:
 			/* Default Aplhabet, phase 2 */
-			sms_event.len = wat_decode_sms_pdu_message_7_bit(sms_event.message, sizeof(sms_event.message), &data[i], contents_len , sms_event.pdu.seq);
+			sms_event.content_len = wat_decode_sms_pdu_message_7_bit(sms_event.content, sizeof(sms_event.content), &data[i], content_len , sms_event.pdu.seq);
 			break;
 		case WAT_SMS_PDU_DCS_CHARSET_8BIT:
 		case WAT_SMS_PDU_DCS_CHARSET_16BIT:
-			sms_event.len = contents_len;
-			memcpy(sms_event.message, &data[i], contents_len);
+			sms_event.content_len = content_len;
+			memcpy(sms_event.content, &data[i], content_len);
 			break;
 		default:
 			wat_log_span(span, WAT_LOG_ERROR, "Don't know how to decode incoming SMS message with coding scheme:0x%x\n", sms_event.pdu.tp_dcs);
@@ -701,4 +836,101 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 
 	return WAT_SUCCESS;
+}
+
+static int wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
+{
+	uint8_t pdu_data[200];
+	unsigned pdu_data_len = 0;
+	int pdu_header_len = 0;
+	wat_sms_event_t *sms_event = &sms->sms_event;
+	int i;
+
+	/* www.dreamfabric.com/sms/ */
+
+	/* Fill in the SMSC */
+	if (sms_event->pdu.smsc.digits[0] == '+') {
+		memmove(&sms_event->pdu.smsc.digits[0], &sms_event->pdu.smsc.digits[1], sizeof(sms_event->pdu.smsc.digits));
+	}
+	
+	/* Length SMSC information */
+	pdu_data[pdu_data_len] = (1 + (strlen(sms_event->pdu.smsc.digits) + 1) / 2);
+	pdu_data_len++;
+
+	/* SMSC Type-of-Address */
+	pdu_data[pdu_data_len] = 0x80; /* MSB always set to 1 */
+	pdu_data[pdu_data_len] |= (sms_event->pdu.smsc.type & 0x7) << 4;
+	pdu_data[pdu_data_len] |= (sms_event->pdu.smsc.plan & 0xF);
+	pdu_data_len++;
+
+	pdu_data_len += wat_encode_sms_pdu_semi_octets((char *)&pdu_data[pdu_data_len], sms_event->pdu.smsc.digits, strlen(sms_event->pdu.smsc.digits));
+
+	pdu_header_len = pdu_data_len;
+
+	/* SMS-SUBMIT */
+	pdu_data_len += wat_encode_sms_pdu_submit(span, (char *)&pdu_data[pdu_data_len], &sms_event->pdu.sms.submit);
+
+	/* TP-Message-Reference */
+	pdu_data[pdu_data_len] = sms_event->pdu.refnr;
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "PDU[%04d] TP-Message-Reference:0x%02x\n", pdu_data_len, pdu_data[pdu_data_len]);
+	}
+	pdu_data_len++;
+
+	/* Address-Length. Length of phone number */
+	pdu_data[pdu_data_len] = strlen(sms_event->to.digits);
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "PDU[%04d] Address-Length:0x%02x\n", pdu_data_len, pdu_data[pdu_data_len]);
+	}
+	pdu_data_len++;
+
+	/* Destination Type-of-Address */
+	pdu_data[pdu_data_len] = 0x80; /* MSB always set to 1 */
+	pdu_data[pdu_data_len] |= (sms_event->to.type & 0x7) << 4;
+	pdu_data[pdu_data_len] |= (sms_event->to.plan & 0xF);
+
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		wat_log_span(span, WAT_LOG_DEBUG,  "PDU[%04d] Type-Of-Address:0x%02x\n", pdu_data_len, pdu_data[pdu_data_len]);
+	}
+	pdu_data_len++;
+
+	pdu_data_len += wat_encode_sms_pdu_semi_octets((char *)&pdu_data[pdu_data_len], sms_event->to.digits, strlen(sms_event->to.digits));
+	
+
+	/* TP-PID - Protocol Identifier */
+	pdu_data[pdu_data_len] = 0x00;
+	pdu_data_len++;
+
+	/* TP-DCS - Data Coding Scheme */
+	/* www.dreamfabric.com/sms/dcs.html */
+	/* Bit 5 = compressed/uncompressed */
+	pdu_data_len += wat_encode_sms_pdu_dcs(span, (char *)&pdu_data[pdu_data_len], &sms_event->pdu.dcs);
+	
+	/* TP-VP - Validity Period */
+	/* www.dreamfabric.com/sms/vp.html */
+	switch (sms_event->pdu.sms.submit.tp_vpf) {
+		case WAT_SMS_PDU_VP_NOT_PRESENT:
+			break;
+		case WAT_SMS_PDU_VP_RELATIVE:
+			pdu_data[pdu_data_len] = sms_event->pdu.sms.submit.vp_data.relative;
+			pdu_data_len++;
+			break;
+		case WAT_SMS_PDU_VP_ABSOLUTE:
+		case WAT_SMS_PDU_VP_ENHANCED:
+			wat_log_span(span, WAT_LOG_ERROR, "Warning  Validity period type not supported\n");
+			break;
+	}	
+	
+	if (sms_event->pdu.dcs.charset == WAT_SMS_PDU_DCS_CHARSET_7BIT) {
+		pdu_data_len += wat_encode_sms_pdu_message_7_bit(&pdu_data[pdu_data_len], sizeof(pdu_data) - pdu_data_len, sms_event->content, sms_event->content_len, 0);
+
+	}
+	
+	sms->pdu_len = pdu_data_len - pdu_header_len;
+
+	/*  Convert into string representation */
+	for (i = 0; i < pdu_data_len; i++) {
+		sms->body_len += sprintf((char*)&sms->body[sms->body_len], "%02x", pdu_data[i]);
+	}
+	return 0;
 }

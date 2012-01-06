@@ -338,24 +338,14 @@ int main (int argc, char *argv[])
 
 				fprintf(stdout, "Sending SMS\n");
 				
-				
-				sprintf(sms_event.called_num.digits, "6472671197");
+				sprintf(sms_event.to.digits, "6472671197");
+				sprintf(sms_event.pdu.smsc.digits, "17057969300");
 				//sprintf(sms_event.called_num.digits, "6474024627");
 				gsm_spans[0].wat_sms_id = (g_outbound_sms_id++) | 0x8;
 
-				sprintf(sms_event.message, "This is a very long message \
-											aaaaaaaaaaaaaaaaaaaaaaaaaa1 \
-											bbbbbbbbbbbbbbbbbbbbbbbbbb2 \
-											cccccccccccccccccccccccccc3 \
-											dddddddddddddddddddddddddd4 \
-											eeeeeeeeeeeeeeeeeeeeeeeeee5 \
-											ffffffffffffffffffffffffff6 \
-											gggggggggggggggggggggggggg7 \
-											hhhhhhhhhhhhhhhhhhhhhhhhhh8 \
-											iiiiiiiiiiiiiiiiiiiiiiiiii9 \
-											jjjjjjjjjjjjjjjjjjjjjjjjjja");
+				sprintf(sms_event.content, "hellohello");
 				//sprintf(sms_event.message, "Hello");
-				sms_event.len = strlen(sms_event.message);
+				sms_event.content_len = strlen(sms_event.content);
 
 				sms_event.type = WAT_SMS_TXT;
 

@@ -90,7 +90,7 @@ static wat_terminator_t terminators[] = {
 	{ "OK", WAT_TRUE, WAT_TERM_OK, WAT_FALSE },
 	{ "CONNECT", WAT_TRUE, WAT_TERM_CONNECT, WAT_TRUE },
 	{ "BUSY", WAT_FALSE, WAT_TERM_BUSY, WAT_TRUE },
-	{ "ERROR", WAT_FALSE, WAT_TERM_ERR, WAT_TRUE },
+	{ "ERROR", WAT_FALSE, WAT_TERM_ERR, WAT_FALSE },
 	{ "NO DIALTONE", WAT_FALSE, WAT_TERM_NO_DIALTONE, WAT_TRUE },
 	{ "NO ANSWER", WAT_FALSE, WAT_TERM_NO_ANSWER, WAT_TRUE},
 	{ "NO CARRIER", WAT_FALSE, WAT_TERM_NO_CARRIER, WAT_TRUE },
@@ -1009,6 +1009,51 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 	return 2;
 }
 
+WAT_RESPONSE_FUNC(wat_response_csca)
+{
+	WAT_RESPONSE_FUNC_DBG_START
+	char *cmdtokens[3];
+
+	if (success != WAT_TRUE) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain Service Centre Address (%s)\n", error);
+		WAT_FUNC_DBG_END
+		return 1;
+	}
+	/* Format +CSCA: <number>, <type> */
+
+	if (!tokens[1]) {
+		/* If this is a single token response,
+		then Service Centre is not available
+		on this SIM card
+		*/
+		memset(span->sim_info.smsc.digits, 0, sizeof(span->sim_info.smsc.digits));
+		WAT_FUNC_DBG_END
+		return 1;
+	}
+
+	wat_match_prefix(tokens[0], "+CSCA: ");
+
+	memset(cmdtokens, 0, sizeof(cmdtokens));
+
+	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 2) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSCA entry:%s\n", tokens[0]);
+		wat_free_tokens(cmdtokens);
+		WAT_FUNC_DBG_END
+		return 2;
+	}
+
+	strncpy(span->sim_info.smsc.digits, wat_string_clean(cmdtokens[0]), sizeof(span->sim_info.smsc.digits));
+	wat_decode_type_of_address(atoi(cmdtokens[1]), &span->sim_info.smsc.type, &span->sim_info.smsc.plan);
+
+	wat_log_span(span, WAT_LOG_NOTICE, "SMSC:%s type:%s plan:%s\n",
+							span->sim_info.smsc.digits, wat_number_type2str(span->sim_info.smsc.type),
+							wat_number_plan2str(span->sim_info.smsc.plan));
+
+	WAT_FUNC_DBG_END
+	return 2;
+}
+
+
 WAT_RESPONSE_FUNC(wat_response_csq)
 {
 	unsigned rssi, ber;
@@ -1328,8 +1373,8 @@ WAT_RESPONSE_FUNC(wat_response_cmgf)
 		WAT_FUNC_DBG_END
 		return 1;
 	}
+
 	if (sms) {
-		span->sms_mode = sms->type;
 		wat_sms_set_state(sms, WAT_SMS_STATE_SEND_HEADER);
 	}
 	WAT_FUNC_DBG_END
@@ -1671,8 +1716,10 @@ WAT_SCHEDULED_FUNC(wat_scheduled_csq)
 {
 	wat_span_t *span = (wat_span_t *)data;
 	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, span);
-	
-	wat_sched_timer(span->sched, "signal_monitor", span->config.signal_poll_interval, wat_scheduled_csq, (void*) span, NULL);
+
+	if (span->config.signal_poll_interval) {
+		wat_sched_timer(span->sched, "signal_monitor", span->config.signal_poll_interval, wat_scheduled_csq, (void*) span, NULL);
+	}
 }
 
 char* format_at_data(char *dest, void *indata, wat_size_t len)

@@ -32,7 +32,7 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
 //uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE;
-uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE;
+uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 #else
 uint32_t	g_debug = 0;
 #endif
@@ -408,6 +408,11 @@ WAT_DECLARE(void) wat_span_run(uint8_t span_id)
 	span = wat_get_span(span_id);
 	wat_assert_return_void(span, "Invalid span");
 
+	if (!span->running) {
+		wat_log_span(span, WAT_LOG_CRIT, "Span is not running\n");
+		return;
+	}
+
 	/* Check if there are pending events requested by the user */
 	wat_span_run_events(span);
 
@@ -715,7 +720,8 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 		return WAT_FAIL;
 	}
 
-	if (sms_event->len <= 0) {
+	if (sms_event->content_len <= 0 || sms_event->content_len > WAT_MAX_SMS_SZ) {
+		wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Invalid SMS length %d (min:%d max:%d)\n", sms_id, sms_event->content_len, 1, WAT_MAX_SMS_SZ);
 		WAT_FUNC_DBG_END
 		return WAT_EINVAL;
 	}
@@ -724,6 +730,20 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 	
 	event.id = WAT_EVENT_SMS_REQ;
 	event.sms_id = sms_id;
+
+	sprintf(sms_event->to.digits, "%s", wat_string_clean(sms_event->to.digits));
+
+	if (sms_event->type == WAT_SMS_PDU && !strlen(sms_event->pdu.smsc.digits)) {
+		if (strlen(span->sim_info.smsc.digits)) {
+			wat_log_span(span, WAT_LOG_DEBUG, "[sms:%d]SMSC not specified, using %s\n", sms_id, span->sim_info.smsc.digits);
+			memcpy(&sms_event->pdu.smsc, &span->sim_info.smsc, sizeof(span->sim_info.smsc));
+		} else {
+			wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMSC information not available\n", sms_id);
+			WAT_FUNC_DBG_END
+			return WAT_FAIL;
+		}
+	}
+	
 	memcpy(&event.data.sms_event, sms_event, sizeof(*sms_event));
 
 	wat_event_enqueue(span, &event);
@@ -778,7 +798,7 @@ int wat_span_write(wat_span_t *span, void *data, uint32_t len)
 	if (g_debug & WAT_DEBUG_UART_RAW) {		
 		char mydata[WAT_MAX_CMD_SZ];
 		char *cmd = (char *)data;
-		wat_log_span(span, WAT_LOG_DEBUG, "[TX RAW] %s (len:%d)\n", format_at_data(mydata, cmd, strlen(cmd)), strlen(cmd));
+		wat_log_span(span, WAT_LOG_DEBUG, "[TX RAW] %s (len:%d)\n", format_at_data(mydata, cmd, len), len);
 	}
 
 	res = g_interface.wat_span_write(span->id, data, len);
@@ -839,6 +859,9 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 
 		/* Own Number */
 		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
+
+		/* SMSC information */
+		wat_cmd_enqueue(span, "AT+CSCA?", wat_response_csca, NULL);
 	}
 
 	return WAT_SUCCESS;

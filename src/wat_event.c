@@ -170,13 +170,8 @@ WAT_EVENT_FUNC(wat_event_sms_req)
 		}
 		return;
 	}
-	
-	memcpy(&sms->called_num, &event->data.sms_event.called_num, sizeof(sms->called_num));
-	memcpy(&sms->message, &event->data.sms_event.message, event->data.sms_event.len);
 
-	sms->type = event->data.sms_event.type;
-	
-	sms->len = event->data.sms_event.len;
+	memcpy(&sms->sms_event, &event->data.sms_event, sizeof(sms->sms_event));
 
 	wat_sms_set_state(sms, WAT_SMS_STATE_QUEUED);
 

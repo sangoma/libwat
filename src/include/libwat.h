@@ -36,14 +36,15 @@
 #define WAT_DEBUG_AT_PARSE		(1 << 3) /* Debug how AT commands are parsed */
 #define WAT_DEBUG_AT_HANDLE		(1 << 4) /* Debug how AT commands are scheduled/processed */
 #define WAT_DEBUG_SMS_DECODE	(1 << 5) /* Debug how PDU is decoded */
+#define WAT_DEBUG_SMS_ENCODE	(1 << 6) /* Debug how PDU is encoded */
 
 /*ENUMS & Defines ******************************************************************/
 
 #define WAT_MAX_SPANS		32
 #define WAT_MAX_NUMBER_SZ	32 /* TODO: Find real max sizes based on specs */
 #define WAT_MAX_NAME_SZ		24 /* TODO: Find real max sizes based on specs */
-#define WAT_MAX_SMS_SZ		1024 /* TODO: Find real max sizes based on specs */
-#define WAT_MAX_CMD_SZ		2048 /* TODO: Find real max sizes based on specs */
+#define WAT_MAX_SMS_SZ		160
+#define WAT_MAX_CMD_SZ		4000 /* TODO: Find real max sizes based on specs */
 #define WAT_MAX_TYPE_SZ		12
 #define WAT_MAX_OPERATOR_SZ	32	/* TODO: Find real max sizes based on specs */
 
@@ -89,10 +90,9 @@ typedef enum {
 
 WAT_STR2ENUM_P(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t);
 
-
-typedef enum {
-	WAT_SMS_PDU,
+typedef enum {	
 	WAT_SMS_TXT,
+	WAT_SMS_PDU,
 } wat_sms_type_t;
 
 typedef enum {
@@ -207,6 +207,7 @@ typedef struct _wat_chip_info {
 typedef struct _wat_sim_info {
 	wat_number_t subscriber;
 	char subscriber_type[WAT_MAX_TYPE_SZ];
+	wat_number_t smsc; /* SMS Service Centre */
 	char imsi[32];
 } wat_sim_info_t;
 
@@ -286,15 +287,11 @@ typedef struct _wat_con_event {
 
 typedef enum {
 	WAT_SMS_PDU_MTI_SMS_DELIVER,
-	WAT_SMS_PDU_MTI_SMS_DELIVER_REPORT,
-	WAT_SMS_PDU_MTI_SMS_STATUS_REPORT,
-	WAT_SMS_PDU_MTI_SMS_COMMAND,
 	WAT_SMS_PDU_MTI_SMS_SUBMIT,
-	WAT_SMS_PDU_MTI_SMS_SUBMIT_REPORT,
 	WAT_SMS_PDU_MTI_INVALID,
 } wat_sms_pdu_mti_t;
 
-#define WAT_SMS_PDU_MTI_STRINGS "SMS-DELIVER", "SMS-DELIVER-REPORT", "SMS-STATUS-REPORT", "SMS-COMMAND", "SMS-SUBMIT", "SMS-SUBMIT-REPORT", "Invalid"
+#define WAT_SMS_PDU_MTI_STRINGS "SMS-DELIVER", "SMS-SUBMIT", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_mti, wat_sms_pdu_mti2str, wat_sms_pdu_mti_t);
 
 /* Defined in GSM 03.38 */
@@ -328,13 +325,13 @@ typedef enum {
 } wat_sms_pdu_dcs_ind_type_t;
 
 typedef enum {
-	WAT_SMS_PDU_DCS_CHARSET_7BIT,
+	WAT_SMS_PDU_DCS_CHARSET_7BIT,	/* ASCII */
 	WAT_SMS_PDU_DCS_CHARSET_8BIT,
 	WAT_SMS_PDU_DCS_CHARSET_16BIT, /* UCS2, UTF-8 */
 	WAT_SMS_PDU_DCS_CHARSET_INVALID,
 } wat_sms_pdu_dcs_charset_t;
 
-#define WAT_SMS_PDU_DCS_CHARSET_STRINGS "7-bit", "8-bit", "UTF-8", "Invalid"
+#define WAT_SMS_PDU_DCS_CHARSET_STRINGS "ASCII", "8-bit", "UTF-8", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_charset, wat_sms_pdu_dcs_charset2str, wat_sms_pdu_dcs_charset_t);
 
 typedef struct _wat_sms_pdu_deliver {
@@ -345,6 +342,28 @@ typedef struct _wat_sms_pdu_deliver {
 	uint8_t tp_mms:1; /* More messages to send. 0 => There are more messages to send  */
 	wat_sms_pdu_mti_t tp_mti; /* Message type indicator */
 } wat_sms_pdu_deliver_t;
+
+typedef enum {
+	WAT_SMS_PDU_VP_NOT_PRESENT,	
+	WAT_SMS_PDU_VP_ABSOLUTE,
+	WAT_SMS_PDU_VP_RELATIVE,
+	WAT_SMS_PDU_VP_ENHANCED,	
+} wat_sms_pdu_vp_type_t;
+
+typedef struct _wat_sms_pdu_submit {
+	/* From  www.dreamfabric.com/sms/submit_fo.html */
+
+	uint8_t tp_rp:1; /* Reply Path */
+	uint8_t tp_udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
+	uint8_t tp_srr:1; /* Status report request. 1 => Status report requested */	
+	uint8_t tp_rd:1; /* Reject duplicates */
+
+	wat_sms_pdu_vp_type_t tp_vpf; /* Validity Period Format */
+	union {
+		uint8_t relative; /* Used when tp_vp == WAT_SMS_PDU_VP_RELATIVE see www.dreamfabric.com/sms/vp.html for description */
+		/* WAT_SMS_PDU_VP_ABSOLUTE & WAT_SMS_PDU_VP_ENHANCED not implemented yet */
+	} vp_data;
+} wat_sms_pdu_submit_t;
 
 typedef struct _wat_sms_pdu_dcs {
 	wat_sms_pdu_dcs_grp_t grp;
@@ -367,10 +386,13 @@ typedef struct _wat_sms_pdu_timestamp {
 
 typedef struct _wat_sms_event_pdu {
 	wat_number_t smsc;
-	wat_sms_pdu_deliver_t sms_deliver;
+	union {
+		wat_sms_pdu_deliver_t deliver;
+		wat_sms_pdu_submit_t submit;
+	} sms;
 	
-	uint8_t tp_pid;		/* Protocol Identifier */
-	uint8_t tp_dcs;		/* Data coding scheme */
+	uint8_t tp_pid;			/* Protocol Identifier */
+	uint8_t tp_dcs;			/* Data coding scheme */
 	
 	wat_sms_pdu_dcs_t dcs;	/* Values are derived from tp_dcs */
 	uint8_t tp_udl;
@@ -386,14 +408,14 @@ typedef struct _wat_sms_event_pdu {
 } wat_sms_event_pdu_t;
 
 typedef struct _wat_sms_event {
-	wat_number_t calling_num;
-	wat_number_t called_num;
+	wat_number_t from;
+	wat_number_t to;	
 	wat_sms_type_t type;				/* PDU or Plain Text */
 
-	uint32_t len;						/* Length of message */
+	uint32_t content_len;				/* Length of message */
 	wat_timestamp_t scts;
 	wat_sms_event_pdu_t pdu;
-	char message[WAT_MAX_SMS_SZ];		/* Message */
+	char content[WAT_MAX_SMS_SZ];		/* Message */
 } wat_sms_event_t;
 
 typedef struct _wat_rel_event {

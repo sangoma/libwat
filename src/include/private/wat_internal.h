@@ -203,13 +203,13 @@ typedef struct {
 	wat_sms_state_t state;
 	wat_sms_cause_t cause;			/* Cause for failure if any */
 	wat_direction_t dir;			/* Inbound or outbound */ /* TODO: Do I even need this ? */
-	wat_sms_type_t type;			/* PDU or Plain Text */
-	
-	wat_number_t called_num;
 	wat_span_t *span; /* Span on which this sms exists */
 
-	char message[WAT_MAX_SMS_SZ + 4];	/* Message, need 4 more bytes to store terminator */
-	uint32_t len;					/* Length of message */
+	wat_sms_event_t sms_event;
+	uint8_t body[2*WAT_MAX_SMS_SZ+4];
+	wat_size_t pdu_len;				/* Used only in PDU mode, this is the lengh of the 'pdu header' */
+	wat_size_t body_len;
+	
 	uint32_t wrote;					/* Number of bytes written */
 	char *error;					/* Error code reported by chip */
 } wat_sms_t;
@@ -322,7 +322,6 @@ struct wat_span {
 	wat_timer_id_t timeouts[WAT_TIMEOUTS_SZ];
 
 	uint8_t sms_write;			/* We are currently writing an SMS, cannot process anything else */
-	wat_sms_type_t sms_mode;	/* Current mode for SMS */
 	
 	wat_queue_t *sms_queue;		/* Queue for pending outgoing SMS */
 	wat_sms_t *outbound_sms;	/* Current Outbound SMS being executed */
@@ -362,6 +361,7 @@ WAT_RESPONSE_FUNC(wat_response_creg);
 WAT_RESPONSE_FUNC(wat_response_cnmi);
 WAT_RESPONSE_FUNC(wat_response_cops);
 WAT_RESPONSE_FUNC(wat_response_cnum);
+WAT_RESPONSE_FUNC(wat_response_csca);
 WAT_RESPONSE_FUNC(wat_response_csq);
 WAT_RESPONSE_FUNC(wat_response_clcc);
 WAT_RESPONSE_FUNC(wat_response_ata);
