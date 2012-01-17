@@ -95,7 +95,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 	switch(sms->state) {
 		case WAT_SMS_STATE_QUEUED:
 			if (span->sigstatus != WAT_SIGSTATUS_UP) {
-				wat_log_span(span, WAT_LOG_DEBUG, "[sms:%d] Cannot send SMS when network is down\n", sms->id);
+				wat_log_span(span, WAT_LOG_WARNING, "[sms:%d] Cannot send SMS when network is down\n", sms->id);
 
 				sms->cause = WAT_SMS_CAUSE_NO_NETWORK;
 				wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
@@ -114,7 +114,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			}
 
 			if (wat_queue_enqueue(span->sms_queue, sms) != WAT_SUCCESS) {
-				wat_log_span(span, WAT_LOG_DEBUG, "[sms:%d] SMS queue full\n", sms->id);
+				wat_log_span(span, WAT_LOG_WARNING, "[sms:%d] SMS queue full\n", sms->id);
 				sms->cause = WAT_SMS_CAUSE_QUEUE_FULL;
 				wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
 			}
