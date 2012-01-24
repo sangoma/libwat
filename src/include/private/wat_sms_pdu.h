@@ -29,7 +29,8 @@
 
 void print_buffer(wat_loglevel_t loglevel, char *data, wat_size_t data_len, char *message);
 
-wat_status_t wat_encode_sms_pdu_message_7bit(char *indata, wat_size_t indata_size, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size, uint8_t padding);
+wat_status_t wat_encode_sms_pdu_message_7bit(wchar_t *indata, wat_size_t indata_size, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size, uint8_t padding);
+
 wat_status_t wat_encode_sms_pdu_message_ucs2(char *indata, wat_size_t indata_size, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);
 
 wat_status_t wat_encode_sms_pdu_smsc(wat_number_t *smsc, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);

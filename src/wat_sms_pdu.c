@@ -308,7 +308,7 @@ wat_status_t wat_encode_sms_pdu_message_ucs2(char *indata, wat_size_t indata_siz
 	return WAT_SUCCESS;
 }
 
-wat_status_t wat_encode_sms_pdu_message_7bit(char *indata, wat_size_t indata_size, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size, uint8_t padding)
+wat_status_t wat_encode_sms_pdu_message_7bit(wchar_t *indata, wat_size_t indata_size, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size, uint8_t padding)
 {
 	uint8_t carry;
 	uint8_t byte;
@@ -316,15 +316,19 @@ wat_status_t wat_encode_sms_pdu_message_7bit(char *indata, wat_size_t indata_siz
 	unsigned i;
 
 	char *content = NULL;
-	char *data = NULL;
+	wchar_t *data = NULL;
+	wat_size_t indata_size_char;
 
+
+	indata_size_char = indata_size/4;
 	content = (*outdata) + 1;
 
 	data = wat_malloc(indata_size + 1);
+
 	wat_assert_return(data, WAT_FAIL, "Failed to malloc");
 	memcpy(data, indata, indata_size);
 
-	for (i = 0; i < indata_size; i++) {
+	for (i = 0; i < indata_size_char; i++) {
 		uint8_t j = i % 8;
 		if (j != 7) {
 			carry = lo_bits(data[i+1], (j+1));
@@ -342,16 +346,15 @@ wat_status_t wat_encode_sms_pdu_message_7bit(char *indata, wat_size_t indata_siz
 	wat_safe_free(data);
 	
 	*content = '\0';
-	**outdata = indata_size;
+	**outdata = indata_size_char;
 
 	/* Increase the length in septets */
-	*outdata_len = *outdata_len + (indata_size * 7) / 8 + (((indata_size * 7) % 8) ? 1 : 0) + 1;
+	*outdata_len = *outdata_len + (indata_size_char * 7) / 8 + (((indata_size_char * 7) % 8) ? 1 : 0) + 1;
 
-	*outdata = content;
+	*outdata = content;	
 
 	return WAT_SUCCESS;
 }
-
 
 void print_buffer(wat_loglevel_t loglevel, char *data, wat_size_t data_len, char *message)
 {
