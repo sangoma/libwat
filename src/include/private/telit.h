@@ -28,4 +28,16 @@
 wat_status_t telit_init(wat_span_t *span);
 WAT_NOTIFY_FUNC(wat_notify_codec_info);
 
+typedef enum {
+	WAT_TELIT_SIM_NOT_INSERTED = 0,
+	WAT_TELIT_SIM_INSERTED = 1,
+	WAT_TELIT_SIM_INSERTED_PIN_UNLOCKED = 2,
+	WAT_TELIT_SIM_INSERTED_READY = 3,
+	WAT_TELIT_SIM_INVALID = 0xFF, 
+} wat_telit_sim_status_t;
+
+#define WAT_TELIT_SIM_STATUS_STRINGS "Not-Inserted", "Inserted", "Inserted-PIN-Unlocked", "Inserted-Ready"
+
+WAT_STR2ENUM_P(wat_str2wat_telit_sim_status, wat_telit_sim_status2str, wat_telit_sim_status_t);
+
 #endif /* _TELIT_H */
