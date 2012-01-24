@@ -23,23 +23,196 @@
 
 #include "libwat.h"
 #include "wat_internal.h"
+#include "wat_sms_pdu.h"
+#include "base64/base64.h"
+
+#include <iconv.h>
+#include <wchar.h>
+#include <errno.h>
 
 static uint8_t bit(uint8_t byte, uint8_t bitpos);
 static uint8_t hexstr_to_val(char *string);
 static uint8_t decstr_to_val(char *string);
+
 static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val);
 static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data);
 static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data);
 static int wat_decode_sms_pdu_scts(wat_timestamp_t *ts, char *data);
-static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding);
-static int wat_encode_sms_pdu_message_7_bit(uint8_t *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding);
-
+static int wat_decode_sms_pdu_message_ascii(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding);
 static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string);
 
-static int wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms);
+wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms);
 
-static int wat_encode_sms_pdu_semi_octets(char *data, char *string, wat_size_t len);
-static int wat_decode_sms_pdu_semi_octets(char *string, char *data, wat_size_t len);
+wat_status_t wat_decode_sms_content(char *raw_data, wat_size_t *raw_data_len, wat_sms_content_t *content);
+wat_status_t wat_decode_sms_content_encoding_base64(char *raw_content, wat_size_t *raw_content_len, wat_sms_content_t *content);
+
+static wat_status_t wat_verify_default_alphabet(wat_sms_content_t *content);
+wat_status_t wat_decode_encoding_base64(char *raw_content, wat_size_t *raw_content_len, const char *data, wat_size_t data_len);
+
+
+/* From www.dreamfabric.com/sms/default_alphabet.html */
+static struct default_alphabet_val {
+	uint8_t val;	/* Hex value */
+	wchar_t code;	/* Corresponding ISO-8859-I value */
+} default_alphabet_vals[] = {
+	{ 0x00, 0x00000040 }, // COMMERCIAL AT
+	{ 0x01, 0x000000A3 }, // POUND SIGN
+	{ 0x02, 0x00000024 }, // DOLLAR SIGN
+	{ 0x03, 0x000000A5 }, // YEN SIGN
+	{ 0x04, 0x000000E8 }, // LATIN SMALL LETTER E WITH GRAVE
+	{ 0x05, 0x000000E9 }, // LATIN SMALL LETTER E WITH ACUTE
+	{ 0x06, 0x000000F9 }, // LATIN SMALL LETTER U WITH GRAVE
+	{ 0x07, 0x000000EC }, // LATIN SMALL LETTER I WITH GRAVE
+	{ 0x08, 0x000000F2 }, // LATIN SMALL LETTER O WITH GRAVE
+	{ 0x09, 0x000000C7 }, // LATIN CAPITAL LETTER C WITH CEDILLA
+	{ 0x0A, 0x0000000A }, // LINE FEED
+	{ 0x0B, 0x000000D8 }, // LATIN CAPITAL LETTER O WITH STROKE
+	{ 0x0C, 0x000000F8 }, // LATIN SMALL LETTER O WITH STROKE
+	{ 0x0D, 0x0000000D }, // CARRIAGE RETURN
+	{ 0x0E, 0x000000C5 }, // LATIN CAPITAL LETTER A WITH RING ABOVE
+	{ 0x0F, 0x000000E5 }, // LATIN SMALL LETTER A WITH RING ABOVE
+	{ 0x10, 0x00000394 }, // GREEK CAPITAL LETTER DELTA
+	{ 0x11, 0x0000005F }, // LOW LINE
+	{ 0x12, 0x000003A6 }, // GREEK CAPITAL LETTER PHI
+	{ 0x13, 0x00000393 }, // GREEK CAPITAL LETTER GAMMA
+	{ 0x14, 0x0000039B }, // GREEK CAPITAL LETTER LAMBDA
+	{ 0x15, 0x000003A9 }, // GREEK CAPITAL LETTER OMEGA
+	{ 0x16, 0x000003A0 }, // GREEK CAPITAL LETTER PI
+	{ 0x17, 0x000003A8 }, // GREEK CAPITAL LETTER PSI
+	{ 0x18, 0x000003A3 }, // GREEK CAPITAL LETTER SIGMA
+	{ 0x19, 0x00000398 }, // GREEK CAPITAL LETTER THETA
+	{ 0x1A, 0x0000039E }, // GREEK CAPITAL LETTER XI
+	{ 0x1B, 0x0000000C }, // FORM FEED
+	{ 0x1B, 0x0000005E }, // CIRCUMFLEX ACCENT
+	{ 0x1B, 0x0000007B }, // LEFT CURLY BRACKET
+	{ 0x1B, 0x0000007D }, // RIGHT CURLY BRACKET
+	{ 0x1B, 0x0000005C }, // REVERSE SOLIDUS (BACKSLASH)
+	{ 0x1B, 0x0000005B }, // LEFT SQUARE BRACKET
+	{ 0x1B, 0x0000007E }, // TILDE
+	{ 0x1B, 0x0000005D }, // RIGHT SQUARE BRACKET
+	{ 0x1B, 0x0000007C }, // VERTICAL LINE
+	{ 0x1B, 0x000020AC }, // EURO SIGN
+	{ 0x1C, 0x000000C6 }, // LATIN CAPITAL LETTER AE
+	{ 0x1D, 0x000000E6 }, // LATIN SMALL LETTER AE
+	{ 0x1E, 0x000000DF }, // LATIN SMALL LETTER SHARP S (German)
+	{ 0x1F, 0x000000C9 }, // LATIN CAPITAL LETTER E WITH ACUTE
+	{ 0x20, 0x00000020 }, // SPACE
+	{ 0x21, 0x00000021 }, // EXCLAMATION MARK
+	{ 0x22, 0x00000022 }, // QUOTATION MARK
+	{ 0x23, 0x00000023 }, // NUMBER SIGN
+	{ 0x24, 0x000000A4 }, // CURRENCY SIGN
+	{ 0x25, 0x00000025 }, // PERCENT SIGN
+	{ 0x26, 0x00000026 }, // AMPERSAND
+	{ 0x27, 0x00000027 }, // APOSTROPHE
+	{ 0x28, 0x00000028 }, // LEFT PARENTHESIS
+	{ 0x29, 0x00000029 }, // RIGHT PARENTHESIS
+	{ 0x2A, 0x0000002A }, // ASTERISK
+	{ 0x2B, 0x0000002B }, // PLUS SIGN
+	{ 0x2C, 0x0000002C }, // COMMA
+	{ 0x2D, 0x0000002D }, // HYPHEN-MINUS
+	{ 0x2E, 0x0000002E }, // FULL STOP
+	{ 0x2F, 0x0000002F }, // SOLIDUS (SLASH)
+	{ 0x30, 0x00000030 }, // DIGIT ZERO
+	{ 0x31, 0x00000031 }, // DIGIT ONE
+	{ 0x32, 0x00000032 }, // DIGIT TWO
+	{ 0x33, 0x00000033 }, // DIGIT THREE
+	{ 0x34, 0x00000034 }, // DIGIT FOUR
+	{ 0x35, 0x00000035 }, // DIGIT FIVE
+	{ 0x36, 0x00000036 }, // DIGIT SIX
+	{ 0x37, 0x00000037 }, // DIGIT SEVEN
+	{ 0x38, 0x00000038 }, // DIGIT EIGHT
+	{ 0x39, 0x00000039 }, // DIGIT NINE
+	{ 0x3A, 0x0000003A }, // COLON
+	{ 0x3B, 0x0000003B }, // SEMICOLON
+	{ 0x3C, 0x0000003C }, // LESS-THAN SIGN
+	{ 0x3D, 0x0000003D }, // EQUALS SIGN
+	{ 0x3E, 0x0000003E }, // GREATER-THAN SIGN
+	{ 0x3F, 0x0000003F }, // QUESTION MARK
+	{ 0x40, 0x000000A1 }, // INVERTED EXCLAMATION MARK
+	{ 0x41, 0x00000041 }, // LATIN CAPITAL LETTER A
+	{ 0x42, 0x00000042 }, // LATIN CAPITAL LETTER B
+	{ 0x43, 0x00000043 }, // LATIN CAPITAL LETTER C
+	{ 0x44, 0x00000044 }, // LATIN CAPITAL LETTER D
+	{ 0x45, 0x00000045 }, // LATIN CAPITAL LETTER E
+	{ 0x46, 0x00000046 }, // LATIN CAPITAL LETTER F
+	{ 0x47, 0x00000047 }, // LATIN CAPITAL LETTER G
+	{ 0x48, 0x00000048 }, // LATIN CAPITAL LETTER H
+	{ 0x49, 0x00000049 }, // LATIN CAPITAL LETTER I
+	{ 0x4A, 0x0000004A }, // LATIN CAPITAL LETTER J
+	{ 0x4B, 0x0000004B }, // LATIN CAPITAL LETTER K
+	{ 0x4C, 0x0000004C }, // LATIN CAPITAL LETTER L
+	{ 0x4D, 0x0000004D }, // LATIN CAPITAL LETTER M
+	{ 0x4E, 0x0000004E }, // LATIN CAPITAL LETTER N
+	{ 0x4F, 0x0000004F }, // LATIN CAPITAL LETTER O
+	{ 0x50, 0x00000050 }, // LATIN CAPITAL LETTER P
+	{ 0x51, 0x00000051 }, // LATIN CAPITAL LETTER Q
+	{ 0x52, 0x00000052 }, // LATIN CAPITAL LETTER R
+	{ 0x53, 0x00000053 }, // LATIN CAPITAL LETTER S
+	{ 0x54, 0x00000054 }, // LATIN CAPITAL LETTER T
+	{ 0x55, 0x00000055 }, // LATIN CAPITAL LETTER U
+	{ 0x56, 0x00000056 }, // LATIN CAPITAL LETTER V
+	{ 0x57, 0x00000057 }, // LATIN CAPITAL LETTER W
+	{ 0x58, 0x00000058 }, // LATIN CAPITAL LETTER X
+	{ 0x59, 0x00000059 }, // LATIN CAPITAL LETTER Y
+	{ 0x5A, 0x0000005A }, // LATIN CAPITAL LETTER Z
+	{ 0x5B, 0x000000C4 }, // LATIN CAPITAL LETTER A WITH DIAERESIS
+	{ 0x5C, 0x000000D6 }, // LATIN CAPITAL LETTER O WITH DIAERESIS
+	{ 0x5D, 0x000000D1 }, // LATIN CAPITAL LETTER N WITH TILDE
+	{ 0x5E, 0x000000DC }, // LATIN CAPITAL LETTER U WITH DIAERESIS
+	{ 0x5F, 0x000000A7 }, // SECTION SIGN
+	{ 0x60, 0x000000BF }, // INVERTED QUESTION MARK
+	{ 0x61, 0x00000061 }, // LATIN SMALL LETTER A
+	{ 0x62, 0x00000062 }, // LATIN SMALL LETTER B
+	{ 0x63, 0x00000063 }, // LATIN SMALL LETTER C
+	{ 0x64, 0x00000064 }, // LATIN SMALL LETTER D
+	{ 0x65, 0x00000065 }, // LATIN SMALL LETTER E
+	{ 0x66, 0x00000066 }, // LATIN SMALL LETTER F
+	{ 0x67, 0x00000067 }, // LATIN SMALL LETTER G
+	{ 0x68, 0x00000068 }, // LATIN SMALL LETTER H
+	{ 0x69, 0x00000069 }, // LATIN SMALL LETTER I
+	{ 0x6A, 0x0000006A }, // LATIN SMALL LETTER J
+	{ 0x6B, 0x0000006B }, // LATIN SMALL LETTER K
+	{ 0x6C, 0x0000006C }, // LATIN SMALL LETTER L
+	{ 0x6D, 0x0000006D }, // LATIN SMALL LETTER M
+	{ 0x6E, 0x0000006E }, // LATIN SMALL LETTER N
+	{ 0x6F, 0x0000006F }, // LATIN SMALL LETTER O
+	{ 0x70, 0x00000070 }, // LATIN SMALL LETTER P
+	{ 0x71, 0x00000071 }, // LATIN SMALL LETTER Q
+	{ 0x72, 0x00000072 }, // LATIN SMALL LETTER R
+	{ 0x73, 0x00000073 }, // LATIN SMALL LETTER S
+	{ 0x74, 0x00000074 }, // LATIN SMALL LETTER T
+	{ 0x75, 0x00000075 }, // LATIN SMALL LETTER U
+	{ 0x76, 0x00000076 }, // LATIN SMALL LETTER V
+	{ 0x77, 0x00000077 }, // LATIN SMALL LETTER W
+	{ 0x78, 0x00000078 }, // LATIN SMALL LETTER X
+	{ 0x79, 0x00000079 }, // LATIN SMALL LETTER Y
+	{ 0x7A, 0x0000007A }, // LATIN SMALL LETTER Z
+	{ 0x7B, 0x000000E4 }, // LATIN SMALL LETTER A WITH DIAERESIS
+	{ 0x7C, 0x000000F6 }, // LATIN SMALL LETTER O WITH DIAERESIS
+	{ 0x7D, 0x000000F1 }, // LATIN SMALL LETTER N WITH TILDE
+	{ 0x7E, 0x000000FC }, // LATIN SMALL LETTER U WITH DIAERESIS
+	{ 0x7F, 0x000000E0 }, // LATIN SMALL LETTER A WITH GRAVE
+};
+
+static wat_status_t wat_verify_default_alphabet(wat_sms_content_t *content)
+{
+	wat_bool_t matched;
+	unsigned i, j;
+	
+	for (i = 0; i < content->len; i++) {
+		matched = WAT_FALSE;
+		for (j = 0; j < wat_array_len(default_alphabet_vals); j++) {
+			if (default_alphabet_vals[j].code == content->data[i]) {
+				matched = WAT_TRUE;
+				break;
+			}
+		}
+		if (matched == WAT_FALSE) {
+			return WAT_FAIL;
+		}
+	}
+	return WAT_TRUE;
+}
 
 
 wat_status_t wat_span_sms_create(wat_span_t *span, wat_sms_t **insms, uint8_t sms_id, wat_direction_t dir)
@@ -109,8 +282,8 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			} else {
 				wat_log(WAT_LOG_DEBUG, "Sending SMS in TXT mode\n");
 
-				memcpy(&sms->body, sms->sms_event.content, sizeof(sms->sms_event.content));
-				sms->body_len = sms->sms_event.content_len;
+				memcpy(&sms->body, sms->sms_event.content.data, sizeof(sms->sms_event.content.data));
+				sms->body_len = sms->sms_event.content.len;
 			}
 
 			if (wat_queue_enqueue(span->sms_queue, sms) != WAT_SUCCESS) {
@@ -204,8 +377,6 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 		}
 		
 		memcpy(command, &sms->body[sms->wrote], len);
-		/* We need to add an extra 2 bytes because dahdi expects a CRC */
-		//len_wrote = wat_span_write(span, command, len + 2) - 2;
 		len_wrote = wat_span_write(span, command, len);
 
 		sms->wrote += len_wrote;
@@ -254,7 +425,6 @@ wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *from, char *sc
 {
 	wat_sms_event_t sms_event;
 	
-		
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "Decoding Text Message From:[%s] SCTS:[%s] message:[%s]\n", from, scts, content);
 	}
@@ -262,10 +432,10 @@ wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *from, char *sc
 	memset(&sms_event, 0, sizeof(sms_event));
 
 	wat_decode_sms_text_scts(&sms_event.scts, scts);
-	strncpy(sms_event.content, content, sizeof(sms_event.content));
+	strncpy(sms_event.content.data, content, sizeof(sms_event.content.data));
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
-		wat_log(WAT_LOG_DEBUG, "SMS Content:%s\n", sms_event.content);
+		wat_log(WAT_LOG_DEBUG, "SMS Content:%s\n", sms_event.content.data);
 	}	
 
 	if (g_interface.wat_sms_ind) {
@@ -273,52 +443,6 @@ wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *from, char *sc
 	}
 
 	return WAT_SUCCESS;
-}
-
-static int wat_decode_sms_pdu_semi_octets(char *string, char *data, wat_size_t len)
-{
-	int i;
-	int ret = 0;
-	char *p = string;
-
-	for (i = 0; i < (len*2); i+=2) {
-		*p++ = data[i+1];
-		ret++;
-		if (data[i] != 'F') {
-			*p++ = data[i];
-			ret++;
-		}
-	}
-	return ret;
-}
-
-static int wat_encode_sms_pdu_semi_octets(char *data, char *string, wat_size_t len)
-{	
-	int i;
-	int ret = 0;
-	char *p = data;
-	uint8_t odd = len % 2;
-	
-	for (i = 0; i < (len - odd); i+=2) {
-		char lo_nibble[2];
-		char hi_nibble[2];
-
-		lo_nibble[0] = string[i];
-		lo_nibble[1] = '\0';
-
-		hi_nibble[0] = string[i+1];
-		hi_nibble[1] = '\0';
-		
-		*p++ = (atoi(hi_nibble) << 4)|(atoi(lo_nibble));
-		ret++;
-	}
-	
-	if (odd) {
-		*p++ = 0xF0 | string[i];
-		ret++;
-	}
-
-	return ret;
 }
 
 static int wat_decode_sms_pdu_deliver(wat_sms_pdu_deliver_t *deliver, char *data)
@@ -393,7 +517,7 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 	dcs->grp = WAT_SMS_PDU_DCS_GRP_INVALID;
 	dcs->msg_class = WAT_SMS_PDU_DCS_MSG_CLASS_INVALID;
 	dcs->ind_type = WAT_SMS_PDU_DCS_IND_TYPE_INVALID;
-	dcs->charset = WAT_SMS_PDU_DCS_CHARSET_INVALID;
+	dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_INVALID;
 	
 	if (!(dcs_grp & 0xFF00)) {
 		dcs->grp = WAT_SMS_PDU_DCS_GRP_GEN;
@@ -413,7 +537,7 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 
 	if (!dcs_val) {
 		/* Special case */
-		dcs->charset = WAT_SMS_PDU_DCS_CHARSET_7BIT;
+		dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_DEFAULT;
 		return 0;
 	}
 
@@ -427,7 +551,7 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 				dcs->msg_class = WAT_SMS_PDU_DCS_MSG_CLASS_INVALID;
 			}
 
-			dcs->charset = (dcs_val >> 2) & 0x03;
+			dcs->alphabet = (dcs_val >> 2) & 0x03;
 			break;
 		case WAT_SMS_PDU_DCS_GRP_MWI_DISCARD_MSG:
 		case WAT_SMS_PDU_DCS_GRP_MWI_STORE_MSG_1:
@@ -437,9 +561,9 @@ static int wat_decode_sms_pdu_dcs_data(wat_sms_pdu_dcs_t *dcs, uint8_t dcs_val)
 			break;
 		case WAT_SMS_PDU_DCS_GRP_DATA_CODING:
 			if (bit(dcs_val, 2)) {
-				dcs->charset = WAT_SMS_PDU_DCS_CHARSET_7BIT;
+				dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_DEFAULT;
 			} else {
-				dcs->charset = WAT_SMS_PDU_DCS_CHARSET_8BIT;
+				dcs->alphabet = WAT_SMS_PDU_DCS_ALPHABET_8BIT;
 			}
 
 			dcs->msg_class = dcs_val & 0x03;
@@ -480,122 +604,10 @@ static uint8_t bit(uint8_t byte, uint8_t bitpos)
 	return (byte >> bitpos) & 0x01;
 }
 
-static uint8_t lo_bits(uint8_t byte, uint8_t numbits)
+
+static int wat_decode_sms_pdu_message_ascii(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding)
 {
-	switch(numbits) {
-		case 0:
-			return byte & 0x00;
-		case 1:
-			return byte & 0x01;
-		case 2:
-			return byte & 0x03;
-		case 3:
-			return byte & 0x07;
-		case 4:
-			return byte & 0x0F;
-		case 5:
-			return byte & 0x1F;
-		case 6:
-			return byte & 0x3F;
-		case 7:
-			return byte & 0x7F;
-	}
-	return 0;
-}
-
-static uint8_t hi_bits(uint8_t byte, uint8_t numbits)
-{
-	return byte >> (8 - numbits);
-}
-
-static int wat_encode_sms_pdu_submit(wat_span_t *span, char *data, wat_sms_pdu_submit_t *submit)
-{
-	uint8_t octet;
-
-	octet = submit->tp_rp << 7;
-	octet |= (submit->tp_udhi & 0x1) << 6;
-	octet |= (submit->tp_srr & 0x1) << 5;
-	octet |= (submit->tp_vpf & 0x3) << 3;
-	octet |= (submit->tp_rd & 0x1) << 1;
-	octet |= 0x01; /* mti = SMS-SUBMIT */
-
-
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
-		wat_log_span(span, WAT_LOG_DEBUG, "SMS-SUBMIT:0x%02x\n", octet);
-	}
-
-	*data = octet;
-	return 1;
-}
-
-static int wat_encode_sms_pdu_dcs(wat_span_t *span, char *data, wat_sms_pdu_dcs_t *dcs)
-{
-	uint8_t octet = 0;
-
-	octet |= (dcs->compressed & 0x01) << 4;
-
-	/* Bit 4 - Message class present or not */
-	if (dcs->msg_class != WAT_SMS_PDU_DCS_MSG_CLASS_INVALID) {
-		octet |= 0x10;
-	}
-
-	/* Bits 3 & 2 - Alphabet */
-	octet |= (dcs->charset & 0x03) << 2;
-
-	/* Bits 0 & 1 - Message class */
-	octet |= (dcs->msg_class & 0x03);
-	
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
-		wat_log_span(span, WAT_LOG_DEBUG,  "TP-DCS:0x%02x\n", octet);
-	}
-		
-	*data = octet;
-	return 1;
-}
-
-static int wat_encode_sms_pdu_message_7_bit(uint8_t *message, wat_size_t max_len, char *indata, wat_size_t len, uint8_t padding)
-{
-	uint8_t carry;
-	uint8_t byte;
-	uint8_t next_byte;
-	int i;
-	uint8_t *p = &message[1];
-	char *data = NULL;
-	int message_len = 0;
-
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
-		wat_log(WAT_LOG_DEBUG, "Encoding PDU Message (len:%d)[%s] pad:%d\n", len, data, padding);
-	}
-	data = wat_malloc(max_len);
-	wat_assert_return(data, 0, "Failed to malloc");
-	memcpy(data, indata, max_len);
-
-	for (i = 0; i < len; i++) {
-		uint8_t j = i % 8;
-		if (j != 7) {
-			carry = lo_bits(data[i+1], (j+1));
-
-			next_byte = hi_bits(data[i+1], (7-j));
-			data[i+1] = next_byte;
-
-			byte = lo_bits(data[i], (7-j)) | carry << (7-j);
-
-			*p = byte;
-			p++;
-			message_len++;
-		}
-	}
-	*p = '\0';
-	message[0] = len;
-
-	wat_safe_free(data);
-
-	/* Return the length in septets */
-	return (len * 7) / 8 + (((len * 7) % 8) ? 1 : 0) + 1; 
-}
-
-static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, char *data, wat_size_t len, uint8_t padding)
-{
+#if 0
 	int i;
 	int carry = 0;
 	uint8_t byte, conv_byte;
@@ -636,10 +648,14 @@ static int wat_decode_sms_pdu_message_7_bit(char *message, wat_size_t max_len, c
 		wat_log(WAT_LOG_DEBUG, "Contents:%s (len:%d)\n", message, message_len);
 	}
 	return len;
+#endif
+	return 0;
 }
 
 static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data)
 {
+	/* TODO: move to wat_sms_pdu.c */
+#if 0
 	/* www.dreamfabric.com/sms/type_of_address.html */
 	int len;
 
@@ -665,10 +681,14 @@ static int wat_decode_sms_pdu_smsc(wat_number_t *smsc, char *data)
 
 	/* Need to add 2 for type-of-address */
 	return len*2 + 2;
+#endif
+	return 0;
 }
 
 static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data)
 {
+	/* TODO: move to wat_sms_pdu.c */
+#if 0
 	/* www.developershome.com/sms/cmgrCommand3.asp */
 	int len;
 	int data_len;
@@ -697,6 +717,8 @@ static int wat_decode_sms_pdu_sender(wat_number_t *sender, char *data)
 
 	/* Need to add 2 for type-of-address + 2 for len [+ 1 if odd numbered size] */
 	return 4 + len + (len % 2);
+#endif
+	return 0;
 }
 
 
@@ -760,7 +782,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
-		wat_log(WAT_LOG_DEBUG, "DCS - Grp:%s Alphabet:%s\n", wat_sms_pdu_dcs_grp2str(sms_event.pdu.dcs.grp), wat_sms_pdu_dcs_charset2str(sms_event.pdu.dcs.charset));
+		wat_log(WAT_LOG_DEBUG, "DCS - Grp:%s Alphabet:%s\n", wat_sms_pdu_dcs_grp2str(sms_event.pdu.dcs.grp), wat_sms_pdu_dcs_alphabet2str(sms_event.pdu.dcs.alphabet));
 	}
 
 	ret = wat_decode_sms_pdu_scts(&sms_event.scts, &data[i]);
@@ -815,16 +837,16 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		
 	}
 
-	switch (sms_event.pdu.dcs.charset) {
+	switch (sms_event.pdu.dcs.alphabet) {
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
-		case WAT_SMS_PDU_DCS_CHARSET_7BIT:
+		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
 			/* Default Aplhabet, phase 2 */
-			sms_event.content_len = wat_decode_sms_pdu_message_7_bit(sms_event.content, sizeof(sms_event.content), &data[i], content_len , sms_event.pdu.seq);
+			sms_event.content.len = wat_decode_sms_pdu_message_ascii(sms_event.content.data, sizeof(sms_event.content.data), &data[i], content_len , sms_event.pdu.seq);
 			break;
-		case WAT_SMS_PDU_DCS_CHARSET_8BIT:
-		case WAT_SMS_PDU_DCS_CHARSET_16BIT:
-			sms_event.content_len = content_len;
-			memcpy(sms_event.content, &data[i], content_len);
+		case WAT_SMS_PDU_DCS_ALPHABET_8BIT:
+		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
+			sms_event.content.len = content_len;
+			memcpy(sms_event.content.data, &data[i], content_len);
 			break;
 		default:
 			wat_log_span(span, WAT_LOG_ERROR, "Don't know how to decode incoming SMS message with coding scheme:0x%x\n", sms_event.pdu.tp_dcs);
@@ -838,99 +860,198 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	return WAT_SUCCESS;
 }
 
-static int wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
+
+wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 {
-	uint8_t pdu_data[200];
-	unsigned pdu_data_len = 0;
-	int pdu_header_len = 0;
-	wat_sms_event_t *sms_event = &sms->sms_event;
-	int i;
+	wat_status_t status;
+	char pdu_data[1000];
+	unsigned pdu_data_len;
+	char raw_content[WAT_MAX_SMS_SZ*sizeof(wchar_t)];
+	wat_size_t raw_content_len;
+	int pdu_header_len;
+	wat_sms_event_t *sms_event;
+	char *pdu_data_ptr;
+	unsigned i;
+
+	sms_event = &sms->sms_event;
+	pdu_data_ptr = pdu_data;
+	pdu_data_len = 0;
 
 	/* www.dreamfabric.com/sms/ */
-
-	/* Fill in the SMSC */
-	if (sms_event->pdu.smsc.digits[0] == '+') {
-		memmove(&sms_event->pdu.smsc.digits[0], &sms_event->pdu.smsc.digits[1], sizeof(sms_event->pdu.smsc.digits));
+	status = wat_encode_sms_pdu_smsc(&sms_event->pdu.smsc, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-SMSC information\n");
+		return status;
 	}
-	
-	/* Length SMSC information */
-	pdu_data[pdu_data_len] = (1 + (strlen(sms_event->pdu.smsc.digits) + 1) / 2);
-	pdu_data_len++;
-
-	/* SMSC Type-of-Address */
-	pdu_data[pdu_data_len] = 0x80; /* MSB always set to 1 */
-	pdu_data[pdu_data_len] |= (sms_event->pdu.smsc.type & 0x7) << 4;
-	pdu_data[pdu_data_len] |= (sms_event->pdu.smsc.plan & 0xF);
-	pdu_data_len++;
-
-	pdu_data_len += wat_encode_sms_pdu_semi_octets((char *)&pdu_data[pdu_data_len], sms_event->pdu.smsc.digits, strlen(sms_event->pdu.smsc.digits));
 
 	pdu_header_len = pdu_data_len;
 
-	/* SMS-SUBMIT */
-	pdu_data_len += wat_encode_sms_pdu_submit(span, (char *)&pdu_data[pdu_data_len], &sms_event->pdu.sms.submit);
-
-	/* TP-Message-Reference */
-	pdu_data[pdu_data_len] = sms_event->pdu.refnr;
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
-		wat_log_span(span, WAT_LOG_DEBUG, "PDU[%04d] TP-Message-Reference:0x%02x\n", pdu_data_len, pdu_data[pdu_data_len]);
+	status = wat_encode_sms_pdu_submit(&sms_event->pdu.sms.submit, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-SUBMIT information\n");
+		return status;
 	}
-	pdu_data_len++;
 
-	/* Address-Length. Length of phone number */
-	pdu_data[pdu_data_len] = strlen(sms_event->to.digits);
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
-		wat_log_span(span, WAT_LOG_DEBUG, "PDU[%04d] Address-Length:0x%02x\n", pdu_data_len, pdu_data[pdu_data_len]);
+	status = wat_encode_sms_pdu_message_ref(sms_event->pdu.refnr, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-Message Ref information\n", sizeof(pdu_data) - pdu_data_len);
+		return status;
 	}
-	pdu_data_len++;
 
-	/* Destination Type-of-Address */
-	pdu_data[pdu_data_len] = 0x80; /* MSB always set to 1 */
-	pdu_data[pdu_data_len] |= (sms_event->to.type & 0x7) << 4;
-	pdu_data[pdu_data_len] |= (sms_event->to.plan & 0xF);
-
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
-		wat_log_span(span, WAT_LOG_DEBUG,  "PDU[%04d] Type-Of-Address:0x%02x\n", pdu_data_len, pdu_data[pdu_data_len]);
+	status = wat_encode_sms_pdu_to(&sms_event->to, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-Destination information\n", sizeof(pdu_data) - pdu_data_len);
+		return status;
 	}
-	pdu_data_len++;
 
-	pdu_data_len += wat_encode_sms_pdu_semi_octets((char *)&pdu_data[pdu_data_len], sms_event->to.digits, strlen(sms_event->to.digits));
+	status = wat_encode_sms_pdu_pid(sms_event->pdu.tp_pid, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS Protocol Identifier\n");
+		return status;
+	}
+
+	/* If we cannot convert contents into Default alphabet, we need to switch to UCS2 */
+	if (sms_event->content.charset == WAT_SMS_CONTENT_CHARSET_UTF8 &&
+		wat_verify_default_alphabet(&sms_event->content) != WAT_SUCCESS) {
+
+		wat_log_span(span, WAT_LOG_INFO, "Switching to UCS2 alphabet\n");
+		sms_event->pdu.dcs.alphabet = WAT_SMS_PDU_DCS_ALPHABET_UCS2;
+	}
 	
-
-	/* TP-PID - Protocol Identifier */
-	pdu_data[pdu_data_len] = 0x00;
-	pdu_data_len++;
-
-	/* TP-DCS - Data Coding Scheme */
-	/* www.dreamfabric.com/sms/dcs.html */
-	/* Bit 5 = compressed/uncompressed */
-	pdu_data_len += wat_encode_sms_pdu_dcs(span, (char *)&pdu_data[pdu_data_len], &sms_event->pdu.dcs);
-	
-	/* TP-VP - Validity Period */
-	/* www.dreamfabric.com/sms/vp.html */
-	switch (sms_event->pdu.sms.submit.tp_vpf) {
-		case WAT_SMS_PDU_VP_NOT_PRESENT:
-			break;
-		case WAT_SMS_PDU_VP_RELATIVE:
-			pdu_data[pdu_data_len] = sms_event->pdu.sms.submit.vp_data.relative;
-			pdu_data_len++;
-			break;
-		case WAT_SMS_PDU_VP_ABSOLUTE:
-		case WAT_SMS_PDU_VP_ENHANCED:
-			wat_log_span(span, WAT_LOG_ERROR, "Warning  Validity period type not supported\n");
-			break;
+	status = wat_encode_sms_pdu_dcs(&sms_event->pdu.dcs, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS Data Coding Scheme\n");
+		return status;
 	}	
-	
-	if (sms_event->pdu.dcs.charset == WAT_SMS_PDU_DCS_CHARSET_7BIT) {
-		pdu_data_len += wat_encode_sms_pdu_message_7_bit(&pdu_data[pdu_data_len], sizeof(pdu_data) - pdu_data_len, sms_event->content, sms_event->content_len, 0);
 
+	status = wat_encode_sms_pdu_vp(&sms_event->pdu.sms.submit.vp, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS Validity Period\n");
+		return status;
 	}
-	
+
+	if (g_debug & WAT_DEBUG_SMS_DECODE) {
+		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Header");
+	}
+
+	status = wat_decode_sms_content(raw_content, &raw_content_len, &sms_event->content);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to decode SMS content encoding\n");
+		return status;
+	}	
+
+	switch (sms_event->pdu.dcs.alphabet) {
+		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
+			status = wat_encode_sms_pdu_message_7bit(raw_content, raw_content_len, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len, 0);
+			break;
+		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
+			status = wat_encode_sms_pdu_message_ucs2(raw_content, raw_content_len, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+			break;
+		default:
+			wat_log_span(span, WAT_LOG_ERROR, "Unsupported alphabet (%d)\n", sms_event->pdu.dcs.alphabet);
+			status = WAT_FAIL;
+			break;
+	}
+
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode message contents into pdu\n");
+		return WAT_FAIL;
+	}
+
 	sms->pdu_len = pdu_data_len - pdu_header_len;
 
 	/*  Convert into string representation */
 	for (i = 0; i < pdu_data_len; i++) {
-		sms->body_len += sprintf((char*)&sms->body[sms->body_len], "%02x", pdu_data[i]);
+		sprintf((char *)&sms->body[i*2], "%02x", (0xFF) & pdu_data[i]);
 	}
-	return 0;
+	sms->body_len = pdu_data_len*2;
+
+	return WAT_SUCCESS;
 }
+
+wat_status_t wat_decode_encoding_base64(char *raw_content, wat_size_t *raw_content_len, const char *data, wat_size_t data_len)
+{	
+	if (!base64_decode(data, data_len, raw_content, raw_content_len)) {
+		wat_log(WAT_LOG_ERROR, "Failed to perform base64 decoding\n");
+		return WAT_FAIL;
+	}
+	return WAT_SUCCESS;
+}
+
+wat_status_t wat_decode_sms_content(char *raw_data, wat_size_t *raw_data_len, wat_sms_content_t *content)
+{
+	char *data;
+	char *data_ptr;
+	wat_size_t data_len;	
+	wat_size_t data_avail;
+	wat_size_t data_left;
+	iconv_t cd;
+	wat_status_t status = WAT_SUCCESS;
+
+	switch (content->encoding) {
+		case WAT_SMS_CONTENT_ENCODING_RAW:
+			/* No encoding used */
+			data = content->data;
+			data_len = content->len;
+			break;
+		case WAT_SMS_CONTENT_ENCODING_BASE64:
+			data = wat_malloc(content->len);
+			data_len = content->len;	
+			memset(data, 0, content->len);
+
+			wat_decode_encoding_base64(data, &data_len, content->data, content->len);
+			break;
+		case WAT_SMS_CONTENT_ENCODING_HEX:
+			wat_log(WAT_LOG_ERROR, "Hex content encoding not supported yet!!\n");
+			break;
+		default:
+			wat_log(WAT_LOG_ERROR, "Unsupported content encoding (%d)\n", content->encoding);
+			status = WAT_FAIL;
+			goto done;
+	}
+
+	data_ptr = data;
+	data_avail = (WAT_MAX_SMS_SZ + 1) * sizeof(wchar_t);
+	data_left = data_avail;
+
+	switch (content->charset) {
+		case WAT_SMS_CONTENT_CHARSET_ASCII:
+			cd = iconv_open("WCHAR_T", "ASCII");
+			break;
+		case WAT_SMS_CONTENT_CHARSET_UTF8:
+			cd = iconv_open("WCHAR_T", "UTF-8");
+			break;
+		default:
+			wat_log(WAT_LOG_ERROR, "Unsupported content charset:%d\n", content->charset);
+			status = WAT_FAIL;
+			goto done;
+	}
+
+	if (cd < 0) {
+		wat_log(WAT_LOG_CRIT, "Failed to create new converter\n");
+		status = WAT_FAIL;
+		goto done;
+	}
+
+	if (iconv(cd, &data_ptr, &data_len, &raw_data, &data_left) < 0) {
+		wat_log(WAT_LOG_ERROR, "Failed to perform character conversion (charset:%d)\n", content->charset);
+		return WAT_FAIL;
+	}
+
+	*((wchar_t *)raw_data) = L'\0';
+
+	*raw_data_len = (data_avail - data_left);
+
+done:
+	if (cd >= 0) {
+		iconv_close(cd);
+	}
+
+	if (content->encoding == WAT_SMS_CONTENT_ENCODING_BASE64) {
+		wat_safe_free(data);
+	}
+	return status;
+}
+
+

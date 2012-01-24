@@ -52,18 +52,18 @@
 #define WAT_BUFFER_SZ					500
 #define WAT_TOKENS_SZ					20
 #define WAT_TIMEOUTS_SZ					30
-#define WAT_ERROR_SZ					50			
+#define WAT_ERROR_SZ					50
 #define WAT_MAX_NOTIFYS_PER_SPAN		100
 
-#define WAT_DEFAULT_TIMEOUT_CID_NUM 500
-#define WAT_DEFAULT_TIMEOUT_COMMAND 20000
-#define WAT_DEFAULT_TIMEOUT_WAIT_SIM 10000
-#define WAT_DEFAULT_COMMAND_INTERVAL 20
-#define WAT_DEFAULT_PROGRESS_POLL_INTERVAL 750
-#define WAT_DEFAULT_SIGNAL_POLL_INTERVAL 10*1000
-#define WAT_DEFAULT_SIGNAL_THRESHOLD 90
-#define WAT_DEFAULT_CNUM_POLL		6000
-#define WAT_DEFAULT_CNUM_RETRIES	5
+#define WAT_DEFAULT_TIMEOUT_CID_NUM			500
+#define WAT_DEFAULT_TIMEOUT_COMMAND			20000
+#define WAT_DEFAULT_TIMEOUT_WAIT_SIM		90000
+#define WAT_DEFAULT_COMMAND_INTERVAL		20
+#define WAT_DEFAULT_PROGRESS_POLL_INTERVAL	750
+#define WAT_DEFAULT_SIGNAL_POLL_INTERVAL	10*1000
+#define WAT_DEFAULT_SIGNAL_THRESHOLD		90
+#define WAT_DEFAULT_CNUM_POLL				6000
+#define WAT_DEFAULT_CNUM_RETRIES			5
 
 #define wat_log_span(span, level, a, ...) if (g_interface.wat_log_span) g_interface.wat_log_span(span->id, level,a, ##__VA_ARGS__)
 
@@ -219,7 +219,7 @@ typedef struct {
 	wat_span_t *span; /* Span on which this sms exists */
 
 	wat_sms_event_t sms_event;
-	uint8_t body[2*WAT_MAX_SMS_SZ+4];
+	uint8_t body[(WAT_MAX_SMS_SZ*sizeof(wchar_t))+4];
 	wat_size_t pdu_len;				/* Used only in PDU mode, this is the lengh of the 'pdu header' */
 	wat_size_t body_len;
 	

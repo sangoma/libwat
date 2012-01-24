@@ -169,7 +169,42 @@ static void handle_sig(int sig)
 	return;
 }
 
+void send_sms(int span);
+void send_sms(int span)
+{
+	wat_sms_event_t sms_event;
+	memset(&sms_event, 0, sizeof(sms_event));
 
+	fprintf(stdout, "Sending SMS\n");
+				
+	sprintf(sms_event.to.digits, "6472671197");
+	//sprintf(sms_event.pdu.smsc.digits, "17057969300");
+	//sprintf(sms_event.called_num.digits, "6474024627");
+	gsm_spans[0].wat_sms_id = (g_outbound_sms_id++) | 0x8;
+
+	sprintf(sms_event.content.data, "Q2hhcnMgb3V0c2lkZSBHU00gY2hhcnNldC4gQXJhYjog27Hbstuz27Tbtdu227fbuNu5LCBIZWI6INeQ15HXkteT15TXldeW15fXmNeZCg==");
+				//sprintf(sms_event.message, "Hello");
+	sms_event.content.len = strlen(sms_event.content.data);
+
+	sms_event.type = WAT_SMS_TXT;
+	
+	sms_event.pdu.sms.submit.vp.type = WAT_SMS_PDU_VP_RELATIVE;
+	sms_event.pdu.sms.submit.vp.data.relative = 0xAB;
+	sms_event.pdu.dcs.msg_class = WAT_SMS_PDU_DCS_MSG_CLASS_ME_SPECIFIC;
+
+	sms_event.to.plan = WAT_NUMBER_PLAN_ISDN;
+	sms_event.to.type = WAT_NUMBER_TYPE_NATIONAL;
+
+	//strncpy(sms_event.to.digits, to, sizeof(sms_event.to.digits));
+
+	sms_event.pdu.smsc.plan = WAT_NUMBER_PLAN_ISDN;
+	sms_event.pdu.smsc.type = WAT_NUMBER_TYPE_NATIONAL;
+
+	sms_event.content.encoding = WAT_SMS_CONTENT_ENCODING_BASE64;
+	sms_event.content.charset = WAT_SMS_CONTENT_CHARSET_UTF8;
+
+	wat_sms_req(gsm_spans[0].wat_span_id, gsm_spans[0].wat_sms_id, &sms_event);
+}
 
 int main (int argc, char *argv[])
 {
@@ -340,23 +375,7 @@ int main (int argc, char *argv[])
 			gsm_spans[0].send_sms = 0;
 
 			while (g_message_sent++ < g_message_count) {
-				wat_sms_event_t sms_event;
-				memset(&sms_event, 0, sizeof(sms_event));
-
-				fprintf(stdout, "Sending SMS\n");
-				
-				sprintf(sms_event.to.digits, "6472671197");
-				sprintf(sms_event.pdu.smsc.digits, "17057969300");
-				//sprintf(sms_event.called_num.digits, "6474024627");
-				gsm_spans[0].wat_sms_id = (g_outbound_sms_id++) | 0x8;
-
-				sprintf(sms_event.content, "hellohello");
-				//sprintf(sms_event.message, "Hello");
-				sms_event.content_len = strlen(sms_event.content);
-
-				sms_event.type = WAT_SMS_TXT;
-
-				wat_sms_req(gsm_spans[0].wat_span_id, gsm_spans[0].wat_sms_id, &sms_event);
+				send_sms(0);
 			}
 		}
 	}

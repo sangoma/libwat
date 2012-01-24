@@ -36,7 +36,9 @@ SET(wat_SOURCES
 		wat_mutex.c
 		wat_sched.c
 		wat_buffer.c
-		telit.c)
+		wat_sms_pdu.c
+		telit.c
+		base64/base64.c)
 
 SET(wat_PUBLIC_HEADERS
 		wat_declare.h

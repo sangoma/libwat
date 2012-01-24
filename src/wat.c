@@ -79,7 +79,6 @@ WAT_STR2ENUM(wat_str2wat_sms_state, wat_sms_state2str, wat_sms_state_t, WAT_SMS_
 WAT_ENUM_NAMES(WAT_SPAN_STATE_NAMES, WAT_SPAN_STATE_STRINGS)
 WAT_STR2ENUM(wat_str2wat_span_state, wat_span_state2str, wat_span_state_t, WAT_SPAN_STATE_NAMES, WAT_SPAN_STATE_INVALID)
 
-
 WAT_ENUM_NAMES(WAT_SMS_CAUSE_NAMES, WAT_SMS_CAUSE_STRINGS)
 WAT_STR2ENUM(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t, WAT_SMS_CAUSE_NAMES, WAT_SMS_CAUSE_UNKNOWN)
 
@@ -89,8 +88,20 @@ WAT_STR2ENUM(wat_str2wat_sms_pdu_mti, wat_sms_pdu_mti2str, wat_sms_pdu_mti_t, WA
 WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_GRP_NAMES, WAT_SMS_PDU_DCS_GRP_STRINGS)
 WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_grp, wat_sms_pdu_dcs_grp2str, wat_sms_pdu_dcs_grp_t, WAT_SMS_PDU_DCS_GRP_NAMES, WAT_SMS_PDU_DCS_GRP_INVALID)
 
-WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_CHARSET_NAMES, WAT_SMS_PDU_DCS_CHARSET_STRINGS)
-WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_charset, wat_sms_pdu_dcs_charset2str, wat_sms_pdu_dcs_charset_t, WAT_SMS_PDU_DCS_CHARSET_NAMES, WAT_SMS_PDU_DCS_CHARSET_INVALID)
+WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_MESSAGE_CLASS_NAMES, WAT_SMS_PDU_DCS_MESSAGE_CLASS_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_msg_cls, wat_sms_pdu_dcs_msg_cls2str, wat_sms_pdu_dcs_msg_cls_t, WAT_SMS_PDU_DCS_MESSAGE_CLASS_NAMES, WAT_SMS_PDU_DCS_MSG_CLASS_INVALID)
+
+WAT_ENUM_NAMES(WAT_SMS_PDU_DCS_ALPHABET_NAMES, WAT_SMS_PDU_DCS_ALPHABET_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t, WAT_SMS_PDU_DCS_ALPHABET_NAMES, WAT_SMS_PDU_DCS_ALPHABET_INVALID)
+
+WAT_ENUM_NAMES(WAT_SMS_PDU_VP_NAMES, WAT_SMS_PDU_VP_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_pdu_vp_type, wat_sms_pdu_vp_type2str, wat_sms_pdu_vp_type_t, WAT_SMS_PDU_VP_NAMES, WAT_SMS_PDU_VP_INVALID)
+
+WAT_ENUM_NAMES(WAT_SMS_CONTENT_ENCODING_NAMES, WAT_SMS_CONTENT_ENCODING_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_content_encoding, wat_sms_content_encoding2str, wat_sms_content_encoding_t, WAT_SMS_CONTENT_ENCODING_NAMES, WAT_SMS_CONTENT_ENCODING_INVALID)
+
+WAT_ENUM_NAMES(WAT_SMS_CONTENT_CHARSET_NAMES, WAT_SMS_CONTENT_CHARSET_STRINGS)
+WAT_STR2ENUM(wat_str2wat_sms_content_charset, wat_sms_content_charset2str, wat_sms_content_charset_t, WAT_SMS_CONTENT_CHARSET_NAMES, WAT_SMS_CONTENT_CHARSET_INVALID)
 
 WAT_ENUM_NAMES(WAT_DIRECTION_NAMES, WAT_DIRECTION_STRINGS)
 WAT_STR2ENUM(wat_str2wat_direction, wat_direction2str, wat_direction_t, WAT_DIRECTION_NAMES, WAT_DIRECTION_INVALID)
@@ -610,10 +621,33 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 		return WAT_FAIL;
 	}
 
-	if (sms_event->content_len <= 0 || sms_event->content_len > WAT_MAX_SMS_SZ) {
-		wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Invalid SMS length %d (min:%d max:%d)\n", sms_id, sms_event->content_len, 1, WAT_MAX_SMS_SZ);
+	if (sms_event->content.len  <= 0) {
+		wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length cannot be 0\n", sms_id);
 		WAT_FUNC_DBG_END
 		return WAT_EINVAL;
+	}
+
+	switch(sms_event->pdu.dcs.alphabet) {
+		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
+		case WAT_SMS_PDU_DCS_ALPHABET_8BIT:
+			if (sms_event->content.len > WAT_MAX_SMS_SZ) {
+				wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length cannot be greater than %d (len:%d)\n", sms_id, WAT_MAX_SMS_SZ, sms_event->content.len);
+				WAT_FUNC_DBG_END
+				return WAT_FAIL;
+			}
+			break;
+		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
+			if (sms_event->content.len > 2*WAT_MAX_SMS_SZ) {
+				wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length cannot be greater than %d (len:%d)\n", sms_id, 2*WAT_MAX_SMS_SZ, sms_event->content.len);
+				WAT_FUNC_DBG_END
+				return WAT_FAIL;
+			}
+			break;
+		default:
+			wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Unsupported character set (%d)\n", sms_id, sms_event->pdu.dcs.alphabet);
+			WAT_FUNC_DBG_END
+			return WAT_FAIL;
+			break;
 	}
 
 	memset(&event, 0, sizeof(event));
