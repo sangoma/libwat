@@ -80,7 +80,7 @@ wat_status_t wat_queue_enqueue(wat_queue_t *queue, void *obj)
 	}
 
 	if (queue->size != 0 && queue->windex == queue->rindex) {
-		wat_log(WAT_LOG_DEBUG, "Failed to enqueue obj %p in queue %p, no more room! windex == rindex == %d!\n", obj, queue, queue->windex);
+		wat_log(WAT_LOG_WARNING, "Failed to enqueue obj %p in queue %p, no more room! windex == rindex == %d!\n", obj, queue, queue->windex);
 		goto done;
 	}
 

@@ -168,6 +168,13 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 	return WAT_SUCCESS;
 }
 
+/*
+ * It seems sometimes the telit module may never come to state 'sim ready' and just
+ * stay in 'sim inserted', even though we clearly can place/receive calls and send/receive 
+ * sms, we consider any state other than 'sim not inserted' enough now to proceed with initialization
+ */
+#define WAT_TELIT_SIM_IS_READY(sim_status) (sim_status != WAT_TELIT_SIM_NOT_INSERTED && sim_status != WAT_TELIT_SIM_INVALID)
+
 wat_status_t telit_wait_sim(wat_span_t *span)
 {
 	wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
@@ -177,9 +184,14 @@ wat_status_t telit_wait_sim(wat_span_t *span)
 	return WAT_SUCCESS;
 }
 
+WAT_ENUM_NAMES(WAT_TELIT_SIM_STATUS_NAMES, WAT_TELIT_SIM_STATUS_STRINGS)
+WAT_STR2ENUM(wat_str2wat_telit_sim_status, wat_telit_sim_status2str, wat_telit_sim_status_t, WAT_TELIT_SIM_STATUS_NAMES, WAT_TELIT_SIM_INVALID)
+
 WAT_NOTIFY_FUNC(wat_notify_qss)
 {
 	char *cmdtokens[4];
+	int sim_status = 0;
+
 	WAT_NOTIFY_FUNC_DBG_START
 
 	/* Format #QSS: 3 */
@@ -188,16 +200,12 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
 		case 1:
-			switch(atoi(cmdtokens[0])) {
-				case 0: /* SIM not inserted */
-				case 1: /* SIM inserted */
-				case 2: /* SIM inserted and PIN unlocked */
-				/* Do nothing as we will get a notification once SMS and Phonebook access are possible */
-					break;
-				case 3: /* SIM inserted and READY (SMS and Phonebook access are possible) */
-					wat_log_span(span, WAT_LOG_INFO, "SIM access ready\n");
+			sim_status = atoi(cmdtokens[0]);
+			wat_log_span(span, WAT_LOG_INFO, "SIM access status changed to '%s' (%d)\n", wat_telit_sim_status2str(sim_status), sim_status);
+			if (WAT_TELIT_SIM_IS_READY(sim_status)) {
+				if (span->state < WAT_SPAN_STATE_POST_START) {
 					wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
-					break;
+				}
 			}
 			break;
 		case 2:
@@ -206,6 +214,7 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 			return 0;
 		default:
 			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
+			break;
 	}
 	return 1;
 }
@@ -213,6 +222,7 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 WAT_RESPONSE_FUNC(wat_response_qss)
 {
 	char *cmdtokens[4];
+	int sim_status = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to get SIM status\n");
@@ -231,20 +241,17 @@ WAT_RESPONSE_FUNC(wat_response_qss)
 	memset(cmdtokens, 0, sizeof(cmdtokens));
 	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
 		case 2:
-			switch(atoi(cmdtokens[1])) {
-				case 0: /* SIM not inserted */
-				case 1: /* SIM inserted */
-				case 2: /* SIM inserted and PIN unlocked */
-					/* Do nothing as we will get a notification once SMS and Phonebook access are possible */
-					break;
-				case 3: /* SIM inserted and READY (SMS and Phonebook access are possible) */
-					wat_log_span(span, WAT_LOG_INFO, "SIM access ready\n");
+			sim_status = atoi(cmdtokens[1]);
+			wat_log_span(span, WAT_LOG_INFO, "SIM status is '%s' (%d)\n", wat_telit_sim_status2str(sim_status), sim_status);
+			if (WAT_TELIT_SIM_IS_READY(sim_status)) {
+				if (span->state < WAT_SPAN_STATE_POST_START) {
 					wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
-					break;
+				}
 			}
 			break;
 		default:
 			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
+			break;
 	}
 	
 	WAT_FUNC_DBG_END

@@ -460,9 +460,6 @@ static wat_status_t wat_span_perform_start(wat_span_t *span)
 	/* Enable extended format reporting */
 	wat_cmd_enqueue(span, "AT+CRC=1", NULL, NULL);
 
-	/* Enable New Message Indications To TE */
-	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL);
-
 	span->module.wait_sim(span);
 	
 	wat_sched_timer(span->sched, "wait_sim", span->config.timeout_wait_sim, wat_scheduled_wait_sim, (void *) span, &span->timeouts[WAT_TIMEOUT_WAIT_SIM]);
@@ -480,6 +477,9 @@ WAT_RESPONSE_FUNC(wat_response_post_start_complete)
 /* This function is executed once the SIM is Inserted and ready */
 static wat_status_t wat_span_perform_post_start(wat_span_t *span)
 {
+	/* Enable New Message Indications To TE */
+	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL);
+
 	/* Enable Calling Line Presentation */
 	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL);
 	
@@ -638,3 +638,5 @@ WAT_SCHEDULED_FUNC(wat_scheduled_wait_sim)
 	wat_log_span(span, WAT_LOG_ERROR, "SIM ready timeout (%d ms)\n", span->config.timeout_wait_sim);
 	wat_span_update_alarm_status(span, WAT_ALARM_SIM_ACCESS_FAIL);
 }
+
+
