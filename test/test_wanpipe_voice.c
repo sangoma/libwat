@@ -204,7 +204,8 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Usage:\n"
 				"-dev <sXcY> - D-channel wanpipe device\n"
 				"-make_call [number-to-dial] - Place a call in the provided span\n"
-				"-hangup_call - Hangup any calls in the provided span\n");
+				"-hangup_call - Hangup any calls in the provided span\n"
+				"-playfile - Provide a file to play when the call is answered\n");
 		exit(1);
 	}
 
