@@ -35,6 +35,8 @@
 #include "libwat.h"
 #include "test_utils.h"
 
+int g_silent = 0;
+
 void on_assert(char *message)
 {
 	fprintf(stderr, "ASSERT!!!! %s\n", message);
@@ -64,6 +66,10 @@ void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...)
 	int ret;
 	va_list ap;
 
+	if (g_silent) {
+		return;
+	}
+
 	va_start(ap, fmt);
 	ret = vasprintf(&data, fmt, ap);
 	if (ret == -1) {
@@ -79,6 +85,10 @@ void on_log(unsigned char loglevel, char *fmt, ...)
 	char *data;
 	int ret;
 	va_list ap;
+
+	if (g_silent) {
+		return;
+	}
 
 	va_start(ap, fmt);
 	ret = vasprintf(&data, fmt, ap);

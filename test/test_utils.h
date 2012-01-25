@@ -30,5 +30,7 @@ void on_log(unsigned char loglevel, char *fmt, ...);
 void on_log_span(unsigned char span_id, unsigned char loglevel, char *fmt, ...);
 void on_assert(char *message);
 
+extern int g_silent;
+
 
 #endif /* _TEST_UTILS_H */
