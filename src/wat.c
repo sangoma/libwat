@@ -627,27 +627,42 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 		return WAT_EINVAL;
 	}
 
-	switch(sms_event->pdu.dcs.alphabet) {
-		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
-		case WAT_SMS_PDU_DCS_ALPHABET_8BIT:
-			if (sms_event->content.len >= WAT_MAX_SMS_SZ) {
-				wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length has to be less than %d (len:%d)\n", sms_id, WAT_MAX_SMS_SZ, sms_event->content.len);
-				WAT_FUNC_DBG_END
-				return WAT_FAIL;
+	switch(sms_event->content.encoding) {
+		case WAT_SMS_CONTENT_ENCODING_RAW:
+			switch(sms_event->pdu.dcs.alphabet) {
+				case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
+				case WAT_SMS_PDU_DCS_ALPHABET_8BIT:
+					if (sms_event->content.len >= WAT_MAX_SMS_SZ) {
+						wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length has to be less than %d (len:%d)\n", sms_id, WAT_MAX_SMS_SZ, sms_event->content.len);
+						WAT_FUNC_DBG_END
+								return WAT_FAIL;
+					}
+					break;
+				case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
+					if (sms_event->content.len > 2*WAT_MAX_SMS_SZ) {
+						wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length cannot be greater than %d (len:%d)\n", sms_id, 2*WAT_MAX_SMS_SZ, sms_event->content.len);
+						WAT_FUNC_DBG_END
+						return WAT_FAIL;
+					}
+					break;
+				default:
+					wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Unsupported character set (%d)\n", sms_id, sms_event->pdu.dcs.alphabet);
+					WAT_FUNC_DBG_END
+					return WAT_FAIL;
+					break;
 			}
-			break;
-		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
-			if (sms_event->content.len > 2*WAT_MAX_SMS_SZ) {
-				wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length cannot be greater than %d (len:%d)\n", sms_id, 2*WAT_MAX_SMS_SZ, sms_event->content.len);
-				WAT_FUNC_DBG_END
-				return WAT_FAIL;
-			}
-			break;
-		default:
-			wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Unsupported character set (%d)\n", sms_id, sms_event->pdu.dcs.alphabet);
+			break; /* case WAT_SMS_CONTENT_ENCODING_RAW */
+		case WAT_SMS_CONTENT_ENCODING_BASE64:
+			/* TODO: find out how to compute max length for base 64 */
+			break; /* case WAT_SMS_CONTENT_ENCODING_BASE64 */
+		case WAT_SMS_CONTENT_ENCODING_HEX:
+			wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Hex content encoding not implemented yet\n", sms_id);
 			WAT_FUNC_DBG_END
 			return WAT_FAIL;
-			break;
+		default:
+			wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]Unsupported content encoding %s(%d)\n", sms_id, wat_sms_content_encoding2str(sms_event->content.encoding), sms_event->content.encoding);
+			WAT_FUNC_DBG_END
+			return WAT_FAIL;
 	}
 
 	memset(&event, 0, sizeof(event));

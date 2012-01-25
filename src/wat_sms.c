@@ -46,7 +46,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms);
 wat_status_t wat_decode_sms_content(char *raw_data, wat_size_t *raw_data_len, wat_sms_content_t *content);
 wat_status_t wat_decode_sms_content_encoding_base64(char *raw_content, wat_size_t *raw_content_len, wat_sms_content_t *content);
 
-static wat_status_t wat_verify_default_alphabet(wat_sms_content_t *content);
+static wat_status_t wat_verify_default_alphabet(char *content_data);
 wat_status_t wat_decode_encoding_base64(char *raw_content, wat_size_t *raw_content_len, const char *data, wat_size_t data_len);
 
 
@@ -194,15 +194,18 @@ static struct default_alphabet_val {
 	{ 0x7F, 0x000000E0 }, // LATIN SMALL LETTER A WITH GRAVE
 };
 
-static wat_status_t wat_verify_default_alphabet(wat_sms_content_t *content)
+static wat_status_t wat_verify_default_alphabet(char *content_data)
 {
 	wat_bool_t matched;
-	unsigned i, j;
-	
-	for (i = 0; i < content->len; i++) {
+	unsigned j;
+	wchar_t *c;
+
+	c = (wchar_t *)content_data;
+			
+	while (*c != L'\0') {
 		matched = WAT_FALSE;
 		for (j = 0; j < wat_array_len(default_alphabet_vals); j++) {
-			if (default_alphabet_vals[j].code == content->data[i]) {
+			if (default_alphabet_vals[j].code == *c) {
 				matched = WAT_TRUE;
 				break;
 			}
@@ -210,8 +213,9 @@ static wat_status_t wat_verify_default_alphabet(wat_sms_content_t *content)
 		if (matched == WAT_FALSE) {
 			return WAT_FAIL;
 		}
+		c++;
 	}
-	return WAT_TRUE;
+	return WAT_SUCCESS;
 }
 
 
@@ -911,9 +915,16 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		return status;
 	}
 
+	/* Decode sms content before encoding the DCS so we can tell whether the contents would fit within default GSM alphabet */
+	status = wat_decode_sms_content(raw_content, &raw_content_len, &sms_event->content);
+	if (status != WAT_SUCCESS) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to decode SMS content encoding\n");
+		return status;
+	}
+
 	/* If we cannot convert contents into Default alphabet, we need to switch to UCS2 */
 	if (sms_event->content.charset == WAT_SMS_CONTENT_CHARSET_UTF8 &&
-		wat_verify_default_alphabet(&sms_event->content) != WAT_SUCCESS) {
+		wat_verify_default_alphabet(raw_content) != WAT_SUCCESS) {
 
 		wat_log_span(span, WAT_LOG_DEBUG, "Switching to UCS2 alphabet\n");
 		sms_event->pdu.dcs.alphabet = WAT_SMS_PDU_DCS_ALPHABET_UCS2;
@@ -933,12 +944,6 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 
 	if (g_debug & WAT_DEBUG_SMS_DECODE) {
 		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Header");
-	}
-
-	status = wat_decode_sms_content(raw_content, &raw_content_len, &sms_event->content);
-	if (status != WAT_SUCCESS) {
-		wat_log_span(span, WAT_LOG_ERROR, "Failed to decode SMS content encoding\n");
-		return status;
 	}
 
 	switch (sms_event->pdu.dcs.alphabet) {

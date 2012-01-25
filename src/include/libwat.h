@@ -441,8 +441,7 @@ typedef struct _wat_sms_content_t {
 	wat_size_t len; 							/* Length of message */
 	wat_sms_content_encoding_t encoding;		/* Encoding type (raw, base64, hex) */
 	wat_sms_content_charset_t charset;			/* Character set (ascii, utf-8) */
-	char data[WAT_MAX_SMS_SZ];					/* Message */
-
+	char data[2*WAT_MAX_SMS_SZ];					/* Message */
 } wat_sms_content_t;
 
 typedef struct _wat_sms_event {
