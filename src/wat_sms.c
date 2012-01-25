@@ -223,11 +223,10 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string)
 {
 	char *sctstokens[3];
+
 	/* format: 11/11/23,14:42:17+00 */
 	
-	memset(sctstokens, 0, sizeof(sctstokens));
-
-	if (wat_cmd_entry_tokenize(wat_string_clean(string), sctstokens) < 2) {
+	if (wat_cmd_entry_tokenize(wat_string_clean(string), sctstokens, wat_array_len(sctstokens)) < 2) {
 		wat_log(WAT_LOG_ERROR, "Failed to parse SCTS [%s]\n", string);
 	} else {
 		if (sscanf(sctstokens[0], "%d/%d/%d", &ts->year, &ts->month ,&ts->day) == 3) {
@@ -243,8 +242,9 @@ static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string)
 			}
 		} else {
 			wat_log(WAT_LOG_ERROR, "Failed to parse time from SCTS [%s]\n", sctstokens[1]);
-		}		
+		}
 	}
+
 	wat_free_tokens(sctstokens);
 
 	return 0;

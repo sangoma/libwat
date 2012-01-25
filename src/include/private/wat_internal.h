@@ -376,7 +376,7 @@ wat_bool_t wat_sig_status_up(wat_net_stat_t stat);
 wat_status_t wat_span_update_net_status(wat_span_t *span, unsigned stat);
 int wat_span_write(wat_span_t *span, void *data, uint32_t len);
 void wat_decode_type_of_address(uint8_t octet, wat_number_type_t *type, wat_number_plan_t *plan);
-int wat_cmd_entry_tokenize(char *entry, char *tokens[]);
+int wat_cmd_entry_tokenize(char *entry, char *tokens[], wat_size_t len);
 char *wat_string_clean(char *string);
 
 WAT_RESPONSE_FUNC(wat_response_atz);
