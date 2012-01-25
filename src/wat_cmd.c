@@ -22,10 +22,12 @@
  */
  
 #include <stdarg.h>
+#include <ctype.h>
 
 #include "libwat.h"
 #include "wat_internal.h"
 #include "telit.h"
+
 
 typedef enum {
 	/*
@@ -1783,8 +1785,16 @@ char* format_at_data(char *dest, void *indata, wat_size_t len)
 				p+=5;
 				break;
 			default:
-				*p = data[i];
-				p++;
+				{
+					if (isprint(data[i])) {
+						sprintf(p, "%c", data[i]);
+						p++;
+					} else {
+						sprintf(p, "<%02x>", data[i]);
+						p+=4;
+					}
+				}
+
 		}
 	}
 	*p = '\0';

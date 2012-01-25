@@ -316,6 +316,9 @@ typedef enum {
 	WAT_SMS_PDU_DCS_MSG_CLASS_INVALID,
 } wat_sms_pdu_dcs_msg_cls_t;
 
+#define WAT_SMS_PDU_DCS_MESSAGE_CLASS_STRINGS "General", "ME-Specific", "SIM-Specific", "TE-Specific", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_msg_cls, wat_sms_pdu_dcs_msg_cls2str, wat_sms_pdu_dcs_msg_cls_t);
+
 typedef enum {
 	WAT_SMS_PDU_DCS_IND_TYPE_VOICEMAIL_MSG_WAITING,
 	WAT_SMS_PDU_DCS_IND_TYPE_FAX_MSG_WAITING,
@@ -325,14 +328,15 @@ typedef enum {
 } wat_sms_pdu_dcs_ind_type_t;
 
 typedef enum {
-	WAT_SMS_PDU_DCS_CHARSET_7BIT,	/* ASCII */
-	WAT_SMS_PDU_DCS_CHARSET_8BIT,
-	WAT_SMS_PDU_DCS_CHARSET_16BIT, /* UCS2, UTF-8 */
-	WAT_SMS_PDU_DCS_CHARSET_INVALID,
-} wat_sms_pdu_dcs_charset_t;
+	WAT_SMS_PDU_DCS_ALPHABET_DEFAULT,		/* ASCII */
+	WAT_SMS_PDU_DCS_ALPHABET_8BIT,
+	WAT_SMS_PDU_DCS_ALPHABET_UCS2,			/* 16 bit */
+	WAT_SMS_PDU_DCS_ALPHABET_RESERVED,
+	WAT_SMS_PDU_DCS_ALPHABET_INVALID,
+} wat_sms_pdu_dcs_alphabet_t;
 
-#define WAT_SMS_PDU_DCS_CHARSET_STRINGS "ASCII", "8-bit", "UTF-8", "Invalid"
-WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_charset, wat_sms_pdu_dcs_charset2str, wat_sms_pdu_dcs_charset_t);
+#define WAT_SMS_PDU_DCS_ALPHABET_STRINGS "default", "8-bit", "UCS2", "reserved", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t);
 
 typedef struct _wat_sms_pdu_deliver {
 	/* From  www.dreamfabric.com/sms/deliver_fo.html */
@@ -344,11 +348,22 @@ typedef struct _wat_sms_pdu_deliver {
 } wat_sms_pdu_deliver_t;
 
 typedef enum {
-	WAT_SMS_PDU_VP_NOT_PRESENT,	
+	WAT_SMS_PDU_VP_NOT_PRESENT,
 	WAT_SMS_PDU_VP_ABSOLUTE,
 	WAT_SMS_PDU_VP_RELATIVE,
-	WAT_SMS_PDU_VP_ENHANCED,	
+	WAT_SMS_PDU_VP_ENHANCED,
+	WAT_SMS_PDU_VP_INVALID,
 } wat_sms_pdu_vp_type_t;
+#define WAT_SMS_PDU_VP_STRINGS "not present", "absolute", "relative", "enhanced", "invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_pdu_vp_type, wat_sms_pdu_vp_type2str, wat_sms_pdu_vp_type_t);
+
+typedef struct _wat_sms_pdu_vp {
+	wat_sms_pdu_vp_type_t type; /* Validity Period Format */
+	union {
+		uint8_t relative; /* Used when tp_vp == WAT_SMS_PDU_VP_RELATIVE see www.dreamfabric.com/sms/vp.html for description */
+		/* WAT_SMS_PDU_VP_ABSOLUTE & WAT_SMS_PDU_VP_ENHANCED not implemented yet */
+	} data;
+} wat_sms_pdu_vp_t;
 
 typedef struct _wat_sms_pdu_submit {
 	/* From  www.dreamfabric.com/sms/submit_fo.html */
@@ -358,11 +373,7 @@ typedef struct _wat_sms_pdu_submit {
 	uint8_t tp_srr:1; /* Status report request. 1 => Status report requested */	
 	uint8_t tp_rd:1; /* Reject duplicates */
 
-	wat_sms_pdu_vp_type_t tp_vpf; /* Validity Period Format */
-	union {
-		uint8_t relative; /* Used when tp_vp == WAT_SMS_PDU_VP_RELATIVE see www.dreamfabric.com/sms/vp.html for description */
-		/* WAT_SMS_PDU_VP_ABSOLUTE & WAT_SMS_PDU_VP_ENHANCED not implemented yet */
-	} vp_data;
+	wat_sms_pdu_vp_t vp;
 } wat_sms_pdu_submit_t;
 
 typedef struct _wat_sms_pdu_dcs {
@@ -371,7 +382,7 @@ typedef struct _wat_sms_pdu_dcs {
 	wat_sms_pdu_dcs_msg_cls_t msg_class; /* Message Class */
 	uint8_t ind_active:1;	/* Set indication Active */
 	wat_sms_pdu_dcs_ind_type_t ind_type;
-	wat_sms_pdu_dcs_charset_t charset;
+	wat_sms_pdu_dcs_alphabet_t alphabet;	/* Note: alphabet parameter is ignored for outbound SMS, as libwat will switch to UCS2 if needed */
 } wat_sms_pdu_dcs_t;
 
 typedef struct _wat_sms_pdu_timestamp {
@@ -407,15 +418,39 @@ typedef struct _wat_sms_event_pdu {
 	
 } wat_sms_event_pdu_t;
 
-typedef struct _wat_sms_event {
-	wat_number_t from;
-	wat_number_t to;	
-	wat_sms_type_t type;				/* PDU or Plain Text */
+typedef enum _wat_sms_content_charset {
+	WAT_SMS_CONTENT_CHARSET_ASCII,
+	WAT_SMS_CONTENT_CHARSET_UTF8,
+	WAT_SMS_CONTENT_CHARSET_INVALID
+} wat_sms_content_charset_t;
 
-	uint32_t content_len;				/* Length of message */
-	wat_timestamp_t scts;
+#define WAT_SMS_CONTENT_CHARSET_STRINGS "ascii", "utf-8", "invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_content_charset, wat_sms_content_charset2str, wat_sms_content_charset_t);
+
+typedef enum _wat_sms_content_encoding {
+	WAT_SMS_CONTENT_ENCODING_RAW,
+	WAT_SMS_CONTENT_ENCODING_BASE64,
+	WAT_SMS_CONTENT_ENCODING_HEX,	/* Not implement yet */
+	WAT_SMS_CONTENT_ENCODING_INVALID,
+} wat_sms_content_encoding_t;
+
+#define WAT_SMS_CONTENT_ENCODING_STRINGS "raw", "base64", "hex", "Invalid"
+WAT_STR2ENUM_P(wat_str2wat_sms_content_encoding, wat_sms_content_encoding2str, wat_sms_content_encoding_t);
+
+typedef struct _wat_sms_content_t {
+	wat_size_t len; 							/* Length of message */
+	wat_sms_content_encoding_t encoding;		/* Encoding type (raw, base64, hex) */
+	wat_sms_content_charset_t charset;			/* Character set (ascii, utf-8) */
+	char data[2*WAT_MAX_SMS_SZ];					/* Message */
+} wat_sms_content_t;
+
+typedef struct _wat_sms_event {
+	wat_number_t from;					/* Incoming SMS only */
+	wat_number_t to;					/* Outgoing SMS only */
+	wat_sms_type_t type;				/* PDU or Plain Text */
+	wat_timestamp_t scts;				/* Incoming SMS only */
 	wat_sms_event_pdu_t pdu;
-	char content[WAT_MAX_SMS_SZ];		/* Message */
+	wat_sms_content_t content;
 } wat_sms_event_t;
 
 typedef struct _wat_rel_event {

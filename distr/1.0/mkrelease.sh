@@ -155,24 +155,30 @@ eval "mkdir $rel_name/src/"
 eval "cp -rf ../../src/*.c $rel_name/src"
 eval "cp -rf ../../src/wat_config.h.in $rel_name/src"
 eval "cp -rf ../../src/CMakeLists.txt $rel_name/src"
+eval "touch $rel_name/src/*"
 
 eval "mkdir $rel_name/src/include"
 eval "cp -rf ../../src/include/*.h $rel_name/src/include"
+eval "touch $rel_name/src/include/*"
 
 eval "mkdir $rel_name/src/include/private"
 eval "cp -rf ../../src/include/private/*.h $rel_name/src/include/private"
+eval "touch $rel_name/src/include/private/*"
 
 eval "mkdir $rel_name/test"
 eval "cp -rf ../../test/*.c $rel_name/test"
 eval "cp -rf ../../test/*.h $rel_name/test"
 eval "cp -rf ../../test/CMakeLists.txt $rel_name/test"
+eval "touch $rel_name/test/*"
 
 eval "mkdir $rel_name/build"
 eval "cp -rf ../../README $rel_name/"
 eval "cp -rf ../../AUTHORS $rel_name/"
+eval "touch $rel_name/*"
 
 eval "mkdir $rel_name/asterisk/"
 eval "cp -rf ../../asterisk/* $rel_name/asterisk/"
+eval "touch $rel_name/asterisk/*"
 
 #update changelog
 cd ..
