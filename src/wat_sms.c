@@ -869,13 +869,13 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 {
 	wat_status_t status;
 	char pdu_data[1000];
-	unsigned pdu_data_len;
-	char raw_content[WAT_MAX_SMS_SZ*sizeof(wchar_t)];
-	wat_size_t raw_content_len;
-	int pdu_header_len;
-	wat_sms_event_t *sms_event;
-	char *pdu_data_ptr;
-	unsigned i;
+	wat_size_t pdu_data_len = 0;
+	char raw_content[WAT_MAX_SMS_SZ * sizeof(wchar_t)];
+	wat_size_t raw_content_len = 0;
+	wat_size_t pdu_header_len = 0;
+	wat_sms_event_t *sms_event = NULL;
+	char *pdu_data_ptr = NULL;
+	wat_size_t i = 0;
 
 	sms_event = &sms->sms_event;
 	pdu_data_ptr = pdu_data;
