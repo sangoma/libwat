@@ -694,7 +694,11 @@ WAT_RESPONSE_FUNC(wat_user_cmd_response)
 {
 	int processed_tokens = 0;
 	wat_user_cmd_t *cmd = obj;
-	processed_tokens = cmd->cb(span->id, tokens, success, cmd->obj, error);
+	if (cmd->cb) {
+		processed_tokens = cmd->cb(span->id, tokens, success, cmd->obj, error);
+	} else {
+		processed_tokens = 1;
+	}
 	wat_safe_free(obj);
 	return processed_tokens;
 }
