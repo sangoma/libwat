@@ -682,49 +682,68 @@ done:
 	return status;
 }
 
-int wat_cmd_entry_tokenize(char *entry, char *tokens[])
+int wat_cmd_entry_tokenize(char *entry, char *tokens[], wat_size_t len)
 {
+	char *previous_token = NULL;
 	int token_count = 0;
 	char *p = NULL;
+
+	/* since the array is null-terminated, at least 2 elements are required */
+	wat_assert_return(len > 1, 0, "invalid token array len");
+
+	memset(tokens, 0, (len * sizeof(tokens[0])));
 
 	if (entry[0] == ',') {
 		/* If the first character is a ',' , this string begins with an empty token,
 		 we still need to count it */
 		tokens[token_count++] = wat_strdup("");
 	}
-	p = strtok(entry, ",");
 
-	while (p != NULL) {
-		tokens[token_count++] = wat_strdup(p);
-		if (token_count > 1 && p[strlen(p)-1] == '\"') {
-			/* We have an end quote */
-			if (p[0] != '\"') {
-				/* But we do not have a beginning quote */
+	if (token_count == (len - 1)) {
+		wat_log(WAT_LOG_ERROR, "No space left in token array, ignoring the rest of the entry ...\n");
+		goto done;
+	}
 
-				if (tokens[token_count - 2][strlen(tokens[token_count - 2])-1] != '\"' &&
-				   	tokens[token_count - 2][0] == '\"') {
-					char *new, *previous;
+	for (p = strtok(entry, ","); p; p = strtok(NULL, ",")) {
 
-					/* Combine current token with previous token */
-					new = (char *)wat_malloc(strlen(tokens[token_count - 2]) + strlen(tokens[token_count-1]) + 1);
-					previous = tokens[token_count - 2];
-					
-					wat_assert_return(new, 0, "Failed to allocate space for new token");
+		if (token_count == (len - 1)) {
+			wat_log(WAT_LOG_ERROR, "No space left in token array, ignoring the rest of the entry ...\n");
+			break;
+		}
 
-					memset(new, 0, strlen(tokens[token_count - 2]) + strlen(tokens[token_count-1]));
+		/* if this is not our first token, check if the current token has an end quote but not a starting quote */
+		if (token_count > 0 && p[strlen(p)-1] == '\"' && p[0] != '\"') {
+			previous_token = tokens[token_count - 1];
+			/* check if the previous token has a starting quote and no ending quote */
+			if (previous_token[strlen(previous_token)-1] != '\"' &&
+				previous_token[0] == '\"') {
+				/* looks like the previous token did have a starting quote but no ending quote,
+				   we can combine current token with previous token */
+				char *new_token = NULL;
 
-					tokens[token_count - 2] = strcat(new, previous);
-					tokens[token_count - 2] = strcat(new, ",");
-					tokens[token_count - 2] = strcat(new, tokens[token_count-1]);
-					wat_safe_free(previous);
-					wat_safe_free(tokens[token_count - 1]);
-					
-					token_count--;
-				}
+				/* allocate enough space to hold both the previous token and the new token */
+				new_token = (char *)wat_calloc(1, strlen(previous_token) + strlen(p) + 1);
+				
+				wat_assert_return(new_token != NULL, 0, "Failed to allocate space for new token\n");
+
+				/* merge the previous token with the current token separated by a comma into the new token */
+				sprintf(new_token, "%s,%s", previous_token, p);
+
+				/* replace the previous token str pointer with the new token */
+				tokens[token_count - 1] = new_token;
+
+				/* free the previous token now that is merged in the new one */
+				wat_safe_free(previous_token);
+				continue;
 			}
 		}
-		p = strtok(NULL, ",");
+
+		tokens[token_count] = wat_strdup(p);
+		token_count++;
 	}
+
+done:
+
 	return token_count;
 }
 
@@ -903,8 +922,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 
 	wat_match_prefix(tokens[0], "+CREG: ");
 	
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
+	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens))) {
 		case 4: /* Format: <mode>, <stat>[,<Lac>, <Ci>] */
 			lac = atoi(cmdtokens[2]);
 			ci = atoi(cmdtokens[3]);
@@ -951,9 +969,7 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 		/* Format: +COPS: X,X,<operator name> */
 
 		consumed_tokens = 2;
-		memset(cmdtokens, 0, sizeof(cmdtokens));
-
-		if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
+		if (wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens)) < 3) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse COPS entry:%s\n", tokens[0]);
 		} else {
 			strncpy(span->net_info.operator_name, wat_string_clean(cmdtokens[2]), sizeof(span->net_info.operator_name));
@@ -998,9 +1014,7 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 	numtokens = 2;
 	wat_match_prefix(tokens[0], "+CNUM: ");
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-
-	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 3) {
+	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens)) < 3) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CNUM entry:%s\n", tokens[0]);
 		wat_free_tokens(cmdtokens);		
 		goto end_fail;
@@ -1068,9 +1082,7 @@ WAT_RESPONSE_FUNC(wat_response_csca)
 
 	wat_match_prefix(tokens[0], "+CSCA: ");
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-
-	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens) < 2) {
+	if (wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens)) < 2) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CSCA entry:%s\n", tokens[0]);
 		wat_free_tokens(cmdtokens);
 		WAT_FUNC_DBG_END
@@ -1227,9 +1239,8 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 	for (i = 0; strncmp(tokens[i], "OK", 2); i++) {
 		unsigned id, dir, stat;
 		char *cmdtokens[10];
-		memset(cmdtokens, 0, sizeof(cmdtokens));
 
-		if (wat_cmd_entry_tokenize(tokens[i], cmdtokens) < 8) {
+		if (wat_cmd_entry_tokenize(tokens[i], cmdtokens, wat_array_len(cmdtokens)) < 8) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLCC entry:%s\n", tokens[i]);
 			WAT_FUNC_DBG_END
 			wat_free_tokens(cmdtokens);
@@ -1534,9 +1545,7 @@ WAT_NOTIFY_FUNC(wat_notify_cmt)
 
 	wat_match_prefix(tokens[0], "+CMT: ");
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-
-	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
 
 	/* PDU Mode:
 	+CMT:<alpha>,<length>,\r\n<pdu>
@@ -1639,9 +1648,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 				2 - CLI is not available due to interworking problems or limitation of originating network.
 	*/
 	
-	memset(cmdtokens, 0, sizeof(cmdtokens));	
-
-	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
 
 	if (numtokens < 1) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLIP entry:%s\n", tokens[0]);
@@ -1699,8 +1706,7 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 
 	wat_match_prefix(tokens[0], "+CREG: ");
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
 
 	if (count < 0) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CREG Response %s\n", tokens[0]);

@@ -41,6 +41,12 @@
 #define POLL_INTERVAL 10 /* 10 millisecond */
 #define IO_SIZE 3000
 
+#define test_log(format, ...) do { \
+			if (!g_silent) { \
+				printf(format, ##__VA_ARGS__); \
+			} \
+		} while (0)
+
 typedef struct _wat_span {
 	sng_fd_t dev;
 	sng_fd_t bchan_dev;
@@ -52,17 +58,19 @@ typedef struct _wat_span {
 	uint8_t hangup_call:1;	 /* Hangup call pending */
 	uint8_t release_call:1;	 /* Release call pending */
 	uint8_t make_call:1;	 /* Send an outbound call */
-	uint8_t answered:1; /* call was answered */
+	uint8_t call_answered:1; /* call was answered */
+	uint8_t call_released:1; /* call was released */
 	uint16_t wat_call_id; /* Call ID of call if there is a call active */
 	FILE *outfile;
 	FILE *infile;
 } gsm_span_t;
 
-int end = 0;
-int g_make_call = 0;
-char g_called_number[255];
-int g_hangup_call = 0;
-gsm_span_t gsm_span;
+static int end = 0;
+static int g_make_call = 0;
+static int g_visual = 0;
+static char g_called_number[255];
+static int g_hangup_call = 0;
+static gsm_span_t gsm_span;
 static int g_outbound_call_id = 1;
 
 void on_span_status(unsigned char span_id, wat_span_status_t *status);
@@ -84,7 +92,7 @@ int on_span_write(unsigned char span_id, void *buffer, unsigned len)
 
 	res = sangoma_writemsg(gsm_span.dev, &tx_hdr, sizeof(tx_hdr), buffer, len, 0);
 	if (res != len) {
-		fprintf(stdout, "Failed to write to sangoma device (res:%u len:%u)\n", res, len);
+		test_log("Failed to write to sangoma device (res:%u len:%u)\n", res, len);
 	}
 	return res;
 }
@@ -94,33 +102,37 @@ void on_span_status(unsigned char span_id, wat_span_status_t *status)
 {
 	switch (status->type) {
 		case WAT_SPAN_STS_READY:
-
+			test_log("span:%d Ready!\n", span_id);
 			break;
+
 		case WAT_SPAN_STS_SIGSTATUS:
-			fprintf(stdout, "span:%d Signalling status changed %d\n", span_id, status->sts.sigstatus);
+			test_log("span:%d Signalling status changed %d\n", span_id, status->sts.sigstatus);
 
 			if (status->sts.sigstatus == WAT_SIGSTATUS_UP) {
 				if (g_make_call) {
 					gsm_span.make_call = 1;
 				}
 			}
-			return;
 			break;
-		case WAT_SPAN_STS_SIM_INFO_READY:
 
+		case WAT_SPAN_STS_SIM_INFO_READY:
+			test_log("span:%d SIM Info Ready!\n", span_id);
 			break;
+
 		case WAT_SPAN_STS_ALARM:
-			fprintf(stdout, "span:%d Alarm received\n", span_id);
+			test_log("span:%d Alarm received\n", span_id);
 			break;
+
 		default:
-			fprintf(stdout, "Unhandled span status");
+			test_log("Unhandled span status %d\n", status->type);
+			break;
 	}
 	return;
 }
 
 void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_event)
 {
-	fprintf(stdout, "s%d: Incoming call (id:%d) Calling Number:%s type:%d plan:%d\n", span_id, call_id, con_event->calling_num.digits, con_event->calling_num.type, con_event->calling_num.plan);
+	test_log("s%d: Incoming call (id:%d) Calling Number:%s type:%d plan:%d\n", span_id, call_id, con_event->calling_num.digits, con_event->calling_num.type, con_event->calling_num.plan);
 
 	gsm_span.wat_call_id = call_id;
 
@@ -138,20 +150,22 @@ void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_eve
 void on_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *status)
 {
 	if (status->type == WAT_CON_STATUS_TYPE_ANSWER) {
-		gsm_span.answered = 1;
+		gsm_span.call_answered = 1;
 	}
 }
 
 void on_rel_ind(unsigned char span_id, uint8_t call_id, wat_rel_event_t *rel_event)
 {
-	fprintf(stdout, "s%d: Call hangup (id:%d) cause:%d\n", span_id, call_id, rel_event->cause);
+	test_log("s%d: Call hangup (id:%d) cause:%d\n", span_id, call_id, rel_event->cause);
 	gsm_span.release_call = 1;
+	gsm_span.call_released = 1;
+	g_silent = 0;
 	return;
 }
 
 void on_rel_cfm(unsigned char span_id, uint8_t call_id)
 {
-	fprintf(stdout, "s%d: Call hangup complete (id:%d)\n", span_id, call_id);
+	test_log("s%d: Call hangup complete (id:%d)\n", span_id, call_id);
 	return;
 }
 
@@ -170,12 +184,125 @@ static void handle_sig(int sig)
 	switch(sig) {
 		case SIGINT:
 			end = 1;
-			fprintf(stdout, "SIGINT caught, exiting program\n");
+			test_log("SIGINT caught, exiting program\n");
 			break;
 		default:
-			fprintf(stdout, "Unhandled signal (%d)\n", sig);
+			test_log("Unhandled signal (%d)\n", sig);
 	}
 	return;
+}
+
+#define barlen 35
+#define baroptimal 3250
+//define barlevel 200
+#define barlevel ((baroptimal/barlen)*2)
+#define maxlevel (barlen*barlevel)
+
+static void draw_barheader()
+{
+	char bar[barlen + 4];
+
+	memset(bar, '-', sizeof(bar));
+	memset(bar, '<', 1);
+	memset(bar + barlen + 2, '>', 1);
+	memset(bar + barlen + 3, '\0', 1);
+
+	memcpy(bar + (barlen / 2), "(RX)", 4);
+	printf("%s", bar);
+
+	memcpy(bar + (barlen / 2), "(TX)", 4);
+	printf(" %s\n", bar);
+}
+
+static void draw_bar(int avg, int max)
+{
+	char bar[barlen+5];
+
+	memset(bar, ' ', sizeof(bar));
+
+	max /= barlevel;
+	avg /= barlevel;
+	if (avg > barlen)
+		avg = barlen;
+	if (max > barlen)
+		max = barlen;
+
+	if (avg > 0)
+		memset(bar, '#', avg);
+	if (max > 0)
+		memset(bar + max, '*', 1);
+
+	bar[barlen+1] = '\0';
+	printf("%s", bar);
+	fflush(stdout);
+}
+
+static void visualize(short *tx, short *rx, int cnt)
+{
+	int x;
+	float txavg = 0;
+	float rxavg = 0;
+	static int txmax = 0;
+	static int rxmax = 0;
+	static int sametxmax = 0;
+	static int samerxmax = 0;
+	static int txbest = 0;
+	static int rxbest = 0;
+	float ms;
+	static struct timeval last;
+	struct timeval tv;
+
+	gettimeofday(&tv, NULL);
+	ms = (tv.tv_sec - last.tv_sec) * 1000.0 + (tv.tv_usec - last.tv_usec) / 1000.0;
+	for (x = 0; x < cnt; x++) {
+		txavg += abs(tx[x]);
+		rxavg += abs(rx[x]);
+	}
+	txavg = abs(txavg / cnt);
+	rxavg = abs(rxavg / cnt);
+
+	if (txavg > txbest)
+		txbest = txavg;
+	if (rxavg > rxbest)
+		rxbest = rxavg;
+
+	/* Update no more than 10 times a second */
+	if (ms < 100)
+		return;
+
+	/* Save as max levels, if greater */
+	if (txbest > txmax) {
+		txmax = txbest;
+		sametxmax = 0;
+	}
+	if (rxbest > rxmax) {
+		rxmax = rxbest;
+		samerxmax = 0;
+	}
+
+	memcpy(&last, &tv, sizeof(last));
+
+	/* Clear screen */
+	printf("\r ");
+	draw_bar(rxbest, rxmax);
+	printf("   ");
+	draw_bar(txbest, txmax);
+	//if (verbose)
+		printf("   Rx: %5d (%5d) Tx: %5d (%5d)", rxbest, rxmax, txbest, txmax);
+	txbest = 0;
+	rxbest = 0;
+
+	/* If we have had the same max hits for x times, clear the values */
+	sametxmax++;
+	samerxmax++;
+	if (sametxmax > 6) {
+		txmax = 0;
+		sametxmax = 0;
+	}
+	if (samerxmax > 6) {
+		rxmax = 0;
+		samerxmax = 0;
+	}
 }
 
 int main (int argc, char *argv[])
@@ -197,14 +324,17 @@ int main (int argc, char *argv[])
 	int bchan = 0;
 	int i = 0;
 	int bchan_mtu = 0;
-
-	unsigned char iobuf[IO_SIZE];
+	int header_printed = 0;
+	unsigned char rx_iobuf[IO_SIZE];
+	unsigned char tx_iobuf[IO_SIZE];
 
 	if (argc < 2) {
 		fprintf(stderr, "Usage:\n"
 				"-dev <sXcY> - D-channel wanpipe device\n"
 				"-make_call [number-to-dial] - Place a call in the provided span\n"
-				"-hangup_call - Hangup any calls in the provided span\n");
+				"-hangup_call - Hangup any calls in the provided span\n"
+				"-playfile - Provide a file to play when the call is answered\n"
+				"-visual - Provide visual feedback about tx/rx levels upon call answer (note that this will inhibit log messages while the call is active)\n");
 		exit(1);
 	}
 
@@ -237,6 +367,8 @@ int main (int argc, char *argv[])
 		} else if (!strcasecmp(argv[i], "-playfile")) {
 			INC_ARG(i);
 			playfile_str = argv[i];
+		} else if (!strcasecmp(argv[i], "-visual")) {
+			g_visual = 1;
 		} else {
 			fprintf(stderr, "Invalid option %s\n", argv[i]);
 			exit(1);
@@ -272,7 +404,7 @@ int main (int argc, char *argv[])
 		fprintf(stderr, "Failed to register WAT Library !!!\n");
 		return -1;
 	}
-	fprintf(stdout, "Registered interface to WAT Library\n");
+	test_log("Registered interface to WAT Library\n");
 
 	/* Configure 1 span for Telit */
 	memset(&gsm_span, 0, sizeof(gsm_span));
@@ -281,7 +413,7 @@ int main (int argc, char *argv[])
 	gsm_span.wat_span_config.moduletype = WAT_MODULE_TELIT;
 	gsm_span.wat_span_config.timeout_cid_num = 10;
 
-	fprintf(stdout, "Opening device %s\n", devstr);
+	test_log("Opening device %s\n", devstr);
 	gsm_span.dev = sangoma_open_tdmapi_span_chan(spanno, channo);
 	if (gsm_span.dev < 0) {
 		fprintf(stderr, "Unable to open %s: %s\n", devstr, strerror(errno));
@@ -313,24 +445,28 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 	
-	fprintf(stdout, "Configuring span\n");
+	test_log("Configuring span\n");
 	if (wat_span_config(gsm_span.wat_span_id, &(gsm_span.wat_span_config))) {
 		fprintf(stderr, "Failed to configure span!!\n");
 		return -1;
 	}
 
-	fprintf(stdout, "Starting span\n");
+	test_log("Starting span\n");
 	if (wat_span_start(gsm_span.wat_span_id)) {
 		fprintf(stderr, "Failed to start span!!\n");
 		return -1;
 	}
 
-	fprintf(stdout, "Running \n");
+	test_log("Running \n");
+
+	memset(rx_iobuf, 0, sizeof(rx_iobuf));
+	memset(tx_iobuf, 0, sizeof(tx_iobuf));
+
 	while(!end) {
 		int numchans = 0;
 		count++;
 		if (!(count % 1000)) {
-			fprintf(stdout, ".\n");
+			test_log(".\n");
 		}
 
 		wat_span_run(gsm_span.wat_span_id);
@@ -347,7 +483,16 @@ int main (int argc, char *argv[])
 		input_flags[1] = 0;
 		output_flags[1] = 0;
 
-		if (gsm_span.answered) {
+		if (gsm_span.call_answered && !gsm_span.call_released) {
+			g_silent = 1;
+
+			if (g_visual && header_printed == 0) {
+				printf("\nVisual Audio Levels.\n");
+				printf("--------------------\n");
+				printf("( # = Audio Level  * = Max Audio Hit )\n");
+				draw_barheader();
+				header_printed = 1;
+			}
 
 			if (!gsm_span.outfile) {
 				char fname[255];
@@ -386,24 +531,23 @@ int main (int argc, char *argv[])
 			if (output_flags[0] & SANG_WAIT_OBJ_HAS_INPUT) {
 				wp_tdm_api_rx_hdr_t rx_hdr;
 				memset(&rx_hdr, 0, sizeof(rx_hdr));
-				res = sangoma_readmsg(gsm_span.dev, &rx_hdr, sizeof(rx_hdr), iobuf, 1024, 0);
+				res = sangoma_readmsg(gsm_span.dev, &rx_hdr, sizeof(rx_hdr), rx_iobuf, sizeof(rx_iobuf), 0);
 				if (res < 0) {
 					fprintf(stdout, "Failed to read d-channel\n");
 					break;
 				}
-				/* fprintf(stdout, "Read [%s] len:%d\n", iobuf, res); */
-				wat_span_process_read(gsm_span.wat_span_id, iobuf, res);
+				wat_span_process_read(gsm_span.wat_span_id, rx_iobuf, res);
 			}
 
 			if (gsm_span.outfile && (output_flags[1] & SANG_WAIT_OBJ_HAS_INPUT)) {
 				wp_tdm_api_rx_hdr_t rx_hdr;
 				memset(&rx_hdr, 0, sizeof(rx_hdr));
-				res = sangoma_readmsg(gsm_span.bchan_dev, &rx_hdr, sizeof(rx_hdr), iobuf, 1024, 0);
+				res = sangoma_readmsg(gsm_span.bchan_dev, &rx_hdr, sizeof(rx_hdr), rx_iobuf, sizeof(rx_iobuf), 0);
 				if (res < 0) {
 					fprintf(stdout, "Failed to read from b-channel: %s\n", strerror(errno));
 					break;
 				}
-				fwrite(iobuf, 1, res, gsm_span.outfile);
+				fwrite(rx_iobuf, 1, res, gsm_span.outfile);
 			}
 
 			if (gsm_span.infile && (output_flags[1] & SANG_WAIT_OBJ_HAS_OUTPUT)) {
@@ -412,23 +556,33 @@ int main (int argc, char *argv[])
 
 				memset(&tx_hdr, 0, sizeof(tx_hdr));
 
-				len = fread(iobuf, 1, bchan_mtu, gsm_span.infile);
+				len = fread(tx_iobuf, 1, bchan_mtu, gsm_span.infile);
 				if (len <= 0) {
 					fclose(gsm_span.infile);
 					gsm_span.infile = NULL;
 				} else {
 					#define gsm_swap16(sample) (((sample >> 8) & 0x00FF) | ((sample << 8) & 0xFF00))
 					int16_t *tx_linear = NULL;
-					tx_linear = (int16_t *)iobuf;
+					tx_linear = (int16_t *)tx_iobuf;
 					for (i = 0; i < len/2; i++) {
 						tx_linear[i] = gsm_swap16(tx_linear[i]);
 					}
-					res = sangoma_writemsg(gsm_span.bchan_dev, &tx_hdr, sizeof(tx_hdr), iobuf, len, 0);
+					res = sangoma_writemsg(gsm_span.bchan_dev, &tx_hdr, sizeof(tx_hdr), tx_iobuf, len, 0);
 					if (res != len) {
 						fprintf(stdout, "Failed to write to b-channel device (res:%d len:%d): %s\n", res, len, strerror(errno));
 						break;
 					}
+					/* swap it back for printing */
+					if (g_visual) {
+						for (i = 0; i < len/2; i++) {
+							tx_linear[i] = gsm_swap16(tx_linear[i]);
+						}
+					}
 				}
+			}
+
+			if (g_visual && gsm_span.call_answered && !gsm_span.call_released) {
+				visualize((short *)tx_iobuf, (short *)rx_iobuf, bchan_mtu/2);
 			}
 		}
 
@@ -455,7 +609,7 @@ int main (int argc, char *argv[])
 			
 			sprintf(con_event.called_num.digits, g_called_number);
 			gsm_span.wat_call_id = (g_outbound_call_id++) | 0x8;
-			printf("Dialing number %s\n", g_called_number);
+			test_log("Dialing number %s\n", g_called_number);
 			wat_con_req(gsm_span.wat_span_id, gsm_span.wat_call_id, &con_event);
 		}
 	}

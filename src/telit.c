@@ -71,8 +71,7 @@ WAT_NOTIFY_FUNC(wat_notify_codec_info)
 
 	wat_match_prefix(tokens[0], "#CODECINFO: ");
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens);
+	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
 
 	if (count < 0) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse #CODECINFO event '%s'\n", tokens[0]);
@@ -198,8 +197,7 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 	/* Format #QSS: 3 */
 	wat_match_prefix(tokens[0], "#QSS: ");
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
+	switch (wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens))) {
 		case 1:
 			sim_status = atoi(cmdtokens[0]);
 			wat_log_span(span, WAT_LOG_INFO, "SIM access status changed to '%s' (%d)\n", wat_telit_sim_status2str(sim_status), sim_status);
@@ -239,8 +237,7 @@ WAT_RESPONSE_FUNC(wat_response_qss)
 		return 1;
 	}
 
-	memset(cmdtokens, 0, sizeof(cmdtokens));
-	switch(wat_cmd_entry_tokenize(tokens[0], cmdtokens)) {
+	switch (wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens))) {
 		case 2:
 			sim_status = atoi(cmdtokens[1]);
 			wat_log_span(span, WAT_LOG_INFO, "SIM status is '%s' (%d)\n", wat_telit_sim_status2str(sim_status), sim_status);
