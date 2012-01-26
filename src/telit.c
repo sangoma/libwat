@@ -92,6 +92,7 @@ wat_status_t telit_start(wat_span_t *span)
 
 	/* Section 2.1 of Telit AT Commands reference Guide recommends these options to be enabled */
 	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL);
+
 	wat_cmd_enqueue(span, "AT#SMSMODE=1", wat_response_smsmode, NULL);
 
 	/* From Telit AT commands reference guide, page 105: Set AT#REGMODE=1

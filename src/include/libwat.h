@@ -338,15 +338,6 @@ typedef enum {
 #define WAT_SMS_PDU_DCS_ALPHABET_STRINGS "default", "8-bit", "UCS2", "reserved", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t);
 
-typedef struct _wat_sms_pdu_deliver {
-	/* From  www.dreamfabric.com/sms/deliver_fo.html */
-	uint8_t tp_rp:1; /* Reply Path */
-	uint8_t tp_udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
-	uint8_t tp_sri:1; /* Status report indication. 1 => Status report is going to be returned to the SME */
-	uint8_t tp_mms:1; /* More messages to send. 0 => There are more messages to send  */
-	wat_sms_pdu_mti_t tp_mti; /* Message type indicator */
-} wat_sms_pdu_deliver_t;
-
 typedef enum {
 	WAT_SMS_PDU_VP_NOT_PRESENT,
 	WAT_SMS_PDU_VP_ABSOLUTE,
@@ -365,12 +356,21 @@ typedef struct _wat_sms_pdu_vp {
 	} data;
 } wat_sms_pdu_vp_t;
 
+typedef struct _wat_sms_pdu_deliver {
+	/* From  www.dreamfabric.com/sms/deliver_fo.html */
+	uint8_t tp_rp:1; /* Reply Path */
+	uint8_t tp_udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
+	uint8_t tp_sri:1; /* Status report indication. 1 => Status report is going to be returned to the SME */
+	uint8_t tp_mms:1; /* More messages to send. 0 => There are more messages to send  */
+	wat_sms_pdu_mti_t tp_mti; /* Message type indicator */
+} wat_sms_pdu_deliver_t;
+
 typedef struct _wat_sms_pdu_submit {
 	/* From  www.dreamfabric.com/sms/submit_fo.html */
 
 	uint8_t tp_rp:1; /* Reply Path */
 	uint8_t tp_udhi:1; /* User data header indicator. 1 => User Data field starts with a header */
-	uint8_t tp_srr:1; /* Status report request. 1 => Status report requested */	
+	uint8_t tp_srr:1; /* Status report request. 1 => Status report requested */
 	uint8_t tp_rd:1; /* Reject duplicates */
 
 	wat_sms_pdu_vp_t vp;
@@ -395,6 +395,38 @@ typedef struct _wat_sms_pdu_timestamp {
 	int timezone;
 } wat_timestamp_t;
 
+/* From 3GPP TS 03.40 V7.5.0, page 62 */
+typedef enum {
+	WAT_SMS_PDU_UDH_IEI_CONCATENATED_SMS_8BIT, /* Concatenated short messages, 8-bit reference number */
+	WAT_SMS_PDU_UDH_IEI_SPECIAL_SMS_INDICATION, /* Special SMS Message Indication */
+	WAT_SMS_PDU_UDH_IEI_RESERVED, /* Reserved */
+	WAT_SMS_PDU_UDH_IEI_NOT_USED, /* Value not used to avoid misinterpretation as <LF> character */
+	WAT_SMS_PDU_UDH_IEI_APPLICATION_PORT_8BIT, /* Application port addressing scheme, 8-bit address */
+	WAT_SMS_PDU_UDH_IEI_APPLICATION_PORT_16BIT, /* Application port addressing scheme, 16-bit address */
+	WAT_SMS_PDU_UDH_IEI_SMSC_CONTROL_PARAMETERS,	/* SMSC Control Parameters */
+	WAT_SMS_PDU_UDH_IEI_UDH_SOURCE_INDICATOR, /* UDH source indicator */
+	WAT_SMS_PDU_UDH_IEI_CONCATENATED_SMS_16BIT, /* Concatenated short messages, 16-bit reference number */
+	WAT_SMS_PDU_UDH_IEI_WIRELESS_CONTROL_MESSAGE_PROTOCOL, /* Wireless Control Message Protocol */
+	WAT_SMS_PDU_UDH_IEI_INVALID,
+	/* 0A - 6F: Reserved for future use */
+	/* 70 - 7F: SIM Toolkit Security Headers */
+	/* 80 - 9F:	SME to SME specific use */
+	/* A0 - BF: Reserved for future use */
+ 	/* C0 - DF: SC specific use */
+ 	/* E0 - FF: Reserved for future use */
+} wat_sms_pdu_udh_iei_t;
+
+
+typedef struct _wat_sms_pdu_udh {
+	uint8_t tp_udhl;
+
+	wat_sms_pdu_udh_iei_t iei;
+	uint8_t iedl;
+	uint8_t refnr;
+	uint8_t total;
+	uint8_t seq;
+} wat_sms_pdu_udh_t;
+
 typedef struct _wat_sms_event_pdu {
 	wat_number_t smsc;
 	union {
@@ -404,18 +436,12 @@ typedef struct _wat_sms_event_pdu {
 	
 	uint8_t tp_pid;			/* Protocol Identifier */
 	uint8_t tp_dcs;			/* Data coding scheme */
+	uint8_t tp_message_ref;
 	
 	wat_sms_pdu_dcs_t dcs;	/* Values are derived from tp_dcs */
 	uint8_t tp_udl;
 
-	uint8_t tp_udhl;
-
-	uint8_t iei;
-	uint8_t iedl;
-	uint8_t refnr;
-	uint8_t total;
-	uint8_t seq;
-	
+	wat_sms_pdu_udh_t udh;	/* User Data Header */	
 } wat_sms_event_pdu_t;
 
 typedef enum _wat_sms_content_charset {

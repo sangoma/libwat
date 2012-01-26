@@ -671,17 +671,6 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 	event.sms_id = sms_id;
 
 	sprintf(sms_event->to.digits, "%s", wat_string_clean(sms_event->to.digits));
-
-	if (sms_event->type == WAT_SMS_PDU && !strlen(sms_event->pdu.smsc.digits)) {
-		if (strlen(span->sim_info.smsc.digits)) {
-			wat_log_span(span, WAT_LOG_DEBUG, "[sms:%d]SMSC not specified, using %s\n", sms_id, span->sim_info.smsc.digits);
-			memcpy(&sms_event->pdu.smsc, &span->sim_info.smsc, sizeof(span->sim_info.smsc));
-		} else {
-			wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMSC information not available\n", sms_id);
-			WAT_FUNC_DBG_END
-			return WAT_FAIL;
-		}
-	}
 	
 	memcpy(&event.data.sms_event, sms_event, sizeof(*sms_event));
 

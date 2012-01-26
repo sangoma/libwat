@@ -24,7 +24,6 @@
 #ifndef _WAT_SMS_PDU_H
 #define _WAT_SMS_PDU_H
 
-
 #include "wat_internal.h"
 
 void print_buffer(wat_loglevel_t loglevel, char *data, wat_size_t data_len, char *message);
@@ -40,5 +39,7 @@ wat_status_t wat_encode_sms_pdu_message_ref(uint8_t refnr, char **outdata, wat_s
 wat_status_t wat_encode_sms_pdu_pid(uint8_t pid, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);
 wat_status_t wat_encode_sms_pdu_dcs(wat_sms_pdu_dcs_t *dcs, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);
 wat_status_t wat_encode_sms_pdu_vp(wat_sms_pdu_vp_t *vp, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);
+wat_status_t wat_encode_sms_pdu_udh(wat_sms_pdu_udh_t *udh, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);
 
+wat_status_t wat_verify_default_alphabet(char *content_data);
 #endif /* _WAT_SMS_PDU_H */

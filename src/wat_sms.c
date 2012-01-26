@@ -21,14 +21,15 @@
  *
  */
 
+#include <iconv.h>
+#include <wchar.h>
+#include <errno.h>
+
 #include "libwat.h"
 #include "wat_internal.h"
 #include "wat_sms_pdu.h"
 #include "base64/base64.h"
 
-#include <iconv.h>
-#include <wchar.h>
-#include <errno.h>
 
 static uint8_t bit(uint8_t byte, uint8_t bitpos);
 static uint8_t hexstr_to_val(char *string);
@@ -46,178 +47,17 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms);
 wat_status_t wat_decode_sms_content(char *raw_data, wat_size_t *raw_data_len, wat_sms_content_t *content);
 wat_status_t wat_decode_sms_content_encoding_base64(char *raw_content, wat_size_t *raw_content_len, wat_sms_content_t *content);
 
-static wat_status_t wat_verify_default_alphabet(char *content_data);
 wat_status_t wat_decode_encoding_base64(char *raw_content, wat_size_t *raw_content_len, const char *data, wat_size_t data_len);
 
-
-/* From www.dreamfabric.com/sms/default_alphabet.html */
-static struct default_alphabet_val {
-	uint8_t val;	/* Hex value */
-	wchar_t code;	/* Corresponding ISO-8859-I value */
-} default_alphabet_vals[] = {
-	{ 0x00, 0x00000040 }, // COMMERCIAL AT
-	{ 0x01, 0x000000A3 }, // POUND SIGN
-	{ 0x02, 0x00000024 }, // DOLLAR SIGN
-	{ 0x03, 0x000000A5 }, // YEN SIGN
-	{ 0x04, 0x000000E8 }, // LATIN SMALL LETTER E WITH GRAVE
-	{ 0x05, 0x000000E9 }, // LATIN SMALL LETTER E WITH ACUTE
-	{ 0x06, 0x000000F9 }, // LATIN SMALL LETTER U WITH GRAVE
-	{ 0x07, 0x000000EC }, // LATIN SMALL LETTER I WITH GRAVE
-	{ 0x08, 0x000000F2 }, // LATIN SMALL LETTER O WITH GRAVE
-	{ 0x09, 0x000000C7 }, // LATIN CAPITAL LETTER C WITH CEDILLA
-	{ 0x0A, 0x0000000A }, // LINE FEED
-	{ 0x0B, 0x000000D8 }, // LATIN CAPITAL LETTER O WITH STROKE
-	{ 0x0C, 0x000000F8 }, // LATIN SMALL LETTER O WITH STROKE
-	{ 0x0D, 0x0000000D }, // CARRIAGE RETURN
-	{ 0x0E, 0x000000C5 }, // LATIN CAPITAL LETTER A WITH RING ABOVE
-	{ 0x0F, 0x000000E5 }, // LATIN SMALL LETTER A WITH RING ABOVE
-	{ 0x10, 0x00000394 }, // GREEK CAPITAL LETTER DELTA
-	{ 0x11, 0x0000005F }, // LOW LINE
-	{ 0x12, 0x000003A6 }, // GREEK CAPITAL LETTER PHI
-	{ 0x13, 0x00000393 }, // GREEK CAPITAL LETTER GAMMA
-	{ 0x14, 0x0000039B }, // GREEK CAPITAL LETTER LAMBDA
-	{ 0x15, 0x000003A9 }, // GREEK CAPITAL LETTER OMEGA
-	{ 0x16, 0x000003A0 }, // GREEK CAPITAL LETTER PI
-	{ 0x17, 0x000003A8 }, // GREEK CAPITAL LETTER PSI
-	{ 0x18, 0x000003A3 }, // GREEK CAPITAL LETTER SIGMA
-	{ 0x19, 0x00000398 }, // GREEK CAPITAL LETTER THETA
-	{ 0x1A, 0x0000039E }, // GREEK CAPITAL LETTER XI
-	{ 0x1B, 0x0000000C }, // FORM FEED
-	{ 0x1B, 0x0000005E }, // CIRCUMFLEX ACCENT
-	{ 0x1B, 0x0000007B }, // LEFT CURLY BRACKET
-	{ 0x1B, 0x0000007D }, // RIGHT CURLY BRACKET
-	{ 0x1B, 0x0000005C }, // REVERSE SOLIDUS (BACKSLASH)
-	{ 0x1B, 0x0000005B }, // LEFT SQUARE BRACKET
-	{ 0x1B, 0x0000007E }, // TILDE
-	{ 0x1B, 0x0000005D }, // RIGHT SQUARE BRACKET
-	{ 0x1B, 0x0000007C }, // VERTICAL LINE
-	{ 0x1B, 0x000020AC }, // EURO SIGN
-	{ 0x1C, 0x000000C6 }, // LATIN CAPITAL LETTER AE
-	{ 0x1D, 0x000000E6 }, // LATIN SMALL LETTER AE
-	{ 0x1E, 0x000000DF }, // LATIN SMALL LETTER SHARP S (German)
-	{ 0x1F, 0x000000C9 }, // LATIN CAPITAL LETTER E WITH ACUTE
-	{ 0x20, 0x00000020 }, // SPACE
-	{ 0x21, 0x00000021 }, // EXCLAMATION MARK
-	{ 0x22, 0x00000022 }, // QUOTATION MARK
-	{ 0x23, 0x00000023 }, // NUMBER SIGN
-	{ 0x24, 0x000000A4 }, // CURRENCY SIGN
-	{ 0x25, 0x00000025 }, // PERCENT SIGN
-	{ 0x26, 0x00000026 }, // AMPERSAND
-	{ 0x27, 0x00000027 }, // APOSTROPHE
-	{ 0x28, 0x00000028 }, // LEFT PARENTHESIS
-	{ 0x29, 0x00000029 }, // RIGHT PARENTHESIS
-	{ 0x2A, 0x0000002A }, // ASTERISK
-	{ 0x2B, 0x0000002B }, // PLUS SIGN
-	{ 0x2C, 0x0000002C }, // COMMA
-	{ 0x2D, 0x0000002D }, // HYPHEN-MINUS
-	{ 0x2E, 0x0000002E }, // FULL STOP
-	{ 0x2F, 0x0000002F }, // SOLIDUS (SLASH)
-	{ 0x30, 0x00000030 }, // DIGIT ZERO
-	{ 0x31, 0x00000031 }, // DIGIT ONE
-	{ 0x32, 0x00000032 }, // DIGIT TWO
-	{ 0x33, 0x00000033 }, // DIGIT THREE
-	{ 0x34, 0x00000034 }, // DIGIT FOUR
-	{ 0x35, 0x00000035 }, // DIGIT FIVE
-	{ 0x36, 0x00000036 }, // DIGIT SIX
-	{ 0x37, 0x00000037 }, // DIGIT SEVEN
-	{ 0x38, 0x00000038 }, // DIGIT EIGHT
-	{ 0x39, 0x00000039 }, // DIGIT NINE
-	{ 0x3A, 0x0000003A }, // COLON
-	{ 0x3B, 0x0000003B }, // SEMICOLON
-	{ 0x3C, 0x0000003C }, // LESS-THAN SIGN
-	{ 0x3D, 0x0000003D }, // EQUALS SIGN
-	{ 0x3E, 0x0000003E }, // GREATER-THAN SIGN
-	{ 0x3F, 0x0000003F }, // QUESTION MARK
-	{ 0x40, 0x000000A1 }, // INVERTED EXCLAMATION MARK
-	{ 0x41, 0x00000041 }, // LATIN CAPITAL LETTER A
-	{ 0x42, 0x00000042 }, // LATIN CAPITAL LETTER B
-	{ 0x43, 0x00000043 }, // LATIN CAPITAL LETTER C
-	{ 0x44, 0x00000044 }, // LATIN CAPITAL LETTER D
-	{ 0x45, 0x00000045 }, // LATIN CAPITAL LETTER E
-	{ 0x46, 0x00000046 }, // LATIN CAPITAL LETTER F
-	{ 0x47, 0x00000047 }, // LATIN CAPITAL LETTER G
-	{ 0x48, 0x00000048 }, // LATIN CAPITAL LETTER H
-	{ 0x49, 0x00000049 }, // LATIN CAPITAL LETTER I
-	{ 0x4A, 0x0000004A }, // LATIN CAPITAL LETTER J
-	{ 0x4B, 0x0000004B }, // LATIN CAPITAL LETTER K
-	{ 0x4C, 0x0000004C }, // LATIN CAPITAL LETTER L
-	{ 0x4D, 0x0000004D }, // LATIN CAPITAL LETTER M
-	{ 0x4E, 0x0000004E }, // LATIN CAPITAL LETTER N
-	{ 0x4F, 0x0000004F }, // LATIN CAPITAL LETTER O
-	{ 0x50, 0x00000050 }, // LATIN CAPITAL LETTER P
-	{ 0x51, 0x00000051 }, // LATIN CAPITAL LETTER Q
-	{ 0x52, 0x00000052 }, // LATIN CAPITAL LETTER R
-	{ 0x53, 0x00000053 }, // LATIN CAPITAL LETTER S
-	{ 0x54, 0x00000054 }, // LATIN CAPITAL LETTER T
-	{ 0x55, 0x00000055 }, // LATIN CAPITAL LETTER U
-	{ 0x56, 0x00000056 }, // LATIN CAPITAL LETTER V
-	{ 0x57, 0x00000057 }, // LATIN CAPITAL LETTER W
-	{ 0x58, 0x00000058 }, // LATIN CAPITAL LETTER X
-	{ 0x59, 0x00000059 }, // LATIN CAPITAL LETTER Y
-	{ 0x5A, 0x0000005A }, // LATIN CAPITAL LETTER Z
-	{ 0x5B, 0x000000C4 }, // LATIN CAPITAL LETTER A WITH DIAERESIS
-	{ 0x5C, 0x000000D6 }, // LATIN CAPITAL LETTER O WITH DIAERESIS
-	{ 0x5D, 0x000000D1 }, // LATIN CAPITAL LETTER N WITH TILDE
-	{ 0x5E, 0x000000DC }, // LATIN CAPITAL LETTER U WITH DIAERESIS
-	{ 0x5F, 0x000000A7 }, // SECTION SIGN
-	{ 0x60, 0x000000BF }, // INVERTED QUESTION MARK
-	{ 0x61, 0x00000061 }, // LATIN SMALL LETTER A
-	{ 0x62, 0x00000062 }, // LATIN SMALL LETTER B
-	{ 0x63, 0x00000063 }, // LATIN SMALL LETTER C
-	{ 0x64, 0x00000064 }, // LATIN SMALL LETTER D
-	{ 0x65, 0x00000065 }, // LATIN SMALL LETTER E
-	{ 0x66, 0x00000066 }, // LATIN SMALL LETTER F
-	{ 0x67, 0x00000067 }, // LATIN SMALL LETTER G
-	{ 0x68, 0x00000068 }, // LATIN SMALL LETTER H
-	{ 0x69, 0x00000069 }, // LATIN SMALL LETTER I
-	{ 0x6A, 0x0000006A }, // LATIN SMALL LETTER J
-	{ 0x6B, 0x0000006B }, // LATIN SMALL LETTER K
-	{ 0x6C, 0x0000006C }, // LATIN SMALL LETTER L
-	{ 0x6D, 0x0000006D }, // LATIN SMALL LETTER M
-	{ 0x6E, 0x0000006E }, // LATIN SMALL LETTER N
-	{ 0x6F, 0x0000006F }, // LATIN SMALL LETTER O
-	{ 0x70, 0x00000070 }, // LATIN SMALL LETTER P
-	{ 0x71, 0x00000071 }, // LATIN SMALL LETTER Q
-	{ 0x72, 0x00000072 }, // LATIN SMALL LETTER R
-	{ 0x73, 0x00000073 }, // LATIN SMALL LETTER S
-	{ 0x74, 0x00000074 }, // LATIN SMALL LETTER T
-	{ 0x75, 0x00000075 }, // LATIN SMALL LETTER U
-	{ 0x76, 0x00000076 }, // LATIN SMALL LETTER V
-	{ 0x77, 0x00000077 }, // LATIN SMALL LETTER W
-	{ 0x78, 0x00000078 }, // LATIN SMALL LETTER X
-	{ 0x79, 0x00000079 }, // LATIN SMALL LETTER Y
-	{ 0x7A, 0x0000007A }, // LATIN SMALL LETTER Z
-	{ 0x7B, 0x000000E4 }, // LATIN SMALL LETTER A WITH DIAERESIS
-	{ 0x7C, 0x000000F6 }, // LATIN SMALL LETTER O WITH DIAERESIS
-	{ 0x7D, 0x000000F1 }, // LATIN SMALL LETTER N WITH TILDE
-	{ 0x7E, 0x000000FC }, // LATIN SMALL LETTER U WITH DIAERESIS
-	{ 0x7F, 0x000000E0 }, // LATIN SMALL LETTER A WITH GRAVE
-};
-
-static wat_status_t wat_verify_default_alphabet(char *content_data)
+static int octet_to_septet(int octet)
 {
-	wat_bool_t matched;
-	unsigned j;
-	wchar_t *c;
-
-	c = (wchar_t *)content_data;
-			
-	while (*c != L'\0') {
-		matched = WAT_FALSE;
-		for (j = 0; j < wat_array_len(default_alphabet_vals); j++) {
-			if (default_alphabet_vals[j].code == *c) {
-				matched = WAT_TRUE;
-				break;
-			}
-		}
-		if (matched == WAT_FALSE) {
-			return WAT_FAIL;
-		}
-		c++;
-	}
-	return WAT_SUCCESS;
+	return ((octet * 8) / 7) + (((octet * 8) % 7) ? 1 : 0);
 }
 
+static int septet_to_octet(int septet)
+{
+	return (septet * 7) / 8 + (((septet * 7) % 8) ? 1 : 0);
+}
 
 wat_status_t wat_span_sms_create(wat_span_t *span, wat_sms_t **insms, uint8_t sms_id, wat_direction_t dir)
 {
@@ -325,7 +165,14 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			{
 				char cmd[4];
 				sprintf(cmd, "%c\r\n", 0x1a);
+#if 1
 				wat_cmd_enqueue(span, cmd, wat_response_cmgs_end, sms);
+#else
+				wat_span_write(span, cmd, strlen(cmd));
+				span->outbound_sms = NULL;
+
+				wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
+#endif
 			}
 			break;
 		case WAT_SMS_STATE_COMPLETE:
@@ -814,29 +661,29 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		if (g_debug & WAT_DEBUG_SMS_DECODE) {
 			wat_log_span(span, WAT_LOG_DEBUG, "Decoding TP-UDHL [%s]\n", &data[i]);
 		}
-		sms_event.pdu.tp_udhl = hexstr_to_val(&data[i]); /* User data header length */
+		sms_event.pdu.udh.tp_udhl = hexstr_to_val(&data[i]); /* User data header length */
 		i += 2;
 
-		sms_event.pdu.iei = hexstr_to_val(&data[i]); /* Information Element Identifier */
+		sms_event.pdu.udh.iei = hexstr_to_val(&data[i]); /* Information Element Identifier */
 		i += 2;
 
-		sms_event.pdu.iedl = hexstr_to_val(&data[i]); /* Information Element Identifier Length */
+		sms_event.pdu.udh.iedl = hexstr_to_val(&data[i]); /* Information Element Identifier Length */
 		i += 2;
 
-		sms_event.pdu.refnr = hexstr_to_val(&data[i]); /* Reference Number */
+		sms_event.pdu.udh.refnr = hexstr_to_val(&data[i]); /* Reference Number */
 		i += 2;
 
-		sms_event.pdu.total = hexstr_to_val(&data[i]); /* Total Number of parts (number of concatenated sms */
+		sms_event.pdu.udh.total = hexstr_to_val(&data[i]); /* Total Number of parts (number of concatenated sms */
 		i += 2;
 
-		sms_event.pdu.seq = hexstr_to_val(&data[i]); /* Sequence */
+		sms_event.pdu.udh.seq = hexstr_to_val(&data[i]); /* Sequence */
 		i += 2;
 
 		content_len -= 8; /* TODO check if this should be: content_len - sms_event.pdu.tp_udhl */
 		if (g_debug & WAT_DEBUG_SMS_DECODE) {
 			/* User data length */
 			wat_log_span(span, WAT_LOG_DEBUG, "TP-UDHL:%d IEI:%d IEDL:%d Ref nr:%d Total:%d Seq:%d\n",
-					sms_event.pdu.tp_udhl, sms_event.pdu.iei, sms_event.pdu.iedl, sms_event.pdu.refnr, sms_event.pdu.total, sms_event.pdu.seq);
+						 sms_event.pdu.udh.tp_udhl, sms_event.pdu.udh.iei, sms_event.pdu.udh.iedl, sms_event.pdu.udh.refnr, sms_event.pdu.udh.total, sms_event.pdu.udh.seq);
 		}
 		
 	}
@@ -845,7 +692,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
 		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
 			/* Default Aplhabet, phase 2 */
-			sms_event.content.len = wat_decode_sms_pdu_message_ascii(sms_event.content.data, sizeof(sms_event.content.data), &data[i], content_len , sms_event.pdu.seq);
+			sms_event.content.len = wat_decode_sms_pdu_message_ascii(sms_event.content.data, sizeof(sms_event.content.data), &data[i], content_len , sms_event.pdu.udh.seq);
 			break;
 		case WAT_SMS_PDU_DCS_ALPHABET_8BIT:
 		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
@@ -872,16 +719,31 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 	unsigned pdu_data_len;
 	char raw_content[WAT_MAX_SMS_SZ*sizeof(wchar_t)];
 	wat_size_t raw_content_len;
-	int pdu_header_len;
+	wat_size_t pdu_header_len;	
+	wat_size_t udh_len;
 	wat_sms_event_t *sms_event;
 	char *pdu_data_ptr;
-	unsigned i;
+	char *tp_udh_loc;
+	unsigned i;	
 
 	sms_event = &sms->sms_event;
 	pdu_data_ptr = pdu_data;
 	pdu_data_len = 0;
+	udh_len = 0;
 
 	/* www.dreamfabric.com/sms/ */
+
+	if (!strlen(sms_event->pdu.smsc.digits)) {
+		if (strlen(span->sim_info.smsc.digits)) {
+			wat_log_span(span, WAT_LOG_DEBUG, "SMSC not specified, using %s\n", span->sim_info.smsc.digits);
+			memcpy(&sms_event->pdu.smsc, &span->sim_info.smsc, sizeof(span->sim_info.smsc));
+		} else {
+			wat_log_span(span, WAT_LOG_ERROR, "SMSC information not available\n");
+			WAT_FUNC_DBG_END
+			return WAT_FAIL;
+		}
+	}
+
 	status = wat_encode_sms_pdu_smsc(&sms_event->pdu.smsc, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-SMSC information\n");
@@ -890,13 +752,19 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 
 	pdu_header_len = pdu_data_len;
 
+	/* We need to include User Data Header if we want to send concatenated messages */
+	if (!sms_event->pdu.sms.submit.tp_udhi && sms_event->pdu.udh.total > 1) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Including User Data Header due to contatenated messages\n");
+		sms_event->pdu.sms.submit.tp_udhi = 1;
+	}
+
 	status = wat_encode_sms_pdu_submit(&sms_event->pdu.sms.submit, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-SUBMIT information\n");
 		return status;
 	}
 
-	status = wat_encode_sms_pdu_message_ref(sms_event->pdu.refnr, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_message_ref(sms_event->pdu.tp_message_ref, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-Message Ref information\n", sizeof(pdu_data) - pdu_data_len);
@@ -946,9 +814,39 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Header");
 	}
 
+	/* This is the location where we will store the user data header length */
+	tp_udh_loc = pdu_data_ptr;
+
+	if (sms_event->pdu.sms.submit.tp_udhi) {
+		wat_size_t post_udl_data_len;
+		
+		pdu_data_ptr++;
+		pdu_data_len++;
+		post_udl_data_len = pdu_data_len;
+
+		status = wat_encode_sms_pdu_udh(&sms_event->pdu.udh, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+
+		if (status != WAT_SUCCESS) {
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to encode User Data Header\n");
+			return status;
+		}
+
+		udh_len = pdu_data_len - post_udl_data_len;
+	}
+
 	switch (sms_event->pdu.dcs.alphabet) {
 		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
-			status = wat_encode_sms_pdu_message_7bit((wchar_t *)raw_content, raw_content_len, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len, 0);
+			{
+				char *tp_udh_loc_ptr = tp_udh_loc + 1;
+				wat_size_t content_len = udh_len;
+
+				/* Convert the length into septets */
+				status = wat_encode_sms_pdu_message_7bit((wchar_t *)raw_content, raw_content_len, &tp_udh_loc_ptr, &content_len, sizeof(pdu_data) - pdu_data_len - udh_len, octet_to_septet(udh_len));
+
+				*tp_udh_loc = octet_to_septet(udh_len) + content_len;
+
+				pdu_data_len += septet_to_octet(content_len + octet_to_septet(udh_len)) - udh_len;
+			}
 			break;
 		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
 			status = wat_encode_sms_pdu_message_ucs2(raw_content, raw_content_len, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
