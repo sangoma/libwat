@@ -61,19 +61,19 @@ void wat_span_run_sched(wat_span_t *span)
 /* Check for pending commands, and execute command if module is not cmd_busy */
 void wat_span_run_cmds(wat_span_t *span)
 {
-	wat_cmd_t *cmd;
-
-	/* Once we are in SMS mode, we have to finish transmitting that SMS before
-	writing any other commands */
-	if (span->sms_write) {
-		if (wat_sms_send_body(span->outbound_sms) == WAT_BREAK) {
-			return;
-		}
-	}
+	wat_cmd_t *cmd = NULL;
 
 	if (!span->cmd_busy) {
-		/* Check if there are any commands waiting to be transmitted */
-		cmd = wat_queue_dequeue(span->cmd_queue);
+		
+		if (span->cmd_next) {
+			/* Check if there are any priority command to be transmitted */
+			cmd = span->cmd_next;
+			span->cmd_next = NULL;
+		} else {
+			/* Check if there are any commands waiting to be transmitted */
+			cmd = wat_queue_dequeue(span->cmd_queue);
+		}
+		
 		if (cmd) {
 			if (cmd->cmd == NULL) {
 				/* This is a dummy command, just call the callback function */

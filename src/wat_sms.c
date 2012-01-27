@@ -165,14 +165,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			{
 				char cmd[4];
 				sprintf(cmd, "%c\r\n", 0x1a);
-#if 1
-				wat_cmd_enqueue(span, cmd, wat_response_cmgs_end, sms);
-#else
-				wat_span_write(span, cmd, strlen(cmd));
-				span->outbound_sms = NULL;
-
-				wat_sms_set_state(sms, WAT_SMS_STATE_COMPLETE);
-#endif
+				wat_cmd_send(span, cmd, wat_response_cmgs_end, sms);
 			}
 			break;
 		case WAT_SMS_STATE_COMPLETE:
@@ -233,8 +226,8 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 		sms->wrote += len_wrote;
 
 		if (len_wrote <= 0) {
-			/* Some lower level queue is full, return, and we will try to transmit again when we get called again */
-			return WAT_BREAK;
+			/* Some lower level queue is full  */
+			wat_log_span(span, WAT_LOG_ERROR, "Failed to write AT command, sms send fail\n");
 		}
 	}
 	span->sms_write = 0;
@@ -810,7 +803,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		return status;
 	}
 
-	if (g_debug & WAT_DEBUG_SMS_DECODE) {
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
 		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Header");
 	}
 
@@ -863,6 +856,10 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode message contents into pdu\n");
 		return WAT_FAIL;
+	}
+
+	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Before string encoding");
 	}
 
 	sms->pdu_len = pdu_data_len - pdu_header_len;

@@ -331,6 +331,48 @@ static char *wat_strerror(int error, struct enum_code error_table[])
 	return "invalid";
 }
 
+/* This function guarrantees that this command will be sent right after the current command that is being executed
+    (before any queued command)	only one AT command can be sent this way, this function should only be used if
+    this command needs to go before the commands that were already queued */
+
+wat_status_t wat_cmd_send(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj)
+{
+	wat_cmd_t *cmd;
+
+	if (span->cmd_next != NULL) {
+		wat_log_span(span, WAT_LOG_CRIT, "We already had a command to send next!!! (new:%s existing:%s)\n", incommand, span->cmd_next->cmd);
+		return WAT_FAIL;
+	}
+
+	wat_assert_return(span->cmd_queue, WAT_FAIL, "No command queue!\n");
+
+	if (!incommand) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Sending dummy cmd cb:%p\n", cb);
+	} else {
+		if (!strlen(incommand)) {
+			wat_log_span(span, WAT_LOG_DEBUG, "Invalid cmd to end \"%s\"\n", incommand);
+			return WAT_FAIL;
+		}
+
+		if (g_debug & WAT_DEBUG_AT_HANDLE) {
+			wat_log_span(span, WAT_LOG_DEBUG, "Next command \"%s\"\n", incommand);
+		}
+	}
+
+	/* Add a \r to finish the command */
+	cmd = wat_calloc(1, sizeof(*cmd));
+	wat_assert_return(cmd, WAT_FAIL, "Failed to alloc new command\n");
+	
+	cmd->cb = cb;
+	cmd->obj = obj;
+	if (incommand) {
+		cmd->cmd = wat_strdup(incommand);
+	}
+	
+	span->cmd_next = cmd;
+	return WAT_SUCCESS;
+}
+
 wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj)
 {
 	wat_cmd_t *cmd;
@@ -488,7 +530,7 @@ static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_termina
 		wat_log_span(span, WAT_LOG_DEBUG, "Handling response for cmd:%s\n", cmd->cmd);
 	}
 
-	if (terminator->term_type == WAT_TERM_SMS) {		
+	if (terminator->term_type == WAT_TERM_SMS) {
 		wat_sms_set_state(span->outbound_sms, WAT_SMS_STATE_SEND_BODY);
 	}
 	

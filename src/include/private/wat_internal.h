@@ -273,6 +273,7 @@ typedef int (wat_cmd_notify_func) WAT_NOTIFY_ARGS;
 
 wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_notify_func *func);
 wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj);
+wat_status_t wat_cmd_send(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj);
 
 typedef struct _wat_user_cmd_t {
 	wat_at_cmd_response_func cb;
@@ -336,6 +337,7 @@ struct wat_span {
 
 	uint8_t	cmd_busy:1;			/* If currently executing a command */
 	wat_cmd_t *cmd;				/* Current command being executed */
+	wat_cmd_t *cmd_next;		/* Next priority command to be executed */
 	wat_queue_t *cmd_queue;		/* Commands waiting to be executed */
 
 	uint8_t cnum_retries;		/* Number of times we have retried to get subscriber number */
