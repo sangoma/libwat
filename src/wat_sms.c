@@ -846,6 +846,9 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 				*tp_udh_loc = octet_to_septet(udh_len) + content_len;
 
 				pdu_data_len += septet_to_octet(content_len + octet_to_septet(udh_len)) - udh_len;
+				if (!sms_event->pdu.sms.submit.tp_udhi) {
+					pdu_data_len++;
+				}
 			}
 			break;
 		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
