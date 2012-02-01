@@ -31,7 +31,8 @@
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
-uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE;
+//uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
+uint32_t	g_debug = WAT_DEBUG_AT_HANDLE |WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 #else
 uint32_t	g_debug = 0;
@@ -628,7 +629,7 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 	}
 
 	switch(sms_event->content.encoding) {
-		case WAT_SMS_CONTENT_ENCODING_RAW:
+		case WAT_SMS_CONTENT_ENCODING_NONE:
 			switch(sms_event->pdu.dcs.alphabet) {
 				case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
 				case WAT_SMS_PDU_DCS_ALPHABET_8BIT:
@@ -816,7 +817,7 @@ WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status)
 	return wat_pin_stat2str(pin_status);
 }
 
-WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti)
+WAT_DECLARE(const char*) wat_decode_pdu_mti(unsigned mti)
 {
 	return wat_sms_pdu_mti2str(mti);
 }

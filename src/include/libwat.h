@@ -450,17 +450,17 @@ typedef enum _wat_sms_content_charset {
 	WAT_SMS_CONTENT_CHARSET_INVALID
 } wat_sms_content_charset_t;
 
-#define WAT_SMS_CONTENT_CHARSET_STRINGS "ascii", "utf-8", "invalid"
+#define WAT_SMS_CONTENT_CHARSET_STRINGS "ASCII", "UTF-8", "invalid"
 WAT_STR2ENUM_P(wat_str2wat_sms_content_charset, wat_sms_content_charset2str, wat_sms_content_charset_t);
 
 typedef enum _wat_sms_content_encoding {
-	WAT_SMS_CONTENT_ENCODING_RAW,
+	WAT_SMS_CONTENT_ENCODING_NONE,
 	WAT_SMS_CONTENT_ENCODING_BASE64,
 	WAT_SMS_CONTENT_ENCODING_HEX,	/* Not implement yet */
 	WAT_SMS_CONTENT_ENCODING_INVALID,
 } wat_sms_content_encoding_t;
 
-#define WAT_SMS_CONTENT_ENCODING_STRINGS "raw", "base64", "hex", "Invalid"
+#define WAT_SMS_CONTENT_ENCODING_STRINGS "none", "base64", "hex", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_sms_content_encoding, wat_sms_content_encoding2str, wat_sms_content_encoding_t);
 
 typedef struct _wat_sms_content_t {
@@ -548,6 +548,8 @@ typedef struct _wat_span_config_t {
 	
 	wat_band_t band;			/* Band frequency to be used */
 	wat_codec_t codec_mask; /* Which codecs to advertise */
+
+	wat_sms_content_encoding_t incoming_sms_encoding; /* Encoding to use on received SMS when not in ASCII */
 } wat_span_config_t;
 
 typedef void (*wat_span_sts_func_t)(uint8_t span_id, wat_span_status_t *status);
@@ -619,8 +621,8 @@ WAT_DECLARE(const char*) wat_decode_alarm(unsigned alarm);
 WAT_DECLARE(const char *) wat_decode_ber(unsigned ber);
 WAT_DECLARE(const char *) wat_decode_sms_cause(uint32_t cause);
 WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
-WAT_DECLARE(const char*) wat_decode_sms_pdu_mti(unsigned mti);
-WAT_DECLARE(const char*) wat_decode_sms_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
+WAT_DECLARE(const char*) wat_decode_pdu_mti(unsigned mti);
+WAT_DECLARE(const char*) wat_decode_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
 WAT_DECLARE(const char *) wat_decode_band(wat_band_t band);
 
 WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone);

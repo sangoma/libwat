@@ -542,7 +542,9 @@ static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_termina
 
 	wat_sched_cancel_timer(span->sched, span->timeouts[WAT_TIMEOUT_CMD]);
 
-	wat_log_span(span, WAT_LOG_DEBUG, "Response consumed %d tokens\n", tokens_consumed);
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Response consumed %d tokens\n", tokens_consumed);
+	}
 
 	/* Some chip manufacturers recommend a grace period between receiving a response and sending another command */
 	wat_sched_timer(span->sched, "command_interval", span->config.cmd_interval, wat_cmd_complete, (void*) span, NULL);	
@@ -571,9 +573,13 @@ static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 
 	/* This is not an error, sometimes sometimes we have an incomplete response
 	(terminator not received yet), and we think its a notify  */
-	wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
+	}
 done:
-	wat_log_span(span, WAT_LOG_DEBUG, "Notify consumed %d tokens\n", tokens_consumed);
+	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		wat_log_span(span, WAT_LOG_DEBUG, "Notify consumed %d tokens\n", tokens_consumed);
+	}
 	return tokens_consumed;
 }
 
