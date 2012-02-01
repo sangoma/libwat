@@ -722,7 +722,7 @@ wat_status_t wat_decode_sms_pdu_message_ucs2(char *outdata, wat_size_t *outdata_
 }
 
 
-wat_status_t wat_decode_sms_pdu_message_7bit(char *outdata, wat_size_t *outdata_len, wat_size_t outdata_size, wat_size_t message_len, int padding, char **indata, wat_size_t size)
+wat_status_t wat_decode_sms_pdu_message_7bit(char *outdata, wat_size_t *outdata_len, wat_size_t outdata_size, wat_size_t message_len, wat_size_t offset, int padding, char **indata, wat_size_t size)
 {
 	int i;
 	int carry;
@@ -733,6 +733,8 @@ wat_status_t wat_decode_sms_pdu_message_7bit(char *outdata, wat_size_t *outdata_
 	carry = 0;
 	data_len = 0;
 	data = *indata;
+
+	message_len -= (offset / 2);
 	
 	memset(outdata, 0, outdata_size);
 
@@ -743,12 +745,15 @@ wat_status_t wat_decode_sms_pdu_message_7bit(char *outdata, wat_size_t *outdata_
 	}
 
 	if (padding) {
-		uint8_t j = i % 7;
-		
+		/* This is probably not the right way to do this, but it works */
+		i = 1;
+		data++;
+
 		byte = *data;
 		data++;
-		
-		conv_byte = hi_bits(byte, 7-j);
+
+		conv_byte = byte >> 1;
+
 		data_len += sprintf(&outdata[data_len], "%c", conv_byte);
 		padding = 1;
 	}

@@ -330,7 +330,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 
 	pdu_ptr = pdu;
 	pdu_len = i;
-
+	
 	ret =  wat_decode_sms_pdu_smsc(&sms_event.pdu.smsc, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMSC from SMS PDU data\n");
@@ -391,7 +391,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	switch (sms_event.pdu.dcs.alphabet) {
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
 		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
-			ret = wat_decode_sms_pdu_message_7bit(raw_content, &raw_content_len, sizeof(sms_event.content.data), (sms_event.pdu.tp_udl - sms_event.pdu.udh.tp_udhl), sms_event.pdu.udh.seq, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+			ret = wat_decode_sms_pdu_message_7bit(raw_content, &raw_content_len, sizeof(sms_event.content.data), (sms_event.pdu.tp_udl - sms_event.pdu.udh.tp_udhl), sms_event.pdu.udh.tp_udhl, sms_event.pdu.udh.seq, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 
 			if (wat_convert_ascii(raw_content, &raw_content_len) == WAT_SUCCESS) {
 				sms_event.content.charset = WAT_SMS_CONTENT_CHARSET_ASCII;

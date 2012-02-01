@@ -44,9 +44,6 @@ wat_status_t wat_encode_sms_pdu_vp(wat_sms_pdu_vp_t *vp, char **outdata, wat_siz
 wat_status_t wat_encode_sms_pdu_udh(wat_sms_pdu_udh_t *udh, char **outdata, wat_size_t *outdata_len, wat_size_t outdata_size);
 
 wat_status_t wat_verify_default_alphabet(char *content_data);
-#if 0
-wat_status_t wat_verify_ascii(uint8_t *data, wat_size_t len);
-#endif
 wat_status_t wat_convert_ascii(char *raw_content, wat_size_t *raw_content_len);
 
 /* DECODING FUNCTIONS */
@@ -59,6 +56,6 @@ wat_status_t wat_decode_sms_pdu_pid(uint8_t *pid, char **indata, wat_size_t size
 wat_status_t wat_decode_sms_pdu_scts(wat_timestamp_t *ts, char **data, wat_size_t size);
 wat_status_t wat_decode_sms_pdu_udl(uint8_t *udl, char **indata, wat_size_t size);
 wat_status_t wat_decode_sms_pdu_udh(wat_sms_pdu_udh_t *udh, char **indata, wat_size_t size);
-wat_status_t wat_decode_sms_pdu_message_7bit(char *outdata, wat_size_t *outdata_len, wat_size_t outdata_size, wat_size_t message_len, int padding, char **data, wat_size_t size);
+wat_status_t wat_decode_sms_pdu_message_7bit(char *outdata, wat_size_t *outdata_len, wat_size_t outdata_size, wat_size_t message_len, wat_size_t udh_len, int padding, char **indata, wat_size_t size);
 wat_status_t wat_decode_sms_pdu_message_ucs2(char *outdata, wat_size_t *outdata_len, wat_size_t outdata_size, wat_size_t message_len, char **indata, wat_size_t size);
 #endif /* _WAT_SMS_PDU_H */
