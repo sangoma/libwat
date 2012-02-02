@@ -26,7 +26,7 @@ index f9b5b3a..4573f9c 100644
  ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
  modules.link: h323/libchanh323.a
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index be68212..1f42434 100644
+index be68212..3d539bb 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -44,6 +44,7 @@
@@ -1007,6 +1007,18 @@ index be68212..1f42434 100644
  #ifdef HAVE_OPENR2
  	ast_cli_register_multiple(dahdi_mfcr2_cli, ARRAY_LEN(dahdi_mfcr2_cli));
  	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
+@@ -18802,6 +19371,11 @@ static int load_module(void)
+ #if defined(HAVE_PRI)
+ 	ast_manager_register_xml("PRIShowSpans", 0, action_prishowspans);
+ #endif	/* defined(HAVE_PRI) */
++#ifdef HAVE_WAT
++        ast_manager_register_xml("WATSendSms", 0, action_watsendsms);
++        ast_manager_register_xml("WATShowSpan", 0, action_watshowspan);
++        ast_manager_register_xml("WATShowSpans", 0, action_watshowspans);
++#endif
+ 
+ 	ast_cond_init(&ss_thread_complete, NULL);
+ 
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
 index 0000000..0031558
