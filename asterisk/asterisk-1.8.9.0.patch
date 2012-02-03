@@ -10,23 +10,8 @@ index 35573c3..f565442 100644
  OPENR2=@PBX_OPENR2@
  RESAMPLE=@PBX_RESAMPLE@
  AIS=@PBX_AIS@
-diff --git a/channels/Makefile b/channels/Makefile
-index f9b5b3a..4573f9c 100644
---- a/channels/Makefile
-+++ b/channels/Makefile
-@@ -73,8 +73,8 @@ $(if $(filter chan_iax2,$(EMBEDDED_MODS)),modules.link,chan_iax2.so): iax2-parse
- iax2-parser.o iax2-provision.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_iax2)
- $(if $(filter chan_sip,$(EMBEDDED_MODS)),modules.link,chan_sip.so): $(subst .c,.o,$(wildcard sip/*.c))
- $(subst .c,.o,$(wildcard sip/*.c)): _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_sip)
--$(if $(filter chan_dahdi,$(EMBEDDED_MODS)),modules.link,chan_dahdi.so): sig_analog.o sig_pri.o sig_ss7.o
--sig_analog.o sig_pri.o sig_ss7.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_dahdi)
-+$(if $(filter chan_dahdi,$(EMBEDDED_MODS)),modules.link,chan_dahdi.so): sig_analog.o sig_pri.o sig_ss7.o sig_wat.o
-+sig_analog.o sig_pri.o sig_ss7.o sig_wat.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_dahdi)
- 
- ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
- modules.link: h323/libchanh323.a
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index d8043ad..4c7f7f4 100644
+index d8043ad..f6cb5b8 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -44,6 +44,7 @@
@@ -834,7 +819,27 @@ index d8043ad..4c7f7f4 100644
  
  #ifdef HAVE_PRI
  	for (i = 0; i < NUM_SPANS; i++) {
-@@ -16587,6 +17062,18 @@ static int __unload_module(void)
+@@ -16549,6 +17024,19 @@ static int __unload_module(void)
+ 	ast_manager_unregister("DAHDIDNDon");
+ 	ast_manager_unregister("DAHDIShowChannels");
+ 	ast_manager_unregister("DAHDIRestart");
++#if defined(HAVE_PRI)
++	ast_manager_unregister("PRIShowSpans");
++#endif	/* defined(HAVE_PRI) */
++#ifdef HAVE_WAT
++	for (i = 0; i < NUM_SPANS; i++) {
++		if (wats[i].wat.master != AST_PTHREADT_NULL)
++			pthread_cancel(wats[i].wat.master);
++	}
++	ast_cli_unregister_multiple(dahdi_wat_cli, ARRAY_LEN(dahdi_wat_cli));
++	ast_manager_unregister("WATSendSms");
++	ast_manager_unregister("WATShowSpan");
++	ast_manager_unregister("WATShowSpans");
++#endif
+ 	ast_data_unregister(NULL);
+ 	ast_channel_unregister(&dahdi_tech);
+ 
+@@ -16587,6 +17075,18 @@ static int __unload_module(void)
  	sig_pri_unload();
  #endif
  
@@ -853,7 +858,7 @@ index d8043ad..4c7f7f4 100644
  #if defined(HAVE_SS7)
  	for (i = 0; i < NUM_SPANS; i++) {
  		if (linksets[i].ss7.master && (linksets[i].ss7.master != AST_PTHREADT_NULL))
-@@ -16602,9 +17089,9 @@ static int __unload_module(void)
+@@ -16602,9 +17102,9 @@ static int __unload_module(void)
  
  static int unload_module(void)
  {
@@ -865,7 +870,7 @@ index d8043ad..4c7f7f4 100644
  #ifdef HAVE_PRI
  	for (y = 0; y < NUM_SPANS; y++)
  		ast_mutex_destroy(&pris[y].pri.lock);
-@@ -16613,6 +17100,10 @@ static int unload_module(void)
+@@ -16613,6 +17113,10 @@ static int unload_module(void)
  	for (y = 0; y < NUM_SPANS; y++)
  		ast_mutex_destroy(&linksets[y].ss7.lock);
  #endif	/* defined(HAVE_SS7) */
@@ -876,7 +881,7 @@ index d8043ad..4c7f7f4 100644
  	return __unload_module();
  }
  
-@@ -17206,6 +17697,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+@@ -17206,6 +17710,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
  				} else if (!strcasecmp(v->value, "mfcr2")) {
  					confp->chan.sig = SIG_MFCR2;
  #endif
@@ -887,7 +892,7 @@ index d8043ad..4c7f7f4 100644
  				} else if (!strcasecmp(v->value, "auto")) {
  					confp->is_sig_auto = 1;
  				} else {
-@@ -17250,6 +17745,36 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+@@ -17250,6 +17758,36 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s' at line %d.\n", v->value, v->lineno);
  				}
@@ -924,7 +929,7 @@ index d8043ad..4c7f7f4 100644
  #ifdef HAVE_PRI
  			} else if (!strcasecmp(v->name, "pridialplan")) {
  				if (!strcasecmp(v->value, "national")) {
-@@ -18168,6 +18693,21 @@ static int setup_dahdi_int(int reload, struct dahdi_chan_conf *default_conf, str
+@@ -18168,6 +18706,21 @@ static int setup_dahdi_int(int reload, struct dahdi_chan_conf *default_conf, str
  		}
  	}
  #endif
@@ -946,7 +951,7 @@ index d8043ad..4c7f7f4 100644
  	/* And start the monitor for the first time */
  	restart_monitor();
  	return 0;
-@@ -18361,9 +18901,9 @@ static const struct ast_data_entry dahdi_data_providers[] = {
+@@ -18361,9 +18914,9 @@ static const struct ast_data_entry dahdi_data_providers[] = {
  static int load_module(void)
  {
  	int res;
@@ -958,7 +963,7 @@ index d8043ad..4c7f7f4 100644
  
  #ifdef HAVE_PRI
  	memset(pris, 0, sizeof(pris));
-@@ -18402,6 +18942,13 @@ static int load_module(void)
+@@ -18402,6 +18955,13 @@ static int load_module(void)
  	ss7_set_error(dahdi_ss7_error);
  	ss7_set_message(dahdi_ss7_message);
  #endif	/* defined(HAVE_SS7) */
@@ -972,7 +977,7 @@ index d8043ad..4c7f7f4 100644
  	res = setup_dahdi(0);
  	/* Make sure we can register our DAHDI channel type */
  	if (res)
-@@ -18417,6 +18964,9 @@ static int load_module(void)
+@@ -18417,6 +18977,9 @@ static int load_module(void)
  #if defined(HAVE_SS7)
  	ast_cli_register_multiple(dahdi_ss7_cli, ARRAY_LEN(dahdi_ss7_cli));
  #endif	/* defined(HAVE_SS7) */
@@ -982,7 +987,7 @@ index d8043ad..4c7f7f4 100644
  #ifdef HAVE_OPENR2
  	ast_cli_register_multiple(dahdi_mfcr2_cli, ARRAY_LEN(dahdi_mfcr2_cli));
  	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
-@@ -18434,6 +18984,12 @@ static int load_module(void)
+@@ -18434,6 +18997,12 @@ static int load_module(void)
  	ast_manager_register_xml("DAHDIShowChannels", 0, action_dahdishowchannels);
  	ast_manager_register_xml("DAHDIRestart", 0, action_dahdirestart);
  
@@ -997,10 +1002,10 @@ index d8043ad..4c7f7f4 100644
  	return res;
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..0031558
+index 0000000..0f32c85
 --- /dev/null
 +++ b/channels/sig_wat.c
-@@ -0,0 +1,1688 @@
+@@ -0,0 +1,1685 @@
 +/*
 + * Asterisk -- An open source telephony toolkit.
 + *
@@ -1415,8 +1420,8 @@ index 0000000..0031558
 +	event_len += sprintf(&event[event_len],
 +									"Span: %d\r\n"
 +									"From-Number: %s\r\n"
-+									"From-NP: %s\r\n"
-+									"From-TON: %s\nr\r"
++									"From-Plan: %s\r\n"
++									"From-Type: %s\nr\r"
 +									"Timestamp: %02d/%02d/%02d %02d:%02d:%02d %s\r\n"
 +									"Type: %s\r\n",
 +									(wat->span + 1),
@@ -1431,9 +1436,9 @@ index 0000000..0031558
 +	if (sms_event->type == WAT_SMS_PDU) {
 +		event_len += sprintf(&event[event_len],
 +									"X-SMS-Message-Type: %s\r\n"
-+									"X-SMS-SMCC-NP: %s\r\n"
-+									"X-SMS-SMCC-TON: %s\r\n"
-+									"X-SMS-SMCC-Number: %s\r\n"
++									"X-SMS-SMSC-Plan: %s\r\n"
++									"X-SMS-SMSC-Type: %s\r\n"
++									"X-SMS-SMSC-Number: %s\r\n"
 +									"X-SMS-More-Messages-To-Send: %s\r\n"
 +									"X-SMS-Reply-Path: %s\r\n"
 +									"X-SMS-User-Data-Header-Indicator: %s\r\n"
@@ -1465,12 +1470,10 @@ index 0000000..0031558
 +	event_len += sprintf(&event[event_len],
 +									"Content-Type: %s; charset=%s\r\n"
 +									"Content-Transfer-Encoding: %s\r\n"
-+									"Content-Length: %zd\r\n"
 +									"Content: %s\r\n\r\n",
 +									(sms_event->pdu.dcs.compressed) ? "Compressed" : "text/plain",
 +									wat_sms_content_charset2str(sms_event->content.charset),
 +									wat_sms_content_encoding2str(sms_event->content.encoding),
-+									sms_event->content.len,
 +									sms_event->content.data);
 +
 +	manager_event(EVENT_FLAG_CALL, "WATIncomingSms", "%s", event);
@@ -2352,18 +2355,18 @@ index 0000000..0031558
 +		event.to.type = WAT_NUMBER_TYPE_NATIONAL;
 +	}
 +
-+	smsc_number = astman_get_header(m, "X-SMS-SMCC-Number");
++	smsc_number = astman_get_header(m, "X-SMS-SMSC-Number");
 +	if (!ast_strlen_zero(smsc_number)) {
 +		memcpy(event.pdu.smsc.digits, smsc_number, sizeof(event.pdu.smsc.digits));
 +
-+		smsc_plan = astman_get_header(m, "X-SMS-SMCC-Plan");
++		smsc_plan = astman_get_header(m, "X-SMS-SMSC-Plan");
 +		if (!ast_strlen_zero(smsc_plan)) {
 +			event.pdu.smsc.plan = wat_str2wat_number_plan(smsc_plan);
 +		} else {
 +			event.pdu.smsc.type = WAT_NUMBER_PLAN_ISDN;
 +		}
 +		
-+		smsc_type = astman_get_header(m, "X-SMS-SMCC-Type");
++		smsc_type = astman_get_header(m, "X-SMS-SMSC-Type");
 +		if (!ast_strlen_zero(smsc_type)) {
 +			event.pdu.smsc.type = wat_str2wat_number_type(smsc_type);
 +		} else {
@@ -2446,7 +2449,6 @@ index 0000000..0031558
 +	
 +	content = astman_get_header(m, "Content");
 +	if (!ast_strlen_zero(content)) {
-+
 +		event.content.len = strlen(content);
 +		strncpy(event.content.data, content, sizeof(event.content.data));
 +	} else {
