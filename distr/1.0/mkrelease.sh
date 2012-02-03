@@ -1,5 +1,6 @@
 #!/bin/sh
 
+$homedir=`pwd`
 
 ##################### FUNCTIONS ##########################
 
@@ -145,7 +146,6 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create new directory"
 fi
 
-# TODO: DAVIDY: IMPROVE THIS!!! :)
 eval "cat ../../CMakeLists.txt | \
 		sed s/\"SET(wat_VERSION_LT_CURRENT\".*/\"SET(wat_VERSION_LT_CURRENT $major)\"/ | \
 		sed s/\"SET(wat_VERSION_LT_REVISION\".*/\"SET(wat_VERSION_LT_REVISION $minor)\"/ | \
@@ -204,12 +204,28 @@ echo "libwat: git ver $gitinfo_libwat" > .git_info
 
 cd $HOME
 
-tar cfz $rel_name".tgz"  $rel_name
+eval "tar cfz $rel_name".tgz"  $rel_name"
+if [ $? -ne 0 ]; then
+	echo "Failed to create tarball"
+	exit 1
+fi
 
 eval "../sangoma_ftp.pl $rel_name.tgz linux/libwat"
+if [ $? -ne 0 ]; then
+	echo "Failed to upload to ftp"
+	exit 1
+fi
 
 tar cfz libwat-$major.$minor-current.tgz $rel_name
+if [ $? -ne 0 ]; then
+	echo "Failed to create tarball"
+	exit 1
+fi
 eval "../sangoma_ftp.pl libwat-$major.$minor-current.tgz linux/libwat"
+if [ $? -ne 0 ]; then
+	echo "Failed to upload to ftp"
+	exit 1
+fi
 
 tagname="v$major.$minor.$rev.$patch"
 
