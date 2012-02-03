@@ -233,8 +233,10 @@ if [ $tag = "y" ]; then
 	cd $HOME
 	cd ../../
 	echo "$cmd"
-	eval "$cmd"
-	git push origin $tagname
+	eval "$cmd"	
+	echo "Failed to create new git tag cmd:$cmd"
+	eval "git push origin $tagname"
+	echo "Failed to push new git tag"
 fi
 
 echo
