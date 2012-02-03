@@ -166,7 +166,7 @@ sub gen_changelog_git
 				$log_line =~ s/$g_changelog_tag//g;
 				$save_to_changelog=1;
 				$changelog_str.="\n* $commit_author\n";
-				$changelog_str.="  $commit_date\n\n";
+				$changelog_str.="  $commit_date\n";
 				$num_items = $num_items+1;
 			}
 
