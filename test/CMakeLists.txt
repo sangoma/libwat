@@ -1,33 +1,40 @@
-
+INCLUDE(CheckIncludeFiles)
 INCLUDE_DIRECTORIES("${PROJECT_SOURCE_DIR}/src/include")
 
-#DAHDI test applications
-SET(DAHDI_TESTS
-	test_dahdi_voice
-	test_dahdi_sms)
+SET(CMAKE_REQUIRED_INCLUDES /usr/include/wanpipe)
+CHECK_INCLUDE_FILES(dahdi/user.h HAVE_DAHDI_USER_H)
+CHECK_INCLUDE_FILES(libsangoma.h HAVE_LIBSANGOMA_H)
 
-SET(WANPIPE_TESTS
-	test_wanpipe_voice)
+IF(HAVE_DAHDI_USER_H OR HAVE_LIBSANGOMA_H)
+	ADD_EXECUTABLE(wat_test
+		${PROJECT_SOURCE_DIR}/test/wat_test.c
+		${PROJECT_SOURCE_DIR}/test/test_utils.c)
+	TARGET_LINK_LIBRARIES(wat_test wat)
+	ADD_DEPENDENCIES(wat_test ${PROJECT_NAME})
+ELSE(HAVE_DAHDI_USER_H OR HAVE_LIBSANGOMA_H)
+	message("No Wanpipe or DAHDI detected, skipping wat_test compilation ...")
+ENDIF(HAVE_DAHDI_USER_H OR HAVE_LIBSANGOMA_H)
 
-IF (IS_DIRECTORY /usr/include/dahdi)
-message("DAHDI installation detected")
-FOREACH(TEST ${DAHDI_TESTS})
-	ADD_EXECUTABLE(${TEST}
-	${PROJECT_SOURCE_DIR}/test/${TEST}.c
-	${PROJECT_SOURCE_DIR}/test/test_utils.c)
-	TARGET_LINK_LIBRARIES(${TEST} wat)
-	ADD_DEPENDENCIES(${TEST} ${PROJECT_NAME})
-ENDFOREACH(TEST)
-ENDIF(IS_DIRECTORY /usr/include/dahdi)
-
-IF (IS_DIRECTORY /usr/include/wanpipe)
-message("Wanpipe installation detected")
-FOREACH(TEST ${WANPIPE_TESTS})
-	ADD_EXECUTABLE(${TEST}
-	${PROJECT_SOURCE_DIR}/test/${TEST}.c
-	${PROJECT_SOURCE_DIR}/test/test_utils.c)
-	TARGET_LINK_LIBRARIES(${TEST} wat sangoma)
+IF(HAVE_LIBSANGOMA_H)
+	message("Wanpipe installation detected")
+	TARGET_LINK_LIBRARIES(wat_test sangoma)
 	INCLUDE_DIRECTORIES("/usr/include/wanpipe")
-	ADD_DEPENDENCIES(${TEST} ${PROJECT_NAME})
-ENDFOREACH(TEST)
-ENDIF(IS_DIRECTORY /usr/include/wanpipe)
+ENDIF(HAVE_LIBSANGOMA_H)
+
+IF(HAVE_DAHDI_USER_H)
+	# DAHDI test applications
+	SET(DAHDI_TESTS
+		test_dahdi_sms)
+
+	message("DAHDI installation detected")
+
+	FOREACH(TEST ${DAHDI_TESTS})
+		ADD_EXECUTABLE(${TEST}
+		${PROJECT_SOURCE_DIR}/test/${TEST}.c
+		${PROJECT_SOURCE_DIR}/test/test_utils.c)
+		TARGET_LINK_LIBRARIES(${TEST} wat)
+		ADD_DEPENDENCIES(${TEST} ${PROJECT_NAME})
+	ENDFOREACH(TEST)
+ENDIF(HAVE_DAHDI_USER_H)
+
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_SOURCE_DIR}/config.h)

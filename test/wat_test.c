@@ -22,8 +22,7 @@
  */
 #define _GNU_SOURCE
 
-#define HAVE_LIBSANGOMA_H 1
-#define HAVE_DAHDI_USER_H 1
+#include "config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -36,6 +35,7 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <stdint.h>
+#include <sys/time.h>
 #include "g711.h"
 
 #ifdef HAVE_LIBSANGOMA_H
@@ -59,8 +59,8 @@
 		} while (0)
 
 typedef struct _wat_span {
-	sng_fd_t dev;
-	sng_fd_t bchan_dev;
+	int dev;
+	int bchan_dev;
 #ifdef HAVE_LIBSANGOMA_H
 	sangoma_wait_obj_t *waitable;
 	sangoma_wait_obj_t *bchan_waitable;
@@ -338,7 +338,6 @@ int main (int argc, char *argv[])
 	char *devstr = NULL;
 	char *playfile_str = NULL;
 	int next_ms;
-	int x;
 	int res;
 	int count = 0;
 #ifdef HAVE_LIBSANGOMA_H
@@ -392,6 +391,7 @@ int main (int argc, char *argv[])
 			devstr = argv[i];
 #ifdef HAVE_LIBSANGOMA_H
 			if (devstr[0] == 's') {
+				int x = 0;
 				x = sscanf(devstr, "s%dc%d", &spanno, &channo);
 				if (x != 2) {
 					fprintf(stderr, "Invalid Wanpipe span/channel string provided (for span 1 chan 1 you must provide string s1c1)\n");
@@ -813,6 +813,7 @@ int main (int argc, char *argv[])
 #endif
 		}
 
+		goto call_control; /* stupid compiler ... */
 call_control:
 		if (gsm_span.answer_call) {
 			gsm_span.answer_call = 0;
