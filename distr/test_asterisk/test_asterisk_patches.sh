@@ -1,5 +1,4 @@
 #!/bin/sh
-#set -x
 
 release_dir=$1
 home_dir=`pwd`
@@ -82,6 +81,7 @@ verify_asterisk ()
 	eval "./configure --enable-dev-mode --with-wat=$WORKSPACE/libwat_install" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ]; then
 		echo "Failed to configure $asterisk_release after patch" 2>> $logfile >> $logfile
+		tail -n 20 $logfile
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
 		return 1
 	fi
@@ -89,8 +89,8 @@ verify_asterisk ()
 	echo "Verifying compilation $asterisk_release"
 	eval "make" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ]; then
-		exit 1
 		echo "Failed to compile $asterisk_release after patch" 2>> $logfile >> $logfile
+		tail -n 20 $logfile
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
 		return 1
 	fi
