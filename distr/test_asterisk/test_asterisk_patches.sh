@@ -123,7 +123,7 @@ echo "==========================================================================
 echo "Testing Asterisk patches"
 echo "==========================================================================="
 
-asterisk_patches=`ls $home_dir/$release_dir/asterisk`
+asterisk_patches=`ls $home_dir/../../asterisk`
 
 if [ -e $test_dir ]; then
 	rm -rf $test_dir
