@@ -1,5 +1,5 @@
 #!/bin/sh
-set -x
+#set -x
 
 release_dir=$1
 home_dir=`pwd`
