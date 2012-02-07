@@ -61,8 +61,9 @@ verify_asterisk ()
 		return 1
 	fi
 
-	echo "Applying patch $home_dir/$release_dir/asterisk/$asterisk_patch"
-	eval "patch -p 1 < $home_dir/$release_dir/asterisk/$asterisk_patch" 2>> $logfile >> $logfile
+
+	echo "Applying patch $home_dir/../../asterisk/$asterisk_patch"
+	eval "patch -p 1 < $home_dir/../../asterisk/$asterisk_patch" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ];then
 		echo "Failed to apply patch to $asterisk_release" 2>> $logfile >> $logfile
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
@@ -158,22 +159,22 @@ do
 done
 
 echo "Verifying last Asterisk 1.8 patch vs Asterisk-1.8-current"
-last_patch=`ls $home_dir/$release_dir/asterisk | grep asterisk-1.8 |tail -n 1`
+last_patch=`ls $home_dir/../../asterisk | grep asterisk-1.8 |tail -n 1`
 verify_asterisk $last_patch "asterisk-1.8-current"
 if [ $? -eq 0 ]; then
-	if [ ! -e  $home_dir/$release_dir/asterisk/$last_tested_asterisk_release.patch ]; then
+	if [ ! -e  $home_dir/../../asterisk/$last_tested_asterisk_release.patch ]; then
 		echo "Copying $last_patch to $last_tested_asterisk_release.patch"
-		cp $home_dir/$release_sir/asterisk/$last_patch $home_dir/$release_dir/asterisk/$last_tested_asterisk_release.patch
+		cp $home_dir/../../asterisk/$last_patch $home_dir/../../asterisk/$last_tested_asterisk_release.patch
 	fi
 fi
 
 echo "Verifying last Asterisk 10.1 patch vs Asterisk-10-current"
-last_patch=`ls $home_dir/$release_dir/asterisk | grep asterisk-10 |tail -n 1`
+last_patch=`ls $home_dir/../../asterisk | grep asterisk-10 |tail -n 1`
 verify_asterisk $last_patch "asterisk-10-current"
 if [ $? -eq 0 ]; then
-	if [ ! -e  $home_dir/$release_dir/asterisk/$last_tested_asterisk_release.patch ]; then
+	if [ ! -e  $home_dir/../../asterisk/$last_tested_asterisk_release.patch ]; then
 		echo "Copying $last_patch to $last_tested_asterisk_release.patch"
-		cp $home_dir/$release_sir/asterisk/$last_patch $home_dir/$release_dir/asterisk/$last_tested_asterisk_release.patch
+		cp $home_dir/../../asterisk/$last_patch $home_dir/../../asterisk/$last_tested_asterisk_release.patch
 	fi
 fi
 
