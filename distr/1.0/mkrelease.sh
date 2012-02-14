@@ -153,6 +153,9 @@ eval "cat ../../CMakeLists.txt | \
 
 eval "mkdir $rel_name/src/"
 eval "cp -rf ../../src/*.c $rel_name/src"
+eval "mkdir $rel_name/src/base64"
+eval "cp -rf ../../src/base64/*.c $rel_name/src/base64"
+eval "cp -rf ../../src/base64/*.h $rel_name/src/base64"
 eval "cp -rf ../../src/wat_config.h.in $rel_name/src"
 eval "cp -rf ../../src/CMakeLists.txt $rel_name/src"
 
