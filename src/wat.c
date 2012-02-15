@@ -30,9 +30,9 @@
 #if 0
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
-//uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_HANDLE;
+uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_AT_HANDLE;
 //uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
-uint32_t	g_debug = WAT_DEBUG_AT_HANDLE |WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
+//uint32_t	g_debug = WAT_DEBUG_AT_HANDLE |WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 #else
 uint32_t	g_debug = 0;
@@ -830,6 +830,12 @@ WAT_DECLARE(const char *) wat_decode_band(wat_band_t band)
 WAT_DECLARE(wat_band_t) wat_encode_band(const char *band)
 {
 	return wat_str2wat_band(band);
+}
+
+WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask)
+{
+	wat_log(WAT_LOG_INFO, "Debug mask set to 0x%03x\n", debug_mask);
+	g_debug = debug_mask;
 }
 
 WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone)
