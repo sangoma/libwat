@@ -166,8 +166,7 @@ eval "cp -rf ../../src/include/private/*.h $rel_name/src/include/private"
 eval "touch $rel_name/src/include/private/*"
 
 eval "mkdir $rel_name/test"
-eval "cp -rf ../../test/*.c $rel_name/test"
-eval "cp -rf ../../test/*.h $rel_name/test"
+eval "cp -rf ../../test/* $rel_name/test"
 eval "cp -rf ../../test/CMakeLists.txt $rel_name/test"
 
 eval "mkdir $rel_name/build"
