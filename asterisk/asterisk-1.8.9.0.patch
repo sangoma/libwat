@@ -10,6 +10,21 @@ index 35573c3..f565442 100644
  OPENR2=@PBX_OPENR2@
  RESAMPLE=@PBX_RESAMPLE@
  AIS=@PBX_AIS@
+diff --git a/channels/Makefile b/channels/Makefile
+index f9b5b3a..4573f9c 100644
+--- a/channels/Makefile
++++ b/channels/Makefile
+@@ -73,8 +73,8 @@ $(if $(filter chan_iax2,$(EMBEDDED_MODS)),modules.link,chan_iax2.so): iax2-parse
+ iax2-parser.o iax2-provision.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_iax2)
+ $(if $(filter chan_sip,$(EMBEDDED_MODS)),modules.link,chan_sip.so): $(subst .c,.o,$(wildcard sip/*.c))
+ $(subst .c,.o,$(wildcard sip/*.c)): _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_sip)
+-$(if $(filter chan_dahdi,$(EMBEDDED_MODS)),modules.link,chan_dahdi.so): sig_analog.o sig_pri.o sig_ss7.o
+-sig_analog.o sig_pri.o sig_ss7.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_dahdi)
++$(if $(filter chan_dahdi,$(EMBEDDED_MODS)),modules.link,chan_dahdi.so): sig_analog.o sig_pri.o sig_ss7.o sig_wat.o
++sig_analog.o sig_pri.o sig_ss7.o sig_wat.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_dahdi)
+ 
+ ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
+ modules.link: h323/libchanh323.a
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
 index d8043ad..f6cb5b8 100644
 --- a/channels/chan_dahdi.c
