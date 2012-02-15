@@ -92,6 +92,7 @@
 #define wat_clear_flag(obj, flag)	((obj)->flags &= ~(1 << flag))
 
 #define wat_array_len(_array) sizeof(_array)/sizeof(_array[0])
+#define wat_strlen_zero(s) (!s || *s == '\0')
 
 extern wat_interface_t g_interface;
 extern uint32_t	g_debug;
@@ -461,10 +462,12 @@ wat_bool_t wat_match_prefix(char *string, const char *prefix);
 
 #define WAT_PRINT_TOKENS(__tokens) \
 		{ \
-			int __i = 0; \
-			while(__tokens[__i]) { \
-				wat_log(WAT_LOG_DEBUG, "  token[%d]:%s\n", __i, __tokens[__i]); \
-				__i++; \
+			if(__tokens) {\
+				int __i = 0; \
+				while(__tokens[__i]) { \
+					wat_log(WAT_LOG_DEBUG, "  token[%d]:%s\n", __i, __tokens[__i]); \
+					__i++; \
+				} \
 			} \
 		}
 

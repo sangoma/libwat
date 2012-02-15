@@ -459,7 +459,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 
 		status = wat_tokenize_line(tokens, (char*)data, len, &consumed);
 		if (status == WAT_SUCCESS) {
-			for (i = 0; tokens[i]; i++) {
+			for (i = 0; !(wat_strlen_zero(tokens[i])); i++) {
 				char *error = NULL;
 
 				terminator = wat_match_terminator(tokens[i], &error);

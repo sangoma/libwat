@@ -39,6 +39,8 @@
 #define WAT_DEBUG_SMS_DECODE		(1 << 6) /* Debug how PDU is decoded */
 #define WAT_DEBUG_SMS_ENCODE		(1 << 7) /* Debug how PDU is encoded */
 
+//#define WAT_FUNC_DEBUG 1
+
 /*ENUMS & Defines ******************************************************************/
 
 #define WAT_MAX_SPANS		32
@@ -599,6 +601,7 @@ typedef struct _wat_interface {
 /* Functions  *********************************************************************/
 /* TODO: add Doxygen headers */
 WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age);
+WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask);
 WAT_DECLARE(wat_status_t) wat_register(wat_interface_t *interface);
 WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *span_config);
 WAT_DECLARE(wat_status_t) wat_span_unconfig(unsigned char span_id);
