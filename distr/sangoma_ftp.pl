@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 
 use Net::FTP;
-#use Net::FTP::Throttle;
 
+$ftp_user=shift @ARGV;
+$ftp_password=shift @ARGV;
 $file=shift @ARGV;
 $dir=shift @ARGV;
 
@@ -21,10 +22,8 @@ if (!defined($dir)){
 }
 
 $ftp = Net::FTP->new($ip, Debug => 0);
-#$ftp = Net::FTP::Throttle->new($ip, MegabitsPerSecond => 0.8);
 
-#$ftp->login("anonymous",'me@here.there' ) || die "\nFailed to login!\n\n";
-$ftp->login("sangoma",'Ookech1f') || die "\nFailed to login!\n\n";
+$ftp->login($ftp_user, $ftp_password) || die "\nFailed to login!\n\n";
 
 $ftp->binary;  
 
