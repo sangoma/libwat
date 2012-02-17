@@ -636,7 +636,7 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 					if (sms_event->content.len >= WAT_MAX_SMS_SZ) {
 						wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length has to be less than %d (len:%d)\n", sms_id, WAT_MAX_SMS_SZ, sms_event->content.len);
 						WAT_FUNC_DBG_END
-								return WAT_FAIL;
+						return WAT_FAIL;
 					}
 					break;
 				case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
