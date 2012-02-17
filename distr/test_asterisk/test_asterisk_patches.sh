@@ -49,7 +49,8 @@ verify_asterisk ()
 	if [ $? -eq 0 ]; then
 		#find the real asterisk release name
 		asterisk_branch=`echo $asterisk_release | cut -d "-" -f -2`
-		asterisk_release=`ls |grep $asterisk_branch | grep -v \"gz\" | grep -v \"log\" | head -n 1`
+#		asterisk_release=`ls |grep $asterisk_branch | grep -v \"gz\" | grep -v \"log\" | head -n 1`
+		asterisk_release=`find . -type d -maxdepth 1 |grep $asterisk_branch`
 		echo "Current Asterisk version:$asterisk_release"
 	fi
 
