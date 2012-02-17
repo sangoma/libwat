@@ -1049,10 +1049,10 @@ index be68212..586b8cd 100644
  
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..0f32c85
+index 0000000..25a34fd
 --- /dev/null
 +++ b/channels/sig_wat.c
-@@ -0,0 +1,1685 @@
+@@ -0,0 +1,1687 @@
 +/*
 + * Asterisk -- An open source telephony toolkit.
 + *
@@ -2602,8 +2602,10 @@ index 0000000..0f32c85
 +		return CLI_SUCCESS;
 +	}
 +
++	event.type = WAT_SMS_TXT;
 +	strncpy(event.to.digits, a->argv[4], sizeof(event.to.digits));
 +	strncpy(event.content.data, a->argv[5], sizeof(event.content.data));
++	event.content.len = strlen(event.content.data);
 +
 +	sig_wat_send_sms(&wats[span-1].wat, &event);
 +	return CLI_SUCCESS;
