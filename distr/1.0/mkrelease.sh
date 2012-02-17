@@ -210,7 +210,7 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-eval "../sangoma_ftp.pl $rel_name.tgz linux/libwat"
+eval "scp $rel_name.tgz sangoma@ftp.sangoma.com:/linux/libwat"
 if [ $? -ne 0 ]; then
 	echo "Failed to upload to ftp"
 	exit 1
@@ -221,7 +221,7 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create tarball"
 	exit 1
 fi
-eval "../sangoma_ftp.pl libwat-$major.$minor-current.tgz linux/libwat"
+eval "scp libwat-$major.$minor-current.tgz sangoma@ftp.sangoma.com:/linux/libwat"
 if [ $? -ne 0 ]; then
 	echo "Failed to upload to ftp"
 	exit 1
