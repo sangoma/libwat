@@ -124,7 +124,7 @@ echo "==========================================================================
 echo "Installing DAHDI"
 echo "==========================================================================="
 
-eval "wget http://downloads.asterisk.org/pub/telephony/dahdi-linux/dahdi-linux-current.tar.gz"
+eval "wget -q http://downloads.asterisk.org/pub/telephony/dahdi-linux/dahdi-linux-current.tar.gz"
 if [ $? -ne 0 ];then
 	echo "Failed to download latest DAHDI"
 	exit 1
@@ -144,7 +144,19 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-eval "
+#this is not ideal as we are installing DAHDI on this system, but I have not been able to find a way
+#to specify ./configure --with-dahdi in Asterisk
+eval "make "
+if [ $? -ne 0 ]; then
+	echo "Failed to compile dahdi"
+	exit 1
+fi
+
+eval "make install"
+if [ $? -ne 0 ]; then
+	echo "Failed to install dahdi"
+	exit 1
+fi
 
 
 echo "==========================================================================="
