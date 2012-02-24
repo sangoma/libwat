@@ -90,56 +90,56 @@ wat_status_t telit_start(wat_span_t *span)
 	wat_log_span(span, WAT_LOG_DEBUG, "Starting Telit module\n");
 
 	/* Section 2.1 of Telit AT Commands reference Guide recommends these options to be enabled */
-	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL);
+	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL, span->config.timeout_command);
 
-	wat_cmd_enqueue(span, "AT#SMSMODE=1", wat_response_smsmode, NULL);
+	wat_cmd_enqueue(span, "AT#SMSMODE=1", wat_response_smsmode, NULL, span->config.timeout_command);
 
 	/* From Telit AT commands reference guide, page 105: Set AT#REGMODE=1
 	 * makes CREG behavior more formal */
-	wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL);
-	wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL);
+	wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL, span->config.timeout_command);
+	wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL, span->config.timeout_command);
 
 	/* Enable Echo cancellation */
-	wat_cmd_enqueue(span, "AT#SHFEC=1", NULL, NULL);
-	wat_cmd_enqueue(span, "AT#SHSEC=1", NULL, NULL);
+	wat_cmd_enqueue(span, "AT#SHFEC=1", NULL, NULL, span->config.timeout_command);
+	wat_cmd_enqueue(span, "AT#SHSEC=1", NULL, NULL, span->config.timeout_command);
 
 	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
-	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL);
+	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL, span->config.timeout_command);
 
 	/* I guess we want full CPU power! */
-	wat_cmd_enqueue(span, "AT#CPUMODE=1", NULL, NULL);
+	wat_cmd_enqueue(span, "AT#CPUMODE=1", NULL, NULL, span->config.timeout_command);
 
 	/* Enable codec notifications 
 	 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
-	wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL);
+	wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL, span->config.timeout_command);
 	wat_cmd_register(span, "#CODECINFO", wat_notify_codec_info);
 	
 	/* Make sure the DIALMODE is set to 0 to receive an OK code as soon as possible
 	 * the option of using DIALMODE=2 is tempting as provides progress status 
 	 * notifications (DIALING, RINGING, CONNECTED, RELEASED, DISCONNECTED), but the modem
 	 * will not accept any further commands in the meantime, which is not convenient */
-	wat_cmd_enqueue(span, "AT#DIALMODE=0", NULL, NULL);
+	wat_cmd_enqueue(span, "AT#DIALMODE=0", NULL, NULL, span->config.timeout_command);
 
 	/* Enable automatic Band selection */
-	wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL);
+	wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL, span->config.timeout_command);
 
 	switch (span->config.band) {
 		case WAT_BAND_900_1800:
-			wat_cmd_enqueue(span, "AT#BND=0", NULL, NULL);
+			wat_cmd_enqueue(span, "AT#BND=0", NULL, NULL, span->config.timeout_command);
 			break;
 		case WAT_BAND_900_1900:
-			wat_cmd_enqueue(span, "AT#BND=1", NULL, NULL);
+			wat_cmd_enqueue(span, "AT#BND=1", NULL, NULL, span->config.timeout_command);
 			break;
 		case WAT_BAND_850_1800:
-			wat_cmd_enqueue(span, "AT#BND=2", NULL, NULL);
+			wat_cmd_enqueue(span, "AT#BND=2", NULL, NULL, span->config.timeout_command);
 			break;
 		case WAT_BAND_850_1900:
-			wat_cmd_enqueue(span, "AT#BND=3", NULL, NULL);
+			wat_cmd_enqueue(span, "AT#BND=3", NULL, NULL, span->config.timeout_command);
 			break;
 		default:
 			wat_log_span(span, WAT_LOG_CRIT, "Unsupported band value:%d\n", span->config.band);
 		case WAT_BAND_AUTO:
-			wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL);
+			wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL, span->config.timeout_command);
 			break;
 	}
 
@@ -164,7 +164,7 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 	 * match their spec and we can bypass mapping from wat codec values to telit values */
 	char codec_cmd[WAT_MAX_CMD_SZ];
 	snprintf(codec_cmd, sizeof(codec_cmd), "AT#CODEC=%d", codec_mask);
-	wat_cmd_enqueue(span, codec_cmd, wat_response_set_codec, NULL);
+	wat_cmd_enqueue(span, codec_cmd, wat_response_set_codec, NULL, span->config.timeout_command);
 	return WAT_SUCCESS;
 }
 
@@ -179,8 +179,8 @@ wat_status_t telit_wait_sim(wat_span_t *span)
 {
 	wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
 	wat_cmd_register(span, "#QSS", wat_notify_qss);
-	wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL);
-	wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL);
+	wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL, span->config.timeout_command);
+	wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL, span->config.timeout_command);
 	return WAT_SUCCESS;
 }
 

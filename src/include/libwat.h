@@ -547,6 +547,9 @@ typedef struct _wat_span_config_t {
 	uint32_t progress_poll_interval; /* How often to check for call status on outbound call */
 	uint32_t signal_poll_interval;	/* How often to check for signal quality */
 	uint8_t	signal_threshold; /* If the signal strength drops lower than this value in -dBM, we will report an alarm */
+	uint32_t call_release_delay; /* After a call is hangup, delay before sending Rel Cfm to user. Sometimes, if we try to 
+									call right after a hangup, the call fails, it looks like a grace period is needed between
+									releasing a call and making  a new one */
 	
 	wat_band_t band;			/* Band frequency to be used */
 	wat_codec_t codec_mask; /* Which codecs to advertise */

@@ -123,9 +123,15 @@ WAT_EVENT_FUNC(wat_event_rel_req)
 	if (!call) {
 		wat_log_span(span, WAT_LOG_CRIT, "[id:%d]Failed to find call\n", event->call_id);
 		WAT_FUNC_DBG_END
-				return;
+		return;
 	}
-			
+
+	if (call->state >= WAT_CALL_STATE_HANGUP) {
+		wat_log_span(span, WAT_LOG_WARNING, "[id:%d] Call was already hung-up, ignoring\n", event->call_id);
+		WAT_FUNC_DBG_END
+		return; 
+	}
+
 	wat_call_set_state(call, WAT_CALL_STATE_HANGUP);
 
 	WAT_FUNC_DBG_END
