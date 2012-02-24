@@ -55,15 +55,18 @@
 #define WAT_ERROR_SZ					50
 #define WAT_MAX_NOTIFYS_PER_SPAN		100
 
-#define WAT_DEFAULT_TIMEOUT_CID_NUM 500
-#define WAT_DEFAULT_TIMEOUT_COMMAND 20000
-#define WAT_DEFAULT_TIMEOUT_WAIT_SIM 60000
-#define WAT_DEFAULT_COMMAND_INTERVAL 20
+#define WAT_DEFAULT_TIMEOUT_CID_NUM		500
+#define WAT_DEFAULT_TIMEOUT_COMMAND		20000
+#define WAT_DEFAULT_TIMEOUT_WAIT_SIM	60000
+#define WAT_DEFAULT_COMMAND_INTERVAL	20
 #define WAT_DEFAULT_PROGRESS_POLL_INTERVAL 750
 #define WAT_DEFAULT_SIGNAL_POLL_INTERVAL 10*1000
-#define WAT_DEFAULT_SIGNAL_THRESHOLD 90
-#define WAT_DEFAULT_CNUM_POLL		6000
-#define WAT_DEFAULT_CNUM_RETRIES	5
+#define WAT_DEFAULT_SIGNAL_THRESHOLD	90
+#define WAT_DEFAULT_CNUM_POLL			6000
+#define WAT_DEFAULT_CNUM_RETRIES		5
+#define WAT_DEFAULT_CALL_RELEASE_DELAY	1000
+
+#define WAT_MAX_CMD_RETRIES 1
 
 #define wat_log_span(span, level, a, ...) if (g_interface.wat_log_span) g_interface.wat_log_span(span->id, level,a, ##__VA_ARGS__)
 
@@ -273,8 +276,8 @@ typedef int (wat_cmd_notify_func) WAT_NOTIFY_ARGS;
 #define WAT_SCHEDULED_FUNC(name) void (name) (void *data)
 
 wat_status_t wat_cmd_register(wat_span_t *span, const char *prefix, wat_cmd_notify_func *func);
-wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj);
-wat_status_t wat_cmd_send(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj);
+wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj, uint32_t timeout_ms);
+wat_status_t wat_cmd_send(wat_span_t *span, const char *cmd, wat_cmd_response_func *cb, void *obj, uint32_t timeout_ms);
 
 typedef struct _wat_user_cmd_t {
 	wat_at_cmd_response_func cb;
@@ -285,6 +288,8 @@ typedef struct wat_cmd {
 	char *cmd;
 	wat_cmd_response_func *cb;
 	void *obj;
+	uint32_t timeout;
+	uint8_t retries;
 } wat_cmd_t;
 
 typedef struct wat_notify {

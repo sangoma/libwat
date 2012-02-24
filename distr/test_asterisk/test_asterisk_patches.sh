@@ -120,6 +120,32 @@ verify_asterisk ()
 #main
 echo "Compiling libwat"
 
+echo "==========================================================================="
+echo "Installing DAHDI"
+echo "==========================================================================="
+
+eval "wget http://downloads.asterisk.org/pub/telephony/dahdi-linux/dahdi-linux-current.tar.gz"
+if [ $? -ne 0 ];then
+	echo "Failed to download latest DAHDI"
+	exit 1
+fi
+
+eval "tar xfz dahdi-linux-current.tar.gz"
+if [ $? -ne 0 ]; then
+	echo "Failed to untar dahdi"
+	exit 1
+fi
+
+dahdi_dir=`find maxdepth 1 -type d |grep dahdi`
+echo "Dahdi dir:$dahdi_dir"
+eval "cd $dahdi_dir`
+if [ $? -ne 0 ]; then
+	echo "Failed to change directory to $dahdi_dir"
+	exit 1
+fi
+
+eval "
+
 
 echo "==========================================================================="
 echo "Testing Asterisk patches"

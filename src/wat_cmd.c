@@ -57,10 +57,9 @@ WAT_ENUM_NAMES(WAT_PIN_CHIP_STAT_NAMES, WAT_PIN_CHIP_STAT_STRINGS)
 WAT_STR2ENUM(wat_str2wat_chip_pin_stat, wat_chip_pin_stat2str, wat_pin_stat_t, WAT_PIN_CHIP_STAT_NAMES, WAT_PIN_INVALID)
 
 
-
-
 WAT_SCHEDULED_FUNC(wat_cmd_complete);
 WAT_SCHEDULED_FUNC(wat_scheduled_cnum);
+WAT_SCHEDULED_FUNC(wat_scheduled_hangup_complete);
 
 typedef struct {
 	unsigned id;
@@ -335,7 +334,7 @@ static char *wat_strerror(int error, struct enum_code error_table[])
     (before any queued command)	only one AT command can be sent this way, this function should only be used if
     this command needs to go before the commands that were already queued */
 
-wat_status_t wat_cmd_send(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj)
+wat_status_t wat_cmd_send(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj, uint32_t timeout)
 {
 	wat_cmd_t *cmd;
 
@@ -365,6 +364,7 @@ wat_status_t wat_cmd_send(wat_span_t *span, const char *incommand, wat_cmd_respo
 	
 	cmd->cb = cb;
 	cmd->obj = obj;
+	cmd->timeout = timeout;
 	if (incommand) {
 		cmd->cmd = wat_strdup(incommand);
 	}
@@ -373,7 +373,7 @@ wat_status_t wat_cmd_send(wat_span_t *span, const char *incommand, wat_cmd_respo
 	return WAT_SUCCESS;
 }
 
-wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj)
+wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_response_func *cb, void *obj, uint32_t timeout)
 {
 	wat_cmd_t *cmd;
 	wat_assert_return(span->cmd_queue, WAT_FAIL, "No command queue!\n");
@@ -397,10 +397,11 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 	
 	cmd->cb = cb;
 	cmd->obj = obj;
+	cmd->timeout = timeout;
 	if (incommand) {
 		cmd->cmd = wat_strdup(incommand);
 	}
-	wat_queue_enqueue(span->cmd_queue, cmd);	
+	wat_queue_enqueue(span->cmd_queue, cmd);
 	return WAT_SUCCESS;
 }
 
@@ -423,6 +424,7 @@ static wat_terminator_t *wat_match_terminator(const char* token, char **error)
 					*error = wat_strerror(atoi(&token[strlen(terminator->termstr) + 1]), ext_codes);
 					break;
 				default:
+					*error = terminator->termstr;
 					break;
 			}
 			return terminator;
@@ -465,9 +467,15 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 				terminator = wat_match_terminator(tokens[i], &error);
 				if (terminator) {
 					if (terminator->call_progress_info) {
-						/* This could be a hangup from the remote side, schedule a CLCC to find out which call hung-up */
-						wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL);
-						tokens_consumed++;
+						/* Check if this is a response to a ATD command */
+						if (span->cmd && !strncmp(span->cmd->cmd, "ATD", 3)) {
+							tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], terminator, error);
+							tokens_unused = 0;
+						} else {
+							/* This could be a hangup from the remote side, schedule a CLCC to find out which call hung-up */
+							wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, NULL, span->config.timeout_command);
+							tokens_consumed++;
+						}						
 					} else {
 						tokens_consumed += wat_cmd_handle_response(span, &tokens[i-tokens_unused], terminator, error);
 						tokens_unused = 0;
@@ -1201,7 +1209,7 @@ WAT_RESPONSE_FUNC(wat_response_ata)
 	} else {
 		wat_log_span(span, WAT_LOG_INFO, "[id:%d] Failed to answer call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
-		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
+		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
 	}
 	
 	WAT_FUNC_DBG_END
@@ -1214,11 +1222,15 @@ WAT_RESPONSE_FUNC(wat_response_ath)
 	WAT_RESPONSE_FUNC_DBG_START
 
 	if (success) {
-		wat_call_set_state(call, WAT_CALL_STATE_HANGUP_CMPL);
+		/* Sometimes, if we try to seize the line right after hanging-up, the chip does not
+			respond to the ATD command, so delay sending Rel Cfm to user app so they do not 
+			mark the channel as available right away */
+		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Call hangup acknowledged\n", call->id);
+		wat_sched_timer(span->sched, "delayed hangup complete", span->config.call_release_delay, wat_scheduled_hangup_complete, (void*) call, NULL);		
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to hangup call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
-		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
+		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
 	}
 	
 	WAT_FUNC_DBG_END
@@ -1233,7 +1245,7 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 	if (!success) {
 		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to make outbound call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
-		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
+		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
 	}
 
 	WAT_FUNC_DBG_END
@@ -1422,6 +1434,14 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 					}
 				}
 				break;
+			case WAT_CALL_STATE_UP:
+				for (i = 0; i < num_clcc_entries; i++) {
+					if (entries[i].id == call->modid && entries[i].stat == 0) {
+						wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Matched call in CLCC entry (modid:%d)\n", call->id, call->modid);
+						matched = WAT_TRUE;
+					}
+				}
+				break;
 			default:
 				for (i = 0; i < num_clcc_entries; i++) {
 					if (entries[i].id == call->modid) {
@@ -1434,7 +1454,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		
 		if (matched == WAT_FALSE) {
 			if (g_debug & WAT_DEBUG_CALL_STATE) {
-				wat_log_span(span, WAT_LOG_DEBUG, "[id:%d]No CLCC entries for call, hanging up\n", call->id);
+				wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] No CLCC entries for call (state:%s), hanging up\n", call->id, wat_call_state2str(call->state));
 			}
 			wat_call_set_state(call, WAT_CALL_STATE_TERMINATING);
 		}
@@ -1779,33 +1799,54 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 	return consumed_tokens;
 }
 
+WAT_SCHEDULED_FUNC(wat_scheduled_hangup_complete)
+{
+	wat_call_t *call = (wat_call_t *) data;
+
+	wat_log_span(call->span, WAT_LOG_DEBUG, "[id:%d]Completing hangup\n", call->id);
+	wat_call_set_state(call, WAT_CALL_STATE_HANGUP_CMPL);
+	return;
+}
+
 WAT_SCHEDULED_FUNC(wat_cmd_timeout)
 {
+	wat_cmd_t *cmd = NULL;
 	wat_span_t *span = (wat_span_t *) data;
 
 	wat_assert_return_void(span->cmd, "Command timeout, but we do not have an active command?");
-	
-	wat_log_span(span, WAT_LOG_ERROR, "Timed out executing command: '%s', retrying one more time without timeout\n", span->cmd->cmd);
 
-	wat_write_command(span);
+	cmd = span->cmd;
+	
+	span->cmd = NULL;
+	
+	span->cmd_busy = 0;
+
+	if (cmd->retries++ < WAT_MAX_CMD_RETRIES) {
+		wat_log_span(span, WAT_LOG_ERROR, "Timed out executing command: '%s', retrying %d\n", cmd->cmd, cmd->retries);
+		wat_queue_enqueue(span->cmd_queue, cmd);
+	} else {
+		wat_log_span(span, WAT_LOG_ERROR, "Final time out executing command: '%s'\n", cmd->cmd);
+		wat_safe_free(cmd->cmd);
+		wat_safe_free(cmd);
+	}	
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_cnum)
 {
 	wat_span_t *span = (wat_span_t *) data;
-	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
+	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL, span->config.timeout_command);
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_clcc)
 {
 	wat_call_t *call = (wat_call_t *)data;
-	wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call);
+	wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, call->span->config.timeout_command);
 }
 
 WAT_SCHEDULED_FUNC(wat_scheduled_csq)
 {
 	wat_span_t *span = (wat_span_t *)data;
-	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, span);
+	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, span, span->config.timeout_command);
 
 	if (span->config.signal_poll_interval) {
 		wat_sched_timer(span->sched, "signal_monitor", span->config.signal_poll_interval, wat_scheduled_csq, (void*) span, NULL);

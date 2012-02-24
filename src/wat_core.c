@@ -64,7 +64,6 @@ void wat_span_run_cmds(wat_span_t *span)
 	wat_cmd_t *cmd = NULL;
 
 	if (!span->cmd_busy) {
-		
 		if (span->cmd_next) {
 			/* Check if there are any priority command to be transmitted */
 			cmd = span->cmd_next;
@@ -91,7 +90,7 @@ void wat_span_run_cmds(wat_span_t *span)
 			}
 
 			wat_write_command(span);
-			wat_sched_timer(span->sched, "command timeout", span->config.timeout_command, wat_cmd_timeout, (void*) span, &span->timeouts[WAT_TIMEOUT_CMD]);
+			wat_sched_timer(span->sched, "command timeout", cmd->timeout, wat_cmd_timeout, (void*) span, &span->timeouts[WAT_TIMEOUT_CMD]);
 		}
 	}
 
@@ -286,13 +285,13 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 
 	if (span->sigstatus == WAT_SIGSTATUS_UP) {
 		/* Get the Operator Name */
-		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL);
+		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL, 30000);
 
 		/* Own Number */
-		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL);
+		wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL, 5000); /* Could not find timeout value for CNUM */
 
 		/* SMSC information */
-		wat_cmd_enqueue(span, "AT+CSCA?", wat_response_csca, NULL);
+		wat_cmd_enqueue(span, "AT+CSCA?", wat_response_csca, NULL, 5000);
 	}
 
 	return WAT_SUCCESS;
@@ -447,18 +446,18 @@ static wat_status_t wat_span_perform_start(wat_span_t *span)
 #endif
 
 	/* Module soft reset */
-	wat_cmd_enqueue(span, "ATZ", wat_response_atz, NULL);
+	wat_cmd_enqueue(span, "ATZ", wat_response_atz, NULL, 60000);
 
 	/* Disable echo mode */
-	wat_cmd_enqueue(span, "ATE0", wat_response_ate, NULL);
+	wat_cmd_enqueue(span, "ATE0", wat_response_ate, NULL, span->config.timeout_command);
 
-	wat_cmd_enqueue(span, "ATX4", NULL, NULL);
+	wat_cmd_enqueue(span, "ATX4", NULL, NULL, span->config.timeout_command);
 
 	/* Enable Mobile Equipment Error Reporting, numeric mode */
-	wat_cmd_enqueue(span, "AT+CMEE=1", NULL, NULL);
+	wat_cmd_enqueue(span, "AT+CMEE=1", NULL, NULL, span->config.timeout_command);
 
 	/* Enable extended format reporting */
-	wat_cmd_enqueue(span, "AT+CRC=1", NULL, NULL);
+	wat_cmd_enqueue(span, "AT+CRC=1", NULL, NULL, span->config.timeout_command);
 
 	span->module.wait_sim(span);
 	
@@ -478,17 +477,17 @@ WAT_RESPONSE_FUNC(wat_response_post_start_complete)
 static wat_status_t wat_span_perform_post_start(wat_span_t *span)
 {
 	/* Enable New Message Indications To TE */
-	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL);
+	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL, span->config.timeout_command);
 
 	/* Enable Calling Line Presentation */
-	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL);
+	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL, span->config.timeout_command);
 	
 	/* Set Operator mode */
-	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL);
+	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL, span->config.timeout_command);
 
 	/* Set the Call Class to voice  */
 	/* TODO: The FCLASS should be set before sending ATD command for each call */
-	wat_cmd_enqueue(span, "AT+FCLASS=8", NULL, NULL);
+	wat_cmd_enqueue(span, "AT+FCLASS=8", NULL, NULL, span->config.timeout_command);
 
 	/* Call module specific start here */
 	span->module.start(span);
@@ -496,35 +495,35 @@ static wat_status_t wat_span_perform_post_start(wat_span_t *span)
 	span->module.set_codec(span, span->config.codec_mask);
 
 	/* Check the PIN status, this will also report if there is no SIM inserted */
-	wat_cmd_enqueue(span, "AT+CPIN?", wat_response_cpin, NULL);
+	wat_cmd_enqueue(span, "AT+CPIN?", wat_response_cpin, NULL, 15000);
 
 	/* Get some information about the chip */
 	
 	/* Get Module Model Identification */
-	wat_cmd_enqueue(span, "AT+CGMM", wat_response_cgmm, NULL);
+	wat_cmd_enqueue(span, "AT+CGMM", wat_response_cgmm, NULL, span->config.timeout_command);
 
 	/* Get Module Manufacturer Identification */
-	wat_cmd_enqueue(span, "AT+CGMI", wat_response_cgmi, NULL);
+	wat_cmd_enqueue(span, "AT+CGMI", wat_response_cgmi, NULL, span->config.timeout_command);
 
 	/* Get Module Revision Identification */
-	wat_cmd_enqueue(span, "AT+CGMR", wat_response_cgmr, NULL);
+	wat_cmd_enqueue(span, "AT+CGMR", wat_response_cgmr, NULL, span->config.timeout_command);
 
 	/* Get Module Serial Number */
-	wat_cmd_enqueue(span, "AT+CGSN", wat_response_cgsn, NULL);
+	wat_cmd_enqueue(span, "AT+CGSN", wat_response_cgsn, NULL, span->config.timeout_command);
 
 	/* Get Module IMSI */
-	wat_cmd_enqueue(span, "AT+CIMI", wat_response_cimi, NULL);
+	wat_cmd_enqueue(span, "AT+CIMI", wat_response_cimi, NULL, span->config.timeout_command);
 
 	/* Signal Quality */
-	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, NULL);
+	wat_cmd_enqueue(span, "AT+CSQ", wat_response_csq, NULL, span->config.timeout_command);
 	
 	/* Enable Network Registration Unsolicited result code */
-	wat_cmd_enqueue(span, "AT+CREG=1", NULL, NULL);
+	wat_cmd_enqueue(span, "AT+CREG=1", NULL, NULL, span->config.timeout_command);
 
 	/* Check Registration Status in case module is already registered */
-	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL);
+	wat_cmd_enqueue(span, "AT+CREG?", wat_response_creg, NULL, span->config.timeout_command);
 
-	wat_cmd_enqueue(span, NULL, wat_response_post_start_complete, NULL);
+	wat_cmd_enqueue(span, NULL, wat_response_post_start_complete, NULL, 0);
 
 	wat_sched_timer(span->sched, "signal_monitor", span->config.signal_poll_interval, wat_scheduled_csq, (void*) span, NULL);
 	return WAT_SUCCESS;

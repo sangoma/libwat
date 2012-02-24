@@ -143,7 +143,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			span->outbound_sms = sms;
 			if (sms->sms_event.type == WAT_SMS_TXT) {
 				/* We need to adjust the sms mode */
-				wat_cmd_enqueue(span, "AT+CMGF=1", wat_response_cmgf, sms);
+				wat_cmd_enqueue(span, "AT+CMGF=1", wat_response_cmgf, sms, span->config.timeout_command);
 			} else {
 				wat_sms_set_state(sms, WAT_SMS_STATE_SEND_HEADER);
 			}
@@ -158,7 +158,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 					/* TODO set the TON/NPI as well */
 					sprintf(cmd, "AT+CMGS=\"%s\"", sms->sms_event.to.digits);
 				}
-				wat_cmd_enqueue(span, cmd, NULL, NULL);
+				wat_cmd_enqueue(span, cmd, NULL, NULL, 1000);
 			}
 			break;
 		case WAT_SMS_STATE_SEND_BODY:
@@ -168,7 +168,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 			{
 				char cmd[4];
 				sprintf(cmd, "%c\r\n", 0x1a);
-				wat_cmd_send(span, cmd, wat_response_cmgs_end, sms);
+				wat_cmd_send(span, cmd, wat_response_cmgs_end, sms, 60000);
 			}
 			break;
 		case WAT_SMS_STATE_COMPLETE:
@@ -177,7 +177,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 
 				if (sms->sms_event.type == WAT_SMS_TXT) {
 					/* Switch the GSM module back to PDU mode */
-					wat_cmd_enqueue(span, "AT+CMGF=0", NULL, NULL);
+					wat_cmd_enqueue(span, "AT+CMGF=0", NULL, NULL, span->config.timeout_command);
 				}
 				
 				memset(&sms_status, 0, sizeof(sms_status));
