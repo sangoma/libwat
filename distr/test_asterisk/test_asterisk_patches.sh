@@ -123,6 +123,9 @@ echo "==========================================================================
 echo "Installing DAHDI"
 echo "==========================================================================="
 
+eval "rm -rf dahdi-linux-current.tar.gz"
+
+
 eval "wget http://downloads.asterisk.org/pub/telephony/dahdi-linux/dahdi-linux-current.tar.gz"
 if [ $? -ne 0 ];then
 	echo "Failed to download latest DAHDI"
