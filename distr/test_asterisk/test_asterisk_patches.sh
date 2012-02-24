@@ -138,7 +138,7 @@ fi
 
 dahdi_dir=`find -maxdepth 1 -type d |grep dahdi`
 echo "Dahdi dir:$dahdi_dir"
-eval "cd $dahdi_dir`
+eval "cd $dahdi_dir"
 if [ $? -ne 0 ]; then
 	echo "Failed to change directory to $dahdi_dir"
 	exit 1
