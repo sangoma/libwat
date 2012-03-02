@@ -216,6 +216,14 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
+if [ -e libwat-$major.$minor-current.tgz ]; then
+	eval "rm -rf libwat-$major.$minor-current.tgz"
+	if [ $? -ne 0 ]; then 
+		echo "Failed to remove current tarball"
+		exit 1
+	fi
+fi
+
 tar cfz libwat-$major.$minor-current.tgz $rel_name
 if [ $? -ne 0 ]; then
 	echo "Failed to create tarball"
