@@ -137,8 +137,9 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 				char cmd[40];
 				memset(cmd, 0, sizeof(cmd));
 
-				sprintf(cmd, "ATD%s;", call->called_num.digits);
-				wat_cmd_enqueue(span, cmd, wat_response_atd, call);
+				sprintf(cmd, "ATD%s; ", call->called_num.digits);
+				
+				wat_cmd_enqueue(span, cmd, wat_response_atd, call, 15000);
 
 				wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 			}
@@ -178,7 +179,7 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 		break;
 		case WAT_CALL_STATE_ANSWERED:
 			if (call->dir == WAT_DIRECTION_INCOMING) {
-				wat_cmd_enqueue(span, "ATA", wat_response_ata, call);
+				wat_cmd_enqueue(span, "ATA", wat_response_ata, call, 30000);
 			} else {
 				wat_con_status_t con_status;
 				memset(&con_status, 0, sizeof(con_status));
@@ -211,7 +212,7 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 		break;
 		case WAT_CALL_STATE_HANGUP:
 		{
-			wat_cmd_enqueue(span, "ATH", wat_response_ath, call);
+			wat_cmd_enqueue(span, "ATH", wat_response_ath, call, 30000);
 		}
 		break;
 		case WAT_CALL_STATE_HANGUP_CMPL:

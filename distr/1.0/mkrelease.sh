@@ -166,8 +166,7 @@ eval "cp -rf ../../src/include/private/*.h $rel_name/src/include/private"
 eval "touch $rel_name/src/include/private/*"
 
 eval "mkdir $rel_name/test"
-eval "cp -rf ../../test/*.c $rel_name/test"
-eval "cp -rf ../../test/*.h $rel_name/test"
+eval "cp -rf ../../test/* $rel_name/test"
 eval "cp -rf ../../test/CMakeLists.txt $rel_name/test"
 
 eval "mkdir $rel_name/build"
@@ -211,10 +210,18 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-eval "../sangoma_ftp.pl $rel_name.tgz linux/libwat"
+eval "scp $rel_name.tgz sangoma@ftp.sangoma.com:/linux/libwat"
 if [ $? -ne 0 ]; then
 	echo "Failed to upload to ftp"
 	exit 1
+fi
+
+if [ -e libwat-$major.$minor-current.tgz ]; then
+	eval "rm -rf libwat-$major.$minor-current.tgz"
+	if [ $? -ne 0 ]; then 
+		echo "Failed to remove current tarball"
+		exit 1
+	fi
 fi
 
 tar cfz libwat-$major.$minor-current.tgz $rel_name
@@ -222,7 +229,7 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create tarball"
 	exit 1
 fi
-eval "../sangoma_ftp.pl libwat-$major.$minor-current.tgz linux/libwat"
+eval "scp libwat-$major.$minor-current.tgz sangoma@ftp.sangoma.com:/linux/libwat"
 if [ $? -ne 0 ]; then
 	echo "Failed to upload to ftp"
 	exit 1

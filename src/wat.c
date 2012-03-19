@@ -28,9 +28,10 @@
 #include "telit.h"
 
 #if 0
+
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
 //uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
-uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_AT_HANDLE;
+uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_CALL_STATE;
 //uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 //uint32_t	g_debug = WAT_DEBUG_AT_HANDLE |WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
 //uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
@@ -217,6 +218,9 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	}
 	if (!span->config.signal_threshold) {
 		span->config.signal_threshold = WAT_DEFAULT_SIGNAL_THRESHOLD;
+	}
+	if (!span->config.call_release_delay) {
+		span->config.call_release_delay = WAT_DEFAULT_CALL_RELEASE_DELAY;
 	}
 
 	wat_log_span(span, WAT_LOG_DEBUG, "Configured span for %s module\n", wat_moduletype2str(span_config->moduletype));
@@ -546,7 +550,7 @@ WAT_DECLARE(wat_status_t) wat_span_set_dtmf_duration(uint8_t span_id, int durati
 	}
 	duration = duration_ms / 10;
 	snprintf(duration_cmd, sizeof(duration_cmd), "AT+VTD=%d", duration);
-	wat_cmd_enqueue(span, duration_cmd, NULL, NULL);
+	wat_cmd_enqueue(span, duration_cmd, NULL, NULL, span->config.timeout_command);
 	return WAT_SUCCESS;
 }
 
@@ -587,7 +591,7 @@ WAT_DECLARE(wat_status_t) wat_rel_req(uint8_t span_id, uint8_t call_id)
 		return WAT_EINVAL;
 	}
 
- if (span->state < WAT_SPAN_STATE_START) {
+	if (span->state < WAT_SPAN_STATE_START) {
 		WAT_FUNC_DBG_END
 		return WAT_FAIL;
 	}
@@ -636,7 +640,7 @@ WAT_DECLARE(wat_status_t) wat_sms_req(uint8_t span_id, uint8_t sms_id, wat_sms_e
 					if (sms_event->content.len >= WAT_MAX_SMS_SZ) {
 						wat_log_span(span, WAT_LOG_ERROR, "[sms:%d]SMS length has to be less than %d (len:%d)\n", sms_id, WAT_MAX_SMS_SZ, sms_event->content.len);
 						WAT_FUNC_DBG_END
-								return WAT_FAIL;
+						return WAT_FAIL;
 					}
 					break;
 				case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
@@ -708,7 +712,7 @@ WAT_DECLARE(wat_status_t) wat_cmd_req(uint8_t span_id, const char *at_cmd, wat_a
 	}
 	user_cmd->cb = cb;
 	user_cmd->obj = obj;
-	return wat_cmd_enqueue(span, at_cmd, wat_user_cmd_response, user_cmd);
+	return wat_cmd_enqueue(span, at_cmd, wat_user_cmd_response, user_cmd, span->config.timeout_command);
 }
 
 wat_span_t *wat_get_span(uint8_t span_id)
