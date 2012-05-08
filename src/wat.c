@@ -240,7 +240,7 @@ WAT_DECLARE(wat_status_t) wat_span_unconfig(uint8_t span_id)
 	span = wat_get_span(span_id);
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 	
-	if (span->configured) {
+	if (!span->configured) {
 		wat_log_span(span, WAT_LOG_ERROR, "Span was not configured\n");
 		return WAT_FAIL;
 	}
