@@ -245,12 +245,14 @@ WAT_DECLARE(wat_status_t) wat_span_unconfig(uint8_t span_id)
 		return WAT_FAIL;
 	}
 
-	if (span->state >= WAT_SPAN_STATE_START) {
+	if (span->state != WAT_SPAN_STATE_STOP) {
 		wat_log_span(span, WAT_LOG_ERROR, "Cannot unconfig running span. Please stop span first\n");
 		return WAT_FAIL;
 	}
 
 	memset(&g_spans[span_id], 0, sizeof(g_spans[0]));
+	span->state = WAT_SPAN_STATE_INIT;
+	span->configured = 0;
 	return WAT_SUCCESS;
 }
 
