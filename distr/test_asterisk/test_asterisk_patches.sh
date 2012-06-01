@@ -19,9 +19,10 @@ verify_asterisk ()
 
 	echo "Verifying $asterisk_patch against release:$asterisk_release"
 
+	\mkdir -p "$home_dir/$test_dir/"
 	logfile="$home_dir/$test_dir/$asterisk_release"".log"
 	echo "logfile:$logfile"
-	echo " " > $logfile
+	touch $logfile
 
 	echo "Removing old asterisk directories"
 	eval "ls | grep -v \".*.log\" | xargs rm -rf"
