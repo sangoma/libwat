@@ -569,7 +569,7 @@ static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 		wat_log_span(span, WAT_LOG_DEBUG, "Handling notify for cmd:%s\n", tokens[0]);
 	}
 
-	for (i = 0; i < sizeof(span->notifys)/sizeof(span->notifys[0]); i++) {
+	for (i = 0; i < wat_array_len(span->notifys); i++) {
 		if (span->notifys[i]) {
 			wat_notify_t *notify = span->notifys[i];
 			if (!strncasecmp(notify->prefix, tokens[0], strlen(notify->prefix))) {
