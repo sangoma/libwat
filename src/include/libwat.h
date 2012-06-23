@@ -604,6 +604,7 @@ typedef struct _wat_interface {
 /* Functions  *********************************************************************/
 /* TODO: add Doxygen headers */
 WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age);
+WAT_DECLARE(uint32_t) wat_str2debug(const char *str);
 WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask);
 WAT_DECLARE(wat_status_t) wat_register(wat_interface_t *interface);
 WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *span_config);
