@@ -19,14 +19,16 @@ verify_asterisk ()
 
 	echo "Verifying $asterisk_patch against release:$asterisk_release"
 
+	\mkdir -p "$home_dir/$test_dir/"
 	logfile="$home_dir/$test_dir/$asterisk_release"".log"
 	echo "logfile:$logfile"
+	touch $logfile
 
 	echo "Removing old asterisk directories"
 	eval "ls | grep -v \".*.log\" | xargs rm -rf"
 
 	echo "Downloading $asterisk_release"
-	eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/$asterisk_release.tar.gz"
+	eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/$asterisk_release.tar.gz" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ];then
 		eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/releases/$asterisk_release.tar.gz" 2>> $logfile >> $logfile
 

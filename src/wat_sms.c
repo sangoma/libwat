@@ -442,6 +442,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 	char *tp_udh_loc;
 	unsigned i;	
 
+	memset(pdu_data, 0, sizeof(pdu_data));
 	sms_event = &sms->sms_event;
 	pdu_data_ptr = pdu_data;
 	pdu_data_len = 0;

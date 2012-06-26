@@ -39,6 +39,51 @@ uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_CALL_STA
 uint32_t	g_debug = 0;
 #endif
 
+static uint32_t _wat_str2debug(const char *str)
+{
+	if (!strcasecmp(str, "all")) {
+		return 0xFFFFFFFF;
+	}
+
+	else if (!strcasecmp(str, "uart_raw")) {
+		return WAT_DEBUG_UART_RAW;
+	}
+
+	else if (!strcasecmp(str, "uart_dump")) {
+		return WAT_DEBUG_UART_DUMP;
+	}
+
+	else if (!strcasecmp(str, "call_state")) {
+		return WAT_DEBUG_CALL_STATE;
+	}
+
+	else if (!strcasecmp(str, "span_state")) {
+		return WAT_DEBUG_SPAN_STATE;
+	}
+
+	else if (!strcasecmp(str, "at_parse")) {
+		return WAT_DEBUG_AT_PARSE;
+	}
+
+	else if (!strcasecmp(str, "at_handle")) {
+		return WAT_DEBUG_AT_HANDLE;
+	}
+
+	else if (!strcasecmp(str, "sms_encode")) {
+		return WAT_DEBUG_SMS_ENCODE;
+	}
+
+	else if (!strcasecmp(str, "sms_decode")) {
+		return WAT_DEBUG_SMS_DECODE;
+	}
+
+	else if (!strcasecmp(str, "none")) {
+		return 0;
+	}
+
+	return 0;
+}
+
 wat_interface_t g_interface;
 wat_span_t g_spans[WAT_MAX_SPANS];
 
@@ -124,6 +169,27 @@ WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age)
 	*age = wat_VERSION_LT_AGE;
 }
 
+WAT_DECLARE(uint32_t) wat_str2debug(const char *str)
+{
+	uint32_t debug = 0;
+	char *dbgstr = NULL;
+	char *saveptr = NULL;
+	char strbuf[255] = { 0 };
+
+	snprintf(strbuf, sizeof(strbuf), "%s", str);
+
+	dbgstr = strtok_r(strbuf, ",", &saveptr);
+	if (!dbgstr) {
+		return debug;
+	}
+	debug |= _wat_str2debug(dbgstr);
+
+	while ((dbgstr = strtok_r(NULL, ",", &saveptr))) {
+		debug |= _wat_str2debug(dbgstr);
+	}
+
+	return debug;
+}
 
 WAT_DECLARE(wat_status_t) wat_register(wat_interface_t *interface)
 {
@@ -240,17 +306,19 @@ WAT_DECLARE(wat_status_t) wat_span_unconfig(uint8_t span_id)
 	span = wat_get_span(span_id);
 	wat_assert_return(span, WAT_FAIL, "Invalid span");
 	
-	if (span->configured) {
+	if (!span->configured) {
 		wat_log_span(span, WAT_LOG_ERROR, "Span was not configured\n");
 		return WAT_FAIL;
 	}
 
-	if (span->state >= WAT_SPAN_STATE_START) {
+	if (span->state != WAT_SPAN_STATE_STOP) {
 		wat_log_span(span, WAT_LOG_ERROR, "Cannot unconfig running span. Please stop span first\n");
 		return WAT_FAIL;
 	}
 
 	memset(&g_spans[span_id], 0, sizeof(g_spans[0]));
+	span->state = WAT_SPAN_STATE_INIT;
+	span->configured = 0;
 	return WAT_SUCCESS;
 }
 
