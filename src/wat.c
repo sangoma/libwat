@@ -257,6 +257,11 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 			return WAT_EINVAL;
 	}
 	
+	if (span_config->incoming_sms_encoding >= WAT_SMS_CONTENT_ENCODING_INVALID) {
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid Incoming sms encoding type:%d\n", span_config->incoming_sms_encoding); 
+		return WAT_EINVAL;
+	}
+
 	span->id = span_id;
 	span->configured = 1;
 
@@ -288,6 +293,7 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 	if (!span->config.call_release_delay) {
 		span->config.call_release_delay = WAT_DEFAULT_CALL_RELEASE_DELAY;
 	}
+
 
 	wat_log_span(span, WAT_LOG_DEBUG, "Configured span for %s module\n", wat_moduletype2str(span_config->moduletype));
 	return WAT_SUCCESS;
@@ -903,6 +909,17 @@ WAT_DECLARE(wat_band_t) wat_encode_band(const char *band)
 {
 	return wat_str2wat_band(band);
 }
+
+WAT_DECLARE(const char *) wat_decode_sms_content_encoding(wat_sms_content_encoding_t content_encoding)
+{
+	return wat_sms_content_encoding2str(content_encoding);
+}
+
+WAT_DECLARE(wat_sms_content_encoding_t) wat_encode_sms_content_encoding(const char *content_encoding)
+{
+	return wat_str2wat_sms_content_encoding(content_encoding);
+}
+
 
 WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask)
 {

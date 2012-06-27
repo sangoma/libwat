@@ -32,12 +32,11 @@
 
 wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms);
 
+wat_status_t wat_encode_base64(char *data, wat_size_t *data_len, wat_size_t data_size, const char *raw, wat_size_t raw_len);
+wat_status_t wat_decode_base64(char *raw_content, wat_size_t *raw_content_len, const char *data, wat_size_t data_len);
+
 wat_status_t wat_encode_sms_content(char *raw, wat_size_t raw_len, wat_sms_content_t *content, wat_sms_content_encoding_t content_encoding);
 wat_status_t wat_decode_sms_content(char *raw, wat_size_t *raw_len, wat_sms_content_t *content);
-
-wat_status_t wat_encode_base64(char *data, wat_size_t *data_len, wat_size_t data_size, const char *raw, wat_size_t raw_len);
-
-wat_status_t wat_decode_base64(char *raw_content, wat_size_t *raw_content_len, const char *data, wat_size_t data_len);
 
 static int octet_to_septet(int octet)
 {
@@ -414,10 +413,11 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 			return WAT_FAIL;
 	}
 
-	if (sms_event.content.charset != WAT_SMS_CONTENT_CHARSET_ASCII) {
-		encoding = span->config.incoming_sms_encoding;
+	if (sms_event.content.charset != WAT_SMS_CONTENT_CHARSET_ASCII && 
+	    span->config.incoming_sms_encoding == WAT_SMS_CONTENT_ENCODING_NONE) {
+		encoding = WAT_SMS_CONTENT_ENCODING_BASE64;
 	} else {
-		encoding = WAT_SMS_CONTENT_ENCODING_NONE;
+		encoding = span->config.incoming_sms_encoding;
 	}
 
 	wat_encode_sms_content(raw_content, raw_content_len, &sms_event.content, encoding);
