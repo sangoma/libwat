@@ -631,6 +631,7 @@ WAT_DECLARE(const char *) wat_decode_pin_status(wat_pin_stat_t pin_status);
 WAT_DECLARE(const char*) wat_decode_pdu_mti(unsigned mti);
 WAT_DECLARE(const char*) wat_decode_pdu_dcs(char *dest, wat_sms_pdu_dcs_t *dcs);
 WAT_DECLARE(const char *) wat_decode_band(wat_band_t band);
+WAT_DECLARE(const char *) wat_decode_sms_content_encoding(wat_sms_content_encoding_t content_encoding);
 
 WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone);
 
@@ -649,6 +650,7 @@ WAT_DECLARE(wat_status_t) wat_span_set_dtmf_duration(uint8_t span_id, int durati
 WAT_DECLARE(wat_status_t) wat_span_set_codec(uint8_t span_id, wat_codec_t codec_mask);
 WAT_DECLARE(wat_codec_t) wat_encode_codec(const char *codec);
 WAT_DECLARE(wat_band_t) wat_encode_band(const char *band);
+WAT_DECLARE(wat_sms_content_encoding_t) wat_encode_sms_content_encoding(const char *content_encoding);
 
 #endif /* _LIBWAT_H */
 
