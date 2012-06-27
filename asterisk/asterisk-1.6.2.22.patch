@@ -24,7 +24,7 @@ index 055bf7d..d487501 100644
  console_video.o vgrabbers.o console_board.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_oss)
  
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index 4104c0f..9441c67 100644
+index 4104c0f..74434d2 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -44,6 +44,7 @@
@@ -246,7 +246,7 @@ index 4104c0f..9441c67 100644
 +				.signal_threshold = 90,
 +				.codec_mask = WAT_CODEC_ALL,
 +				.band = WAT_BAND_AUTO,
-+ 				.incoming_sms_encoding = WAT_SMS_CONTENT_ENCODING_BASE64,
++				.incoming_sms_encoding = WAT_SMS_CONTENT_ENCODING_NONE,
 +			},
 +  		},
 +#endif
@@ -861,7 +861,46 @@ index 4104c0f..9441c67 100644
  				} else if (!strcasecmp(v->value, "auto")) {
  					confp->is_sig_auto = 1;
  				} else {
-@@ -18378,6 +18928,21 @@ static int setup_dahdi(int reload)
+@@ -17658,6 +18208,38 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+ 				} else {
+ 					ast_log(LOG_ERROR, "Unknown signalling method '%s' at line %d.\n", v->value, v->lineno);
+ 				}
++#ifdef HAVE_WAT
++			} else if (!strcasecmp(v->name, "wat_moduletype")) {
++				if (!strcasecmp(v->value, "telit")) {
++					confp->wat.wat.wat_cfg.moduletype = WAT_MODULE_TELIT;
++				} else {
++					ast_log(LOG_WARNING, "Unknown WAT moduletype '%s' at line %d.\n", v->value, v->lineno);
++				 }
++			} else if (!strcasecmp(v->name, "wat_timeout_cid_name")) {
++					if (atoi(v->value) >= 0) {
++						confp->wat.wat.wat_cfg.timeout_cid_num = atoi(v->value);
++					} else {
++						ast_log(LOG_WARNING, "Invalid value for '%s' at line %d.\n", v->value, v->lineno);
++					}
++			} else if (!strcasecmp(v->name, "wat_signal_poll_interval")) {
++				if (atoi(v->value) >= 0) {
++					confp->wat.wat.wat_cfg.signal_poll_interval = atoi(v->value);
++				} else {
++					ast_log(LOG_WARNING, "Invalid value for '%s' at line %d.\n", v->value, v->lineno);
++				}
++			} else if (!strcasecmp(v->name, "wat_signal_threshold")) {
++				if (atoi(v->value) >= 0) {
++					confp->wat.wat.wat_cfg.signal_threshold = atoi(v->value);
++				} else {
++					ast_log(LOG_WARNING, "Invalid value for '%s' at line %d.\n", v->value, v->lineno);
++				}				
++			} else if (!strcasecmp(v->name, "wat_codecs")) {
++				confp->wat.wat.wat_cfg.codec_mask = wat_encode_codec(v->value);
++			} else if (!strcasecmp(v->name, "wat_band")) {
++				confp->wat.wat.wat_cfg.band = wat_encode_band(v->value);
++			} else if (!strcasecmp(v->name, "wat_incoming_sms_encoding")) {
++				confp->wat.wat.wat_cfg.incoming_sms_encoding = wat_encode_sms_content_encoding(v->value);
++#endif
+ #ifdef HAVE_PRI
+ 			} else if (!strcasecmp(v->name, "pridialplan")) {
+ 				if (!strcasecmp(v->value, "national")) {
+@@ -18378,6 +18960,21 @@ static int setup_dahdi(int reload)
  		}
  	}
  #endif
@@ -883,7 +922,7 @@ index 4104c0f..9441c67 100644
  	/* And start the monitor for the first time */
  	restart_monitor();
  	return 0;
-@@ -18386,8 +18951,11 @@ static int setup_dahdi(int reload)
+@@ -18386,8 +18983,11 @@ static int setup_dahdi(int reload)
  static int load_module(void)
  {
  	int res;
@@ -896,7 +935,7 @@ index 4104c0f..9441c67 100644
  #endif
  
  #ifdef HAVE_PRI
-@@ -18417,6 +18985,13 @@ static int load_module(void)
+@@ -18417,6 +19017,13 @@ static int load_module(void)
  	ss7_set_error(dahdi_ss7_error);
  	ss7_set_message(dahdi_ss7_message);
  #endif /* HAVE_SS7 */
@@ -910,7 +949,7 @@ index 4104c0f..9441c67 100644
  	res = setup_dahdi(0);
  	/* Make sure we can register our DAHDI channel type */
  	if (res)
-@@ -18438,7 +19013,9 @@ static int load_module(void)
+@@ -18438,7 +19045,9 @@ static int load_module(void)
  	ast_cli_register_multiple(dahdi_mfcr2_cli, sizeof(dahdi_mfcr2_cli)/sizeof(dahdi_mfcr2_cli[0]));
  	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
  #endif
@@ -921,7 +960,7 @@ index 4104c0f..9441c67 100644
  	ast_cli_register_multiple(dahdi_cli, ARRAY_LEN(dahdi_cli));
  
  	memset(round_robin, 0, sizeof(round_robin));
-@@ -18450,6 +19027,12 @@ static int load_module(void)
+@@ -18450,6 +19059,12 @@ static int load_module(void)
  	ast_manager_register("DAHDIShowChannels", 0, action_dahdishowchannels, "Show status DAHDI channels");
  	ast_manager_register("DAHDIRestart", 0, action_dahdirestart, "Fully Restart DAHDI channels (terminates calls)");
  
@@ -936,7 +975,7 @@ index 4104c0f..9441c67 100644
  	return res;
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..d4ea644
+index 0000000..57e3456
 --- /dev/null
 +++ b/channels/sig_wat.c
 @@ -0,0 +1,1808 @@
@@ -1386,7 +1425,7 @@ index 0000000..d4ea644
 +									"Span: %d\r\n"
 +									"From-Number: %s\r\n"
 +									"From-Plan: %s\r\n"
-+									"From-Type: %s\nr\r"
++									"From-Type: %s\r\n"
 +									"Timestamp: %02d/%02d/%02d %02d:%02d:%02d %s\r\n"
 +									"Type: %s\r\n",
 +									(wat->span + 1),
@@ -1438,7 +1477,7 @@ index 0000000..d4ea644
 +									"Content: ",
 +									(sms_event->pdu.dcs.compressed) ? "Compressed" : "text/plain",
 +									wat_sms_content_charset2str(sms_event->content.charset),
-+									wat_sms_content_encoding2str(sms_event->content.encoding));
++									wat_decode_sms_content_encoding(sms_event->content.encoding));
 +
 +	for (i = 0; i < strlen(sms_event->content.data); i++) {
 +		if (sms_event->content.data[i] == '\n') {
