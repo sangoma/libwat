@@ -19,16 +19,14 @@ verify_asterisk ()
 
 	echo "Verifying $asterisk_patch against release:$asterisk_release"
 
-	\mkdir -p "$home_dir/$test_dir/"
 	logfile="$home_dir/$test_dir/$asterisk_release"".log"
 	echo "logfile:$logfile"
-	touch $logfile
 
 	echo "Removing old asterisk directories"
 	eval "ls | grep -v \".*.log\" | xargs rm -rf"
 
 	echo "Downloading $asterisk_release"
-	eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/$asterisk_release.tar.gz" 2>> $logfile >> $logfile
+	eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/$asterisk_release.tar.gz"
 	if [ $? -ne 0 ];then
 		eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/releases/$asterisk_release.tar.gz" 2>> $logfile >> $logfile
 
@@ -51,8 +49,7 @@ verify_asterisk ()
 	if [ $? -eq 0 ]; then
 		#find the real asterisk release name
 		asterisk_branch=`echo $asterisk_release | cut -d "-" -f -2`
-#		asterisk_release=`ls |grep $asterisk_branch | grep -v \"gz\" | grep -v \"log\" | head -n 1`
-		asterisk_release=`find . -type d -maxdepth 1 |grep $asterisk_branch`
+		asterisk_release=`ls |grep $asterisk_branch | grep -v \"gz\" | grep -v \"log\" | head -n 1`
 		echo "Current Asterisk version:$asterisk_release"
 	fi
 
@@ -126,7 +123,10 @@ echo "==========================================================================
 echo "Installing DAHDI"
 echo "==========================================================================="
 
-eval "wget -q http://downloads.asterisk.org/pub/telephony/dahdi-linux/dahdi-linux-current.tar.gz"
+eval "rm -rf dahdi-linux-current.tar.gz"
+
+
+eval "wget http://downloads.asterisk.org/pub/telephony/dahdi-linux/dahdi-linux-current.tar.gz"
 if [ $? -ne 0 ];then
 	echo "Failed to download latest DAHDI"
 	exit 1
@@ -138,27 +138,15 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-dahdi_dir=`find -maxdepth 1 -type d |grep dahdi`
+dahdi_dir=`find maxdepth 1 -type d |grep dahdi`
 echo "Dahdi dir:$dahdi_dir"
-eval "cd $dahdi_dir"
+eval "cd $dahdi_dir`
 if [ $? -ne 0 ]; then
 	echo "Failed to change directory to $dahdi_dir"
 	exit 1
 fi
 
-#this is not ideal as we are installing DAHDI on this system, but I have not been able to find a way
-#to specify ./configure --with-dahdi in Asterisk
-eval "make "
-if [ $? -ne 0 ]; then
-	echo "Failed to compile dahdi"
-	exit 1
-fi
-
-eval "make install"
-if [ $? -ne 0 ]; then
-	echo "Failed to install dahdi"
-	exit 1
-fi
+eval "
 
 
 echo "==========================================================================="

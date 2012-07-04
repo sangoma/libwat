@@ -481,8 +481,9 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 						tokens_unused = 0;
 					}
 				} else {
-					if (!tokens[i+1]) {
-						tokens_consumed += wat_cmd_handle_notify(span, &tokens[i-tokens_unused]);
+					int notify_consumed = wat_cmd_handle_notify(span, &tokens[i-tokens_unused]);
+					if (notify_consumed) {
+						tokens_consumed += notify_consumed;
 					} else {
 						tokens_unused++;
 					}
@@ -659,6 +660,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 	if (has_token) {
 		/* We are in the middle of receiving a Command wait for the rest */
 		wat_free_tokens(tokens);
+		wat_safe_free(token_str);
 		return WAT_FAIL;
 	}
 
@@ -738,11 +740,12 @@ done:
 	return status;
 }
 
-int wat_cmd_entry_tokenize(char *entry, char *tokens[], wat_size_t len)
+int wat_cmd_entry_tokenize(char *token, char *tokens[], wat_size_t len)
 {
 	char *previous_token = NULL;
 	int token_count = 0;
 	char *p = NULL;
+	char *entry = wat_strdup(token);
 
 	/* since the array is null-terminated, at least 2 elements are required */
 	wat_assert_return(len > 1, 0, "invalid token array len");
@@ -799,6 +802,10 @@ int wat_cmd_entry_tokenize(char *entry, char *tokens[], wat_size_t len)
 	}
 
 done:
+
+	if (entry) {
+		wat_free(entry);
+	}
 
 	return token_count;
 }
@@ -1101,6 +1108,9 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		sts_event.sts.sim_info = span->sim_info;
 		g_interface.wat_span_sts(span->id, &sts_event);
 	}
+
+	wat_free_tokens(cmdtokens);
+
 	WAT_FUNC_DBG_END
 	return numtokens;
 
@@ -1151,6 +1161,8 @@ WAT_RESPONSE_FUNC(wat_response_csca)
 	wat_log_span(span, WAT_LOG_NOTICE, "SMSC:%s type:%s plan:%s\n",
 							span->sim_info.smsc.digits, wat_number_type2str(span->sim_info.smsc.type),
 							wat_number_plan2str(span->sim_info.smsc.plan));
+
+	wat_free_tokens(cmdtokens);
 
 	WAT_FUNC_DBG_END
 	return 2;
@@ -1259,7 +1271,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 	clcc_entry_t entries[10];
 	wat_iterator_t *iter, *curr;
 	
-	WAT_NOTIFY_FUNC_DBG_START
+	WAT_RESPONSE_FUNC_DBG_START
 
 	memset(entries, 0, sizeof(entries));
 
@@ -1553,11 +1565,7 @@ WAT_NOTIFY_FUNC(wat_notify_cring)
 
 	WAT_NOTIFY_FUNC_DBG_START
 
-	if (!strncmp(tokens[0], "+CRING: ", 8)) {
-		int len = strlen(&(tokens[0])[8]);
-		memmove(tokens[0], &(tokens[0])[8], len);
-		memset(&tokens[0][len], 0, strlen(&tokens[0][len]));
-	}
+	wat_match_prefix(tokens[0], "+CRING: ");
 
 	wat_log_span(span, WAT_LOG_DEBUG, "Incoming CRING:%s\n", token);
 
@@ -1672,6 +1680,12 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 
 	wat_match_prefix(tokens[0], "+CLIP: ");
 
+	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
+	if (numtokens < 3) {
+		/* This is not a notify but a CLIP response, do not handle it here */
+		return 0;
+	}
+
 	wat_log_span(span, WAT_LOG_DEBUG, "Incoming CLIP:%s\n", tokens[0]);
 
 	/* TODO: We can receive CLIP multiple times, check if this is not the first CLIP */
@@ -1716,11 +1730,10 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 				2 - CLI is not available due to interworking problems or limitation of originating network.
 	*/
 	
-	numtokens = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
-
 	if (numtokens < 1) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLIP entry:%s\n", tokens[0]);
 		wat_free_tokens(cmdtokens);
+		return 0;
 	}
 
 	if (strlen(cmdtokens[0]) < 0) {

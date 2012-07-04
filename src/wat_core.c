@@ -168,7 +168,7 @@ wat_iterator_t *wat_span_get_notify_iterator(const wat_span_t *span, wat_iterato
 	if (!(iter = wat_get_iterator(WAT_ITERATOR_NOTIFYS, iter))) {
 		return NULL;
 	}
-	iter->index = 1;
+	iter->index = 0;
 
 	if (!span->notifys[iter->index]) {
 		/* If the first element in the array is NULL, there are no elements in the array, return NULL */
@@ -190,11 +190,10 @@ wat_iterator_t *wat_iterator_next(wat_iterator_t *iter)
 				iter->index++;
 				if (iter->span->calls[iter->index]) {
 					return iter;
-				}				
+				}
 			}
 			return NULL;
 		case WAT_ITERATOR_NOTIFYS:
-			wat_assert_return(iter->index, NULL, "notify iterator index cannot be zero!\n");
 			if (iter->index == iter->span->notify_count) {
 				return NULL;
 			}
@@ -221,7 +220,6 @@ void *wat_iterator_current(wat_iterator_t *iter)
 			wat_assert_return(iter->index <= wat_array_len(iter->span->calls), NULL, "channel iterator index bigger than calls size!\n");
 			return iter->span->calls[iter->index];
 		case WAT_ITERATOR_NOTIFYS:
-			wat_assert_return(iter->index, NULL, "notify iterator index cannot be zero!\n");
 			wat_assert_return(iter->index <= iter->span->notify_count, NULL, "channel iterator index bigger than notify count!\n");
 			return iter->span->notifys[iter->index];
 		default:

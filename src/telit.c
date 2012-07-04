@@ -189,6 +189,7 @@ WAT_STR2ENUM(wat_str2wat_telit_sim_status, wat_telit_sim_status2str, wat_telit_s
 
 WAT_NOTIFY_FUNC(wat_notify_qss)
 {
+	int rc = 1;
 	char *cmdtokens[4];
 	int sim_status = 0;
 
@@ -209,19 +210,24 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 			break;
 		case 2:
 			/* This is not a notify, but a response */
-			WAT_FUNC_DBG_END
-			return 0;
+			rc = 0;
+			break;
 		default:
 			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
 			break;
 	}
-	return 1;
+
+	wat_free_tokens(cmdtokens);
+
+	WAT_FUNC_DBG_END
+	return rc;
 }
 
 WAT_RESPONSE_FUNC(wat_response_qss)
 {
 	char *cmdtokens[4];
 	int sim_status = 0;
+	int parameters = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to get SIM status\n");
@@ -237,7 +243,8 @@ WAT_RESPONSE_FUNC(wat_response_qss)
 		return 1;
 	}
 
-	switch (wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens))) {
+	parameters = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
+	switch (parameters) {
 		case 2:
 			sim_status = atoi(cmdtokens[1]);
 			wat_log_span(span, WAT_LOG_INFO, "SIM status is '%s' (%d)\n", wat_telit_sim_status2str(sim_status), sim_status);
@@ -248,10 +255,13 @@ WAT_RESPONSE_FUNC(wat_response_qss)
 			}
 			break;
 		default:
-			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
+			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s, expecting 2 parameters but got %d\n",
+					tokens[0], parameters);
 			break;
 	}
 	
+	wat_free_tokens(cmdtokens);
+
 	WAT_FUNC_DBG_END
 	return 2;
 }
