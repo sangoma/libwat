@@ -660,6 +660,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 	if (has_token) {
 		/* We are in the middle of receiving a Command wait for the rest */
 		wat_free_tokens(tokens);
+		wat_safe_free(token_str);
 		return WAT_FAIL;
 	}
 
@@ -1107,6 +1108,9 @@ WAT_RESPONSE_FUNC(wat_response_cnum)
 		sts_event.sts.sim_info = span->sim_info;
 		g_interface.wat_span_sts(span->id, &sts_event);
 	}
+
+	wat_free_tokens(cmdtokens);
+
 	WAT_FUNC_DBG_END
 	return numtokens;
 
@@ -1157,6 +1161,8 @@ WAT_RESPONSE_FUNC(wat_response_csca)
 	wat_log_span(span, WAT_LOG_NOTICE, "SMSC:%s type:%s plan:%s\n",
 							span->sim_info.smsc.digits, wat_number_type2str(span->sim_info.smsc.type),
 							wat_number_plan2str(span->sim_info.smsc.plan));
+
+	wat_free_tokens(cmdtokens);
 
 	WAT_FUNC_DBG_END
 	return 2;
@@ -1727,6 +1733,7 @@ WAT_NOTIFY_FUNC(wat_notify_clip)
 	if (numtokens < 1) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse CLIP entry:%s\n", tokens[0]);
 		wat_free_tokens(cmdtokens);
+		return 0;
 	}
 
 	if (strlen(cmdtokens[0]) < 0) {

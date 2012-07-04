@@ -189,6 +189,7 @@ WAT_STR2ENUM(wat_str2wat_telit_sim_status, wat_telit_sim_status2str, wat_telit_s
 
 WAT_NOTIFY_FUNC(wat_notify_qss)
 {
+	int rc = 1;
 	char *cmdtokens[4];
 	int sim_status = 0;
 
@@ -209,13 +210,17 @@ WAT_NOTIFY_FUNC(wat_notify_qss)
 			break;
 		case 2:
 			/* This is not a notify, but a response */
-			WAT_FUNC_DBG_END
-			return 0;
+			rc = 0;
+			break;
 		default:
 			wat_log(WAT_LOG_ERROR, "Failed to parse #QSS %s\n", tokens[0]);
 			break;
 	}
-	return 1;
+
+	wat_free_tokens(cmdtokens);
+
+	WAT_FUNC_DBG_END
+	return rc;
 }
 
 WAT_RESPONSE_FUNC(wat_response_qss)
@@ -255,6 +260,8 @@ WAT_RESPONSE_FUNC(wat_response_qss)
 			break;
 	}
 	
+	wat_free_tokens(cmdtokens);
+
 	WAT_FUNC_DBG_END
 	return 2;
 }
