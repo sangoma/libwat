@@ -24,7 +24,7 @@ index 055bf7d..d487501 100644
  console_video.o vgrabbers.o console_board.o: _ASTCFLAGS+=$(call MOD_ASTCFLAGS,chan_oss)
  
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index 4104c0f..a2e8f0e 100644
+index 4104c0f..42e2514 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -44,6 +44,7 @@
@@ -830,7 +830,7 @@ index 4104c0f..a2e8f0e 100644
  static int __unload_module(void)
  {
  	struct dahdi_pvt *p;
-@@ -16979,6 +17512,19 @@ static int __unload_module(void)
+@@ -16979,6 +17512,16 @@ static int __unload_module(void)
  	ast_manager_unregister( "DAHDIDNDon" );
  	ast_manager_unregister("DAHDIShowChannels");
  	ast_manager_unregister("DAHDIRestart");
@@ -847,7 +847,7 @@ index 4104c0f..a2e8f0e 100644
  	ast_channel_unregister(&dahdi_tech);
  	ast_mutex_lock(&iflock);
  	/* Hangup all interfaces if they have an owner */
-@@ -17008,6 +17554,7 @@ static int __unload_module(void)
+@@ -17008,6 +17551,7 @@ static int __unload_module(void)
  			dahdi_close_pri_fd(&(pris[i]), j);
  		}
  	}
@@ -855,7 +855,7 @@ index 4104c0f..a2e8f0e 100644
  #endif
  
  #if defined(HAVE_SS7)
-@@ -17614,6 +18161,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+@@ -17614,6 +18158,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
  				} else if (!strcasecmp(v->value, "mfcr2")) {
  					confp->chan.sig = SIG_MFCR2;
  #endif
@@ -866,7 +866,7 @@ index 4104c0f..a2e8f0e 100644
  				} else if (!strcasecmp(v->value, "auto")) {
  					confp->is_sig_auto = 1;
  				} else {
-@@ -17658,6 +18209,38 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+@@ -17658,6 +18206,38 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s' at line %d.\n", v->value, v->lineno);
  				}
@@ -905,7 +905,7 @@ index 4104c0f..a2e8f0e 100644
  #ifdef HAVE_PRI
  			} else if (!strcasecmp(v->name, "pridialplan")) {
  				if (!strcasecmp(v->value, "national")) {
-@@ -18378,6 +18961,21 @@ static int setup_dahdi(int reload)
+@@ -18378,6 +18958,21 @@ static int setup_dahdi(int reload)
  		}
  	}
  #endif
@@ -927,7 +927,7 @@ index 4104c0f..a2e8f0e 100644
  	/* And start the monitor for the first time */
  	restart_monitor();
  	return 0;
-@@ -18386,8 +18984,11 @@ static int setup_dahdi(int reload)
+@@ -18386,8 +18981,11 @@ static int setup_dahdi(int reload)
  static int load_module(void)
  {
  	int res;
@@ -940,7 +940,7 @@ index 4104c0f..a2e8f0e 100644
  #endif
  
  #ifdef HAVE_PRI
-@@ -18417,6 +19018,13 @@ static int load_module(void)
+@@ -18417,6 +19015,13 @@ static int load_module(void)
  	ss7_set_error(dahdi_ss7_error);
  	ss7_set_message(dahdi_ss7_message);
  #endif /* HAVE_SS7 */
@@ -954,7 +954,7 @@ index 4104c0f..a2e8f0e 100644
  	res = setup_dahdi(0);
  	/* Make sure we can register our DAHDI channel type */
  	if (res)
-@@ -18438,7 +19046,9 @@ static int load_module(void)
+@@ -18438,7 +19043,9 @@ static int load_module(void)
  	ast_cli_register_multiple(dahdi_mfcr2_cli, sizeof(dahdi_mfcr2_cli)/sizeof(dahdi_mfcr2_cli[0]));
  	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
  #endif
@@ -965,7 +965,7 @@ index 4104c0f..a2e8f0e 100644
  	ast_cli_register_multiple(dahdi_cli, ARRAY_LEN(dahdi_cli));
  
  	memset(round_robin, 0, sizeof(round_robin));
-@@ -18450,6 +19060,12 @@ static int load_module(void)
+@@ -18450,6 +19057,12 @@ static int load_module(void)
  	ast_manager_register("DAHDIShowChannels", 0, action_dahdishowchannels, "Show status DAHDI channels");
  	ast_manager_register("DAHDIRestart", 0, action_dahdirestart, "Fully Restart DAHDI channels (terminates calls)");
  
