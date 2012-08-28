@@ -177,12 +177,13 @@ eval "mkdir $rel_name/asterisk/"
 eval "cp -rf ../../asterisk/* $rel_name/asterisk/"
 
 #update changelog
-cd ..
-eval "./gen_changelog.pl --project_name=LibWAT --version=${major}.${minor}.${rev} --project_dir="..""
-if [ $? -ne 0 ]; then
-	echo "Failed to generate changelog"
-	exit 1
-fi
+# I think changelog updating has to be manual process before making a release, sometimes manual additions/adjustments are required
+#cd ..
+#eval "./gen_changelog.pl --project_name=LibWAT --version=${major}.${minor}.${rev} --project_dir="..""
+#if [ $? -ne 0 ]; then
+#	echo "Failed to generate changelog"
+#	exit 1
+#fi
 
 cd $HOME
 eval "cp -rf ../Changelog $rel_name"
@@ -210,12 +211,6 @@ if [ $? -ne 0 ]; then
 	exit 1
 fi
 
-eval "scp $rel_name.tgz sangoma@ftp.sangoma.com:linux/libwat"
-if [ $? -ne 0 ]; then
-	echo "Failed to upload to ftp"
-	exit 1
-fi
-
 if [ -e libwat-$major.$minor-current.tgz ]; then
 	eval "rm -rf libwat-$major.$minor-current.tgz"
 	if [ $? -ne 0 ]; then 
@@ -229,11 +224,6 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create tarball"
 	exit 1
 fi
-eval "scp libwat-$major.$minor-current.tgz sangoma@ftp.sangoma.com:linux/libwat"
-if [ $? -ne 0 ]; then
-	echo "Failed to upload to ftp"
-	exit 1
-fi
 
 tagname="v$major.$minor.$rev.$patch"
 
@@ -241,13 +231,34 @@ if [ $tag = "y" ]; then
 	echo
   	cmd="git tag -m 'Tag $tagname' -a '$tagname'" 
 	cd $HOME
-	cd ../../
+	echo "$cmd"
+	eval "$cmd"
+
+	if [ $? -ne 0 ]; then
+		echo "Failed to create new git tag"
+		exit 1
+	fi
+
+	cmd="git push origin $tagname"
 	echo "$cmd"
 	eval "$cmd"	
-	echo "Failed to create new git tag cmd:$cmd"
-	eval "git push origin $tagname"
-	echo "Failed to push new git tag"
+	if [ $? -ne 0 ]; then
+		echo "Failed to push new git tag"
+		exit 1
+	fi
+
+	eval "scp $rel_name.tgz sangoma@ftp.sangoma.com:linux/libwat"
+	if [ $? -ne 0 ]; then
+		echo "Failed to upload to ftp"
+		exit 1
+	fi
+
+	eval "scp libwat-$major.$minor-current.tgz sangoma@ftp.sangoma.com:linux/libwat"
+	if [ $? -ne 0 ]; then
+		echo "Failed to upload to ftp"
+		exit 1
+	fi
 fi
 
 echo
-echo "Done"
+echo "Release Done"
