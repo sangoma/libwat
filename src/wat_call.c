@@ -55,7 +55,7 @@ done:
 	call = wat_calloc(1, sizeof(*call));
 	wat_assert_return(call, WAT_FAIL, "Could not allocate memory for new call\n");
 
-	if (g_debug & WAT_DEBUG_CALL_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d]Created new call p:%p\n", id, call);
 	}
 
@@ -90,7 +90,7 @@ void wat_span_call_destroy(wat_call_t **incall)
 		span->calls[call->id] = NULL;
 	}
 
-	if (g_debug & WAT_DEBUG_CALL_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Destroyed call with id:%d p:%p\n", call->id, call);
 	}
 
@@ -122,7 +122,7 @@ wat_status_t _wat_call_set_state(const char *func, int line, wat_call_t *call, w
 	wat_span_t *span = call->span;
 
 	/* TODO: Implement state table for allowable state changes */
-	if (g_debug & WAT_DEBUG_CALL_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Call State change from %s to %s\n", call->id, wat_call_state2str(call->state), wat_call_state2str(new_state), func, line);
 	}
 	call->state = new_state;

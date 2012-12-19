@@ -84,7 +84,7 @@ void wat_span_run_cmds(wat_span_t *span)
 			span->cmd = cmd;
 			span->cmd_busy = 1;
 
-			if (g_debug & WAT_DEBUG_AT_HANDLE) {
+			if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 				char mydata[WAT_MAX_CMD_SZ];
 				wat_log_span(span, WAT_LOG_DEBUG, "Dequeuing command %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd)));
 			}
@@ -555,7 +555,7 @@ wat_status_t _wat_span_set_state(const char *func, int line, wat_span_t *span, w
 	wat_status_t status = WAT_SUCCESS;
 
 	/* TODO: Implement state table for allowable state changes */
-	if (g_debug & WAT_DEBUG_SPAN_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_SPAN_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Span State change from %s to %s\n", span->id, wat_span_state2str(span->state), wat_span_state2str(new_state), func, line);
 	}
 

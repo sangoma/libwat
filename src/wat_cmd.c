@@ -300,7 +300,7 @@ static struct enum_code ext_codes[] = {
 	{ -1, "invalid" },
 };
 
-static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed);
+static wat_status_t wat_tokenize_line(wat_span_t *span, char *tokens[], char *line, wat_size_t len, wat_size_t *consumed);
 static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[]);
 static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_terminator_t *terminator, char *error);
 static wat_terminator_t *wat_match_terminator(const char* token, char **error);
@@ -353,7 +353,7 @@ wat_status_t wat_cmd_send(wat_span_t *span, const char *incommand, wat_cmd_respo
 			return WAT_FAIL;
 		}
 
-		if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 			wat_log_span(span, WAT_LOG_DEBUG, "Next command \"%s\"\n", incommand);
 		}
 	}
@@ -386,7 +386,7 @@ wat_status_t wat_cmd_enqueue(wat_span_t *span, const char *incommand, wat_cmd_re
 			return WAT_FAIL;
 		}
 
-		if (g_debug & WAT_DEBUG_AT_HANDLE) {
+		if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 			wat_log_span(span, WAT_LOG_DEBUG, "Enqueued command \"%s\"\n", incommand);
 		}
 	}
@@ -454,12 +454,12 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 
 		memset(tokens, 0, sizeof(tokens));
 
-		if (g_debug & WAT_DEBUG_UART_DUMP) {
+		if (span->config.debug_mask & WAT_DEBUG_UART_DUMP) {
 			char mydata[WAT_MAX_CMD_SZ];
 			wat_log_span(span, WAT_LOG_DEBUG, "[RX AT] %s (len:%d)\n", format_at_data(mydata, data, len), len);
 		}
 
-		status = wat_tokenize_line(tokens, (char*)data, len, &consumed);
+		status = wat_tokenize_line(span, tokens, (char*)data, len, &consumed);
 		if (status == WAT_SUCCESS) {
 			for (i = 0; !(wat_strlen_zero(tokens[i])); i++) {
 				char *error = NULL;
@@ -514,7 +514,7 @@ WAT_SCHEDULED_FUNC(wat_cmd_complete)
 	cmd = span->cmd;
 	wat_assert_return_void(span->cmd, "Command complete, but we do not have an active command?");
 
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Command complete\n");
 	}
 
@@ -535,7 +535,7 @@ static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_termina
 	wat_assert_return(span->cmd, WAT_FAIL, "We did not have a command pending\n");
 	
 	cmd = span->cmd;
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Handling response for cmd:%s\n", cmd->cmd);
 	}
 
@@ -551,7 +551,7 @@ static int wat_cmd_handle_response(wat_span_t *span, char *tokens[], wat_termina
 
 	wat_sched_cancel_timer(span->sched, span->timeouts[WAT_TIMEOUT_CMD]);
 
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Response consumed %d tokens\n", tokens_consumed);
 	}
 
@@ -566,7 +566,7 @@ static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 	int tokens_consumed = 0;
 
 	/* For notifications, the first token contains the AT command prefix */
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Handling notify for cmd:%s\n", tokens[0]);
 	}
 
@@ -582,17 +582,17 @@ static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 
 	/* This is not an error, sometimes sometimes we have an incomplete response
 	(terminator not received yet), and we think its a notify  */
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
 	}
 done:
-	if (g_debug & WAT_DEBUG_AT_HANDLE) {
+	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Notify consumed %d tokens\n", tokens_consumed);
 	}
 	return tokens_consumed;
 }
 
-static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len, wat_size_t *consumed)
+static wat_status_t wat_tokenize_line(wat_span_t *span, char *tokens[], char *line, wat_size_t len, wat_size_t *consumed)
 {
 	int i;
 	int token_index = 0;
@@ -677,7 +677,7 @@ static wat_status_t wat_tokenize_line(char *tokens[], char *line, wat_size_t len
 
 		*consumed = consumed_index+1;
 
-		if (g_debug & WAT_DEBUG_AT_PARSE) {
+		if (span->config.debug_mask & WAT_DEBUG_AT_PARSE) {
 			wat_log(WAT_LOG_DEBUG, "Decoded tokens %d consumed:%u len:%u\n", token_index, *consumed, len);
 
 			for (i = 0; i < token_index; i++) {
@@ -1465,7 +1465,7 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 		}
 		
 		if (matched == WAT_FALSE) {
-			if (g_debug & WAT_DEBUG_CALL_STATE) {
+			if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 				wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] No CLCC entries for call (state:%s), hanging up\n", call->id, wat_call_state2str(call->state));
 			}
 			wat_call_set_state(call, WAT_CALL_STATE_TERMINATING);

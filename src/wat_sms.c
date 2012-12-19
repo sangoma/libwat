@@ -67,7 +67,7 @@ wat_status_t wat_span_sms_create(wat_span_t *span, wat_sms_t **insms, uint8_t sm
 	sms = wat_calloc(1, sizeof(*sms));
 	wat_assert_return(sms, WAT_FAIL, "Could not allocate memory for new sms\n");
 
-	if (g_debug & WAT_DEBUG_CALL_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d]Created new sms p:%p\n", sms_id, sms);
 	}
 
@@ -92,7 +92,7 @@ void wat_span_sms_destroy(wat_sms_t **insms)
 	*insms = NULL;
 	span = sms->span;	
 
-	if (g_debug & WAT_DEBUG_CALL_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Destroyed sms with id:%d p:%p\n", sms->id, sms);
 	}
 
@@ -105,7 +105,7 @@ wat_status_t _wat_sms_set_state(const char *func, int line, wat_sms_t *sms, wat_
 	wat_span_t *span = sms->span;
 
 	/* TODO: Implement state table for allowable state changes */
-	if (g_debug & WAT_DEBUG_CALL_STATE) {
+	if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "[sms:%d] SMS State change from %s to %s (%s:%d)\n", sms->id, wat_sms_state2str(sms->state), wat_sms_state2str(new_state), func, line);
 	}
 
@@ -237,7 +237,7 @@ wat_status_t wat_sms_send_body(wat_sms_t *sms)
 	return WAT_SUCCESS;
 }
 
-static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string)
+static int wat_decode_sms_text_scts(wat_span_t *span, wat_timestamp_t *ts, char *string)
 {
 	char *sctstokens[3];
 
@@ -247,14 +247,14 @@ static int wat_decode_sms_text_scts(wat_timestamp_t *ts, char *string)
 		wat_log(WAT_LOG_ERROR, "Failed to parse SCTS [%s]\n", string);
 	} else {
 		if (sscanf(sctstokens[0], "%d/%d/%d", &ts->year, &ts->month ,&ts->day) == 3) {
-			if (g_debug & WAT_DEBUG_SMS_DECODE) {
+			if (span->config.debug_mask & WAT_DEBUG_SMS_DECODE) {
 				wat_log(WAT_LOG_DEBUG, "SMS-SCTS: year:%d month:%d day:%d\n", ts->year, ts->month ,ts->day);
 			}
 		} else {
 			wat_log(WAT_LOG_ERROR, "Failed to parse date from SCTS [%s]\n", sctstokens[0]);
 		}
 		if (sscanf(sctstokens[1], "%d:%d:%d+%d", &ts->hour, &ts->minute ,&ts->second, &ts->timezone) == 4) {
-			if (g_debug & WAT_DEBUG_SMS_DECODE) {
+			if (span->config.debug_mask & WAT_DEBUG_SMS_DECODE) {
 				wat_log(WAT_LOG_DEBUG, "SMS-SCTS: hour:%d minute:%d second:%d tz:%d\n", ts->hour, ts->minute ,ts->second, ts->timezone);
 			}
 		} else {
@@ -271,16 +271,16 @@ wat_status_t wat_handle_incoming_sms_text(wat_span_t *span, char *from, char *sc
 {
 	wat_sms_event_t sms_event;
 	
-	if (g_debug & WAT_DEBUG_SMS_DECODE) {
+	if (span->config.debug_mask & WAT_DEBUG_SMS_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "Decoding Text Message From:[%s] SCTS:[%s] message:[%s]\n", from, scts, content);
 	}
 	
 	memset(&sms_event, 0, sizeof(sms_event));
 
-	wat_decode_sms_text_scts(&sms_event.scts, scts);
+	wat_decode_sms_text_scts(span, &sms_event.scts, scts);
 	strncpy(sms_event.content.data, content, sizeof(sms_event.content.data));
 
-	if (g_debug & WAT_DEBUG_SMS_DECODE) {
+	if (span->config.debug_mask & WAT_DEBUG_SMS_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "SMS Content:%s\n", sms_event.content.data);
 	}	
 
@@ -306,7 +306,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	wat_size_t raw_content_len = 0;
 	wat_sms_content_encoding_t encoding = WAT_SMS_CONTENT_ENCODING_NONE;
 
-	if (g_debug & WAT_DEBUG_SMS_DECODE) {
+	if (span->config.debug_mask & WAT_DEBUG_SMS_DECODE) {
 		wat_log_span(span, WAT_LOG_DEBUG, "Decoding SMS-PDU [%s] len:%d\n", data, len);
 	}
 
@@ -330,48 +330,48 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	pdu_ptr = pdu;
 	pdu_len = i;
 	
-	ret =  wat_decode_sms_pdu_smsc(&sms_event.pdu.smsc, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret =  wat_decode_sms_pdu_smsc(span, &sms_event.pdu.smsc, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMSC from SMS PDU data\n");
 		return WAT_FAIL;
 	}
 
-	ret = wat_decode_sms_pdu_deliver(&sms_event.pdu.sms.deliver, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret = wat_decode_sms_pdu_deliver(span, &sms_event.pdu.sms.deliver, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-DELIVER from SMS PDU data\n");
 
 		return WAT_FAIL;
 	}
 
-	ret = wat_decode_sms_pdu_from(&sms_event.from, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret = wat_decode_sms_pdu_from(span, &sms_event.from, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SENDER from SMS PDU data\n");
 
 		return WAT_FAIL;
 	}
 
-	ret = wat_decode_sms_pdu_pid(&sms_event.pdu.tp_pid, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret = wat_decode_sms_pdu_pid(span, &sms_event.pdu.tp_pid, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode TP-PID from SMS PDU data\n");
 
 		return WAT_FAIL;
 	}
 
-	ret = wat_decode_sms_pdu_dcs(&sms_event.pdu.dcs, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret = wat_decode_sms_pdu_dcs(span, &sms_event.pdu.dcs, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode TP-DCS from SMS PDU data\n");
 
 		return WAT_FAIL;
 	}
 
-	ret = wat_decode_sms_pdu_scts(&sms_event.scts, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret = wat_decode_sms_pdu_scts(span, &sms_event.scts, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SCTS from SMS PDU data\n");
 		
 		return WAT_FAIL;
 	}
 
-	ret = wat_decode_sms_pdu_udl(&sms_event.pdu.tp_udl, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+	ret = wat_decode_sms_pdu_udl(span, &sms_event.pdu.tp_udl, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 	if (ret != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-SCTS from SMS PDU data\n");
 		
@@ -379,7 +379,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	}
 
 	if (sms_event.pdu.sms.deliver.tp_udhi) {
-		ret = wat_decode_sms_pdu_udh(&sms_event.pdu.udh, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+		ret = wat_decode_sms_pdu_udh(span, &sms_event.pdu.udh, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 		if (ret != WAT_SUCCESS) {
 			wat_log_span(span, WAT_LOG_CRIT, "Failed to decode SMS-UDH from SMS PDU data\n");
 		
@@ -390,7 +390,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 	switch (sms_event.pdu.dcs.alphabet) {
 		/* See www.dreamfabric.com/sms/dcs.html for different Data Coding Schemes */
 		case WAT_SMS_PDU_DCS_ALPHABET_DEFAULT:
-			ret = wat_decode_sms_pdu_message_7bit(raw_content, &raw_content_len, sizeof(sms_event.content.data), (sms_event.pdu.tp_udl - sms_event.pdu.udh.tp_udhl), sms_event.pdu.udh.tp_udhl, sms_event.pdu.udh.seq, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+			ret = wat_decode_sms_pdu_message_7bit(span, raw_content, &raw_content_len, sizeof(sms_event.content.data), (sms_event.pdu.tp_udl - sms_event.pdu.udh.tp_udhl), sms_event.pdu.udh.tp_udhl, sms_event.pdu.udh.seq, &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 
 			if (wat_convert_ascii(raw_content, &raw_content_len) == WAT_SUCCESS) {
 				sms_event.content.charset = WAT_SMS_CONTENT_CHARSET_ASCII;
@@ -403,7 +403,7 @@ wat_status_t wat_handle_incoming_sms_pdu(wat_span_t *span, char *data, wat_size_
 			wat_log_span(span, WAT_LOG_ERROR, "8 bit incoming SMS decoding not implemented yet");
 			return WAT_FAIL;
 		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
-			ret = wat_decode_sms_pdu_message_ucs2(raw_content, &raw_content_len, sizeof(raw_content), (sms_event.pdu.tp_udl - sms_event.pdu.udh.tp_udhl), &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
+			ret = wat_decode_sms_pdu_message_ucs2(span, raw_content, &raw_content_len, sizeof(raw_content), (sms_event.pdu.tp_udl - sms_event.pdu.udh.tp_udhl), &pdu_ptr, (&pdu[pdu_len] - pdu_ptr));
 
 			sms_event.content.charset = WAT_SMS_CONTENT_CHARSET_UTF8;
 			
@@ -461,7 +461,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		}
 	}
 
-	status = wat_encode_sms_pdu_smsc(&sms_event->pdu.smsc, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_smsc(span, &sms_event->pdu.smsc, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-SMSC information\n");
 		return status;
@@ -475,26 +475,26 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		sms_event->pdu.sms.submit.tp_udhi = 1;
 	}
 
-	status = wat_encode_sms_pdu_submit(&sms_event->pdu.sms.submit, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_submit(span, &sms_event->pdu.sms.submit, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-SUBMIT information\n");
 		return status;
 	}
 
-	status = wat_encode_sms_pdu_message_ref(sms_event->pdu.tp_message_ref, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_message_ref(span, sms_event->pdu.tp_message_ref, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-Message Ref information\n", sizeof(pdu_data) - pdu_data_len);
 		return status;
 	}
 
-	status = wat_encode_sms_pdu_to(&sms_event->to, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_to(span, &sms_event->to, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS-Destination information\n", sizeof(pdu_data) - pdu_data_len);
 		return status;
 	}
 
-	status = wat_encode_sms_pdu_pid(sms_event->pdu.tp_pid, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_pid(span, sms_event->pdu.tp_pid, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS Protocol Identifier\n");
 		return status;
@@ -515,19 +515,19 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		sms_event->pdu.dcs.alphabet = WAT_SMS_PDU_DCS_ALPHABET_UCS2;
 	}
 	
-	status = wat_encode_sms_pdu_dcs(&sms_event->pdu.dcs, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_dcs(span, &sms_event->pdu.dcs, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS Data Coding Scheme\n");
 		return status;
 	}	
 
-	status = wat_encode_sms_pdu_vp(&sms_event->pdu.sms.submit.vp, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+	status = wat_encode_sms_pdu_vp(span, &sms_event->pdu.sms.submit.vp, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 	if (status != WAT_SUCCESS) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to encode SMS Validity Period\n");
 		return status;
 	}
 
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+	if (span->config.debug_mask & WAT_DEBUG_SMS_ENCODE) {
 		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Header");
 	}
 
@@ -541,7 +541,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		pdu_data_len++;
 		post_udl_data_len = pdu_data_len;
 
-		status = wat_encode_sms_pdu_udh(&sms_event->pdu.udh, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
+		status = wat_encode_sms_pdu_udh(span, &sms_event->pdu.udh, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);
 
 		if (status != WAT_SUCCESS) {
 			wat_log_span(span, WAT_LOG_ERROR, "Failed to encode User Data Header\n");
@@ -549,7 +549,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		}
 
 		udh_len = pdu_data_len - post_udl_data_len;
-		if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+		if (span->config.debug_mask & WAT_DEBUG_SMS_ENCODE) {
 			print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU UDHI");
 		}
 	}
@@ -561,7 +561,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 				wat_size_t content_len = udh_len;
 
 				/* Convert the length into septets */
-				status = wat_encode_sms_pdu_message_7bit((wchar_t *)raw_content, raw_content_len, &tp_udh_loc_ptr, &content_len, sizeof(pdu_data) - pdu_data_len - udh_len, octet_to_septet(udh_len));
+				status = wat_encode_sms_pdu_message_7bit(span, (wchar_t *)raw_content, raw_content_len, &tp_udh_loc_ptr, &content_len, sizeof(pdu_data) - pdu_data_len - udh_len, octet_to_septet(udh_len));
 
 				*tp_udh_loc = octet_to_septet(udh_len) + content_len;
 
@@ -572,7 +572,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 			}
 			break;
 		case WAT_SMS_PDU_DCS_ALPHABET_UCS2:
-			status = wat_encode_sms_pdu_message_ucs2(raw_content, raw_content_len, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);			
+			status = wat_encode_sms_pdu_message_ucs2(span, raw_content, raw_content_len, &pdu_data_ptr, &pdu_data_len, sizeof(pdu_data) - pdu_data_len);			
 			break;
 		default:
 			wat_log_span(span, WAT_LOG_ERROR, "Unsupported alphabet (%d)\n", sms_event->pdu.dcs.alphabet);
@@ -585,7 +585,7 @@ wat_status_t wat_sms_encode_pdu(wat_span_t *span, wat_sms_t *sms)
 		return WAT_FAIL;
 	}
 
-	if (g_debug & WAT_DEBUG_SMS_ENCODE) {
+	if (span->config.debug_mask & WAT_DEBUG_SMS_ENCODE) {
 		print_buffer(WAT_LOG_DEBUG, pdu_data, pdu_data_len, "SMS PDU Before string encoding");
 	}
 
