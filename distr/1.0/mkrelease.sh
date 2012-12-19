@@ -210,6 +210,7 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create tarball"
 	exit 1
 fi
+echo "Created $rel_name.tgz successfully"
 
 if [ -e libwat-$major.$minor-current.tgz ]; then
 	eval "rm -rf libwat-$major.$minor-current.tgz"
@@ -224,6 +225,7 @@ if [ $? -ne 0 ]; then
 	echo "Failed to create tarball"
 	exit 1
 fi
+echo "Created libwat-$major.$minor-current.tgz successfully"
 
 tagname="v$major.$minor.$rev.$patch"
 
@@ -246,18 +248,18 @@ if [ $tag = "y" ]; then
 		echo "Failed to push new git tag"
 		exit 1
 	fi
+fi
 
-	eval "scp $rel_name.tgz sangoma@ftp.sangoma.com:linux/libwat"
-	if [ $? -ne 0 ]; then
-		echo "Failed to upload to ftp"
-		exit 1
-	fi
+eval "scp $rel_name.tgz sangoma@ftp.sangoma.com:linux/libwat"
+if [ $? -ne 0 ]; then
+	echo "Failed to upload to ftp"
+	exit 1
+fi
 
-	eval "scp libwat-$major.$minor-current.tgz sangoma@ftp.sangoma.com:linux/libwat"
-	if [ $? -ne 0 ]; then
-		echo "Failed to upload to ftp"
-		exit 1
-	fi
+eval "scp libwat-$major.$minor-current.tgz sangoma@ftp.sangoma.com:linux/libwat"
+if [ $? -ne 0 ]; then
+	echo "Failed to upload to ftp"
+	exit 1
 fi
 
 echo
