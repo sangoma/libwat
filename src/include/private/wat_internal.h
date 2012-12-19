@@ -40,7 +40,7 @@
 #define wat_write_command(span) \
 	do { \
 		char __cmd_buf[WAT_MAX_CMD_SZ]; \
-		if (g_debug & WAT_DEBUG_UART_DUMP) { \
+		if (span->config.debug_mask & WAT_DEBUG_UART_DUMP) { \
 			char mydata[WAT_MAX_CMD_SZ]; \
 			wat_log_span(span, WAT_LOG_DEBUG, "[TX AT] %s\n", format_at_data(mydata, span->cmd->cmd, strlen(span->cmd->cmd))); \
 		} \
@@ -98,7 +98,6 @@
 #define wat_strlen_zero(s) (!s || *s == '\0')
 
 extern wat_interface_t g_interface;
-extern uint32_t	g_debug;
 
 typedef struct wat_span wat_span_t;
 typedef struct wat_module wat_module_t;
