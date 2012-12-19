@@ -185,12 +185,12 @@ eval "cp -rf ../../asterisk/* $rel_name/asterisk/"
 #	exit 1
 #fi
 
-cd $HOME
-eval "cp -rf ../Changelog $rel_name"
-if [ $? -ne 0 ]; then
-	echo "Failed to copy changelog"
-	exit 1
-fi
+#cd $HOME
+#eval "cp -rf ../Changelog $rel_name"
+#if [ $? -ne 0 ]; then
+#	echo "Failed to copy changelog"
+#	exit 1
+#fi
 
 cd $HOME
 cd ..
