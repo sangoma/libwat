@@ -553,8 +553,8 @@ typedef struct _wat_span_config_t {
 	
 	wat_band_t band;			/* Band frequency to be used */
 	wat_codec_t codec_mask; /* Which codecs to advertise */
-
 	wat_sms_content_encoding_t incoming_sms_encoding; /* Encoding to use on received SMS when not in ASCII */
+	uint32_t debug_mask; /* Initial debug mask, should be set via wat_str2debug */
 } wat_span_config_t;
 
 typedef void (*wat_span_sts_func_t)(uint8_t span_id, wat_span_status_t *status);
@@ -605,7 +605,8 @@ typedef struct _wat_interface {
 /* TODO: add Doxygen headers */
 WAT_DECLARE(void) wat_version(uint8_t *current, uint8_t *revision, uint8_t *age);
 WAT_DECLARE(uint32_t) wat_str2debug(const char *str);
-WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask);
+WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask); /* Kept for backward compatibility */
+WAT_DECLARE(void) wat_span_set_debug(uint8_t span_id, uint32_t debug_mask);
 WAT_DECLARE(wat_status_t) wat_register(wat_interface_t *interface);
 WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *span_config);
 WAT_DECLARE(wat_status_t) wat_span_unconfig(unsigned char span_id);

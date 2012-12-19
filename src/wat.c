@@ -27,18 +27,6 @@
 #include "wat_internal.h"
 #include "telit.h"
 
-#if 0
-
-//uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
-//uint32_t	g_debug = WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE;
-uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_CALL_STATE;
-//uint32_t	g_debug = WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
-//uint32_t	g_debug = WAT_DEBUG_AT_HANDLE |WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
-//uint32_t	g_debug = WAT_DEBUG_UART_RAW | WAT_DEBUG_UART_DUMP | WAT_DEBUG_AT_PARSE | WAT_DEBUG_CALL_STATE | WAT_DEBUG_AT_HANDLE | WAT_DEBUG_SMS_DECODE | WAT_DEBUG_SMS_ENCODE;
-#else
-uint32_t	g_debug = 0;
-#endif
-
 static uint32_t _wat_str2debug(const char *str)
 {
 	if (!strcasecmp(str, "all")) {
@@ -294,7 +282,6 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 		span->config.call_release_delay = WAT_DEFAULT_CALL_RELEASE_DELAY;
 	}
 
-
 	wat_log_span(span, WAT_LOG_DEBUG, "Configured span for %s module\n", wat_moduletype2str(span_config->moduletype));
 	return WAT_SUCCESS;
 
@@ -412,7 +399,7 @@ WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t le
 	span = wat_get_span(span_id);
 	wat_assert_return_void(span, "Invalid span");
 
-	if (g_debug & WAT_DEBUG_UART_RAW) {
+	if (span->config.debug_mask & WAT_DEBUG_UART_RAW) {
 		char mydata[WAT_MAX_CMD_SZ];
 		wat_log_span(span, WAT_LOG_DEBUG, "[RX RAW] %s (len:%d)\n", format_at_data(mydata, data, len), len);
 	}
@@ -806,7 +793,7 @@ int wat_span_write(wat_span_t *span, void *data, uint32_t len)
 {
 	int res;
 	
-	if (g_debug & WAT_DEBUG_UART_RAW) {		
+	if (span->config.debug_mask & WAT_DEBUG_UART_RAW) {
 		char mydata[WAT_MAX_CMD_SZ];
 		char *cmd = (char *)data;
 		wat_log_span(span, WAT_LOG_DEBUG, "[TX RAW] %s (len:%d)\n", format_at_data(mydata, cmd, len), len);
@@ -920,11 +907,24 @@ WAT_DECLARE(wat_sms_content_encoding_t) wat_encode_sms_content_encoding(const ch
 	return wat_str2wat_sms_content_encoding(content_encoding);
 }
 
+WAT_DECLARE(void) wat_span_set_debug(uint8_t span_id, uint32_t debug_mask)
+{
+	wat_span_t *span;
+	span = wat_get_span(span_id);
+	wat_assert_return_void(span, "Invalid span");
+
+	if (span->configured) {
+		wat_log_span(span, WAT_LOG_INFO, "Debug mask set to 0x%03x\n", debug_mask);
+		span->config.debug_mask = debug_mask;
+	}
+}
 
 WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask)
 {
-	wat_log(WAT_LOG_INFO, "Debug mask set to 0x%03x\n", debug_mask);
-	g_debug = debug_mask;
+	int i;
+	for (i = 0; i < WAT_MAX_SPANS; i++) {
+		wat_span_set_debug(i, debug_mask);
+	}
 }
 
 WAT_DECLARE(const char*) wat_decode_timezone(char *dest, int timezone)
