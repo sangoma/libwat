@@ -922,7 +922,11 @@ WAT_DECLARE(void) wat_span_set_debug(uint8_t span_id, uint32_t debug_mask)
 WAT_DECLARE(void) wat_set_debug(uint32_t debug_mask)
 {
 	int i;
-	for (i = 0; i < WAT_MAX_SPANS; i++) {
+	for (i = 1; i < WAT_MAX_SPANS; i++) {
+		wat_span_t *span = wat_get_span(span_id);
+		if (!span) {
+			break;
+		}
 		wat_span_set_debug(i, debug_mask);
 	}
 }
