@@ -1073,7 +1073,7 @@ index be68212..9b9e643 100644
  
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..773f50c
+index 0000000..328f931
 --- /dev/null
 +++ b/channels/sig_wat.c
 @@ -0,0 +1,1850 @@
@@ -2851,11 +2851,11 @@ index 0000000..773f50c
 +		/* User specified span */
 +		int span = span = atoi(a->argv[2]);
 +		if ((span < 1) || (span > WAT_NUM_SPANS)) {
-+			ast_cli(a->fd "Invalid span number: %s\n", a->argv[2]);
++			ast_cli(a->fd, "Invalid span number: %s\n", a->argv[2]);
 +			return CLI_SUCCESS;
 +		}
 +		debug_mask = wat_str2debug(a->argv[3]);
-+		wat_set_debug(span, debug_mask);
++		wat_span_set_debug(span, debug_mask);
 +	} else {
 +		debug_mask = wat_str2debug(a->argv[2]);
 +		wat_set_debug(debug_mask);

@@ -11,7 +11,7 @@ index 35573c3..f565442 100644
  RESAMPLE=@PBX_RESAMPLE@
  AIS=@PBX_AIS@
 diff --git a/channels/Makefile b/channels/Makefile
-index f9b5b3a..4573f9c
+index f9b5b3a..4573f9c 100644
 --- a/channels/Makefile
 +++ b/channels/Makefile
 @@ -73,8 +73,8 @@ $(if $(filter chan_iax2,$(EMBEDDED_MODS)),modules.link,chan_iax2.so): iax2-parse
@@ -26,6 +26,8 @@ index f9b5b3a..4573f9c
  ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
  modules.link: h323/libchanh323.a
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
+old mode 100644
+new mode 100755
 index d8043ad..cc33d07
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
@@ -1077,7 +1079,7 @@ index d8043ad..cc33d07
  	return res;
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100755
-index 0000000..773f50c
+index 0000000..328f931
 --- /dev/null
 +++ b/channels/sig_wat.c
 @@ -0,0 +1,1850 @@
@@ -2855,11 +2857,11 @@ index 0000000..773f50c
 +		/* User specified span */
 +		int span = span = atoi(a->argv[2]);
 +		if ((span < 1) || (span > WAT_NUM_SPANS)) {
-+			ast_cli(a->fd "Invalid span number: %s\n", a->argv[2]);
++			ast_cli(a->fd, "Invalid span number: %s\n", a->argv[2]);
 +			return CLI_SUCCESS;
 +		}
 +		debug_mask = wat_str2debug(a->argv[3]);
-+		wat_set_debug(span, debug_mask);
++		wat_span_set_debug(span, debug_mask);
 +	} else {
 +		debug_mask = wat_str2debug(a->argv[2]);
 +		wat_set_debug(debug_mask);
