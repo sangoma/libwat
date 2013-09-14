@@ -823,10 +823,10 @@ wat_status_t wat_decode_sms_pdu_deliver(wat_span_t *span, wat_sms_pdu_deliver_t 
 	octet = **indata;
 
 	deliver->tp_mti = octet & 0x03;
-	deliver->tp_mms = (octet > 2) & 0x01;
-	deliver->tp_sri = (octet > 4) & 0x01;
-	deliver->tp_udhi = (octet > 5) & 0x01;
-	deliver->tp_rp = (octet > 6) & 0x01;
+	deliver->tp_mms = (octet >> 2) & 0x01;
+	deliver->tp_sri = (octet >> 5) & 0x01;
+	deliver->tp_udhi = (octet >> 6) & 0x01;
+	deliver->tp_rp = (octet >> 7) & 0x01;
 
 	if (span->config.debug_mask & WAT_DEBUG_SMS_DECODE) {
 		wat_log(WAT_LOG_DEBUG, "  SMS-DELIVER: TP-RP:%d TP-UDHI:%d TP-SRI:%d TP-MMS:%d TP-MTI:%d\n",
