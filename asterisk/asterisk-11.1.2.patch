@@ -26,7 +26,7 @@ index f9b5b3a..4573f9c 100644
  ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
  modules.link: h323/libchanh323.a
 diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index e50c4d5..7e194fd 100644
+index e50c4d5..728a8d2 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -44,6 +44,7 @@
@@ -213,7 +213,7 @@ index e50c4d5..7e194fd 100644
  	struct dahdi_params timing;
  	int is_sig_auto; /*!< Use channel signalling from DAHDI? */
  	/*! Continue configuration even if a channel is not there. */
-@@ -1427,6 +1513,23 @@ static struct dahdi_chan_conf dahdi_chan_conf_default(void)
+@@ -1427,6 +1513,25 @@ static struct dahdi_chan_conf dahdi_chan_conf_default(void)
  			.resetinterval = -1,
  		},
  #endif
@@ -232,12 +232,14 @@ index e50c4d5..7e194fd 100644
 +				.incoming_sms_encoding = WAT_SMS_CONTENT_ENCODING_NONE,
 +				.debug_mask = 0, /* Should be set via wat_str2debug */
 +			},
++		      .sms_storage = 1, /* by default sms storage true */
++		      .sms_storage_key = "imsi", /* by default sms storage key type would be IMSI */
 +		},
 +#endif
  #if defined(HAVE_SS7)
  		.ss7.ss7 = {
  			.called_nai = SS7_NAI_NATIONAL,
-@@ -1645,6 +1748,32 @@ static int analog_lib_handles(int signalling, int radio, int oprmode)
+@@ -1645,6 +1750,32 @@ static int analog_lib_handles(int signalling, int radio, int oprmode)
  	return 1;
  }
  
@@ -270,7 +272,7 @@ index e50c4d5..7e194fd 100644
  static enum analog_sigtype dahdisig_to_analogsig(int sig)
  {
  	switch (sig) {
-@@ -2665,7 +2794,7 @@ static struct ast_channel *my_new_analog_ast_channel(void *pvt, int state, int s
+@@ -2665,7 +2796,7 @@ static struct ast_channel *my_new_analog_ast_channel(void *pvt, int state, int s
  	return dahdi_new_callid_clean(p, state, startpbx, dsub, 0, requestor ? ast_channel_linkedid(requestor) : "", callid, callid_created);
  }
  
@@ -279,7 +281,7 @@ index e50c4d5..7e194fd 100644
  static int dahdi_setlaw(int dfd, int law)
  {
  	int res;
-@@ -2674,7 +2803,41 @@ static int dahdi_setlaw(int dfd, int law)
+@@ -2674,7 +2805,41 @@ static int dahdi_setlaw(int dfd, int law)
  		return res;
  	return 0;
  }
@@ -322,7 +324,7 @@ index e50c4d5..7e194fd 100644
  
  #if defined(HAVE_PRI)
  static struct ast_channel *my_new_pri_ast_channel(void *pvt, int state, enum sig_pri_law law, char *exten, const struct ast_channel *requestor)
-@@ -3258,7 +3421,7 @@ static int my_pri_play_tone(void *pvt, enum sig_pri_tone tone)
+@@ -3258,7 +3423,7 @@ static int my_pri_play_tone(void *pvt, enum sig_pri_tone tone)
  }
  #endif	/* defined(HAVE_PRI) */
  
@@ -331,7 +333,7 @@ index e50c4d5..7e194fd 100644
  /*!
   * \internal
   * \brief Set the caller id information.
-@@ -3292,9 +3455,9 @@ static void my_set_callerid(void *pvt, const struct ast_party_caller *caller)
+@@ -3292,9 +3457,9 @@ static void my_set_callerid(void *pvt, const struct ast_party_caller *caller)
  		sizeof(p->cid_ani));
  	p->cid_ani2 = caller->ani2;
  }
@@ -343,7 +345,7 @@ index e50c4d5..7e194fd 100644
  /*!
   * \internal
   * \brief Set the Dialed Number Identifier.
-@@ -3311,7 +3474,7 @@ static void my_set_dnid(void *pvt, const char *dnid)
+@@ -3311,7 +3476,7 @@ static void my_set_dnid(void *pvt, const char *dnid)
  
  	ast_copy_string(p->dnid, dnid, sizeof(p->dnid));
  }
@@ -352,7 +354,7 @@ index e50c4d5..7e194fd 100644
  
  #if defined(HAVE_PRI)
  /*!
-@@ -3460,7 +3623,7 @@ static void dahdi_pri_update_span_devstate(struct sig_pri_span *pri)
+@@ -3460,7 +3625,7 @@ static void dahdi_pri_update_span_devstate(struct sig_pri_span *pri)
  }
  #endif	/* defined(HAVE_PRI) */
  
@@ -361,7 +363,7 @@ index e50c4d5..7e194fd 100644
  /*!
   * \internal
   * \brief Reference this module.
-@@ -3472,9 +3635,9 @@ static void my_module_ref(void)
+@@ -3472,9 +3637,9 @@ static void my_module_ref(void)
  {
  	ast_module_ref(ast_module_info->self);
  }
@@ -373,7 +375,7 @@ index e50c4d5..7e194fd 100644
  /*!
   * \internal
   * \brief Unreference this module.
-@@ -3486,7 +3649,7 @@ static void my_module_unref(void)
+@@ -3486,7 +3651,7 @@ static void my_module_unref(void)
  {
  	ast_module_unref(ast_module_info->self);
  }
@@ -382,7 +384,7 @@ index e50c4d5..7e194fd 100644
  
  #if defined(HAVE_PRI)
  #if defined(HAVE_PRI_CALL_WAITING)
-@@ -3527,6 +3690,98 @@ struct sig_pri_callback sig_pri_callbacks =
+@@ -3527,6 +3692,98 @@ struct sig_pri_callback sig_pri_callbacks =
  };
  #endif	/* defined(HAVE_PRI) */
  
@@ -481,7 +483,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  /*!
   * \internal
-@@ -4520,6 +4775,14 @@ static void dahdi_close_pri_fd(struct dahdi_pri *pri, int fd_num)
+@@ -4520,6 +4777,14 @@ static void dahdi_close_pri_fd(struct dahdi_pri *pri, int fd_num)
  }
  #endif	/* defined(HAVE_PRI) */
  
@@ -496,7 +498,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  static void dahdi_close_ss7_fd(struct dahdi_ss7 *ss7, int fd_num)
  {
-@@ -4620,17 +4883,26 @@ static int dahdi_digit_begin(struct ast_channel *chan, char digit)
+@@ -4620,17 +4885,26 @@ static int dahdi_digit_begin(struct ast_channel *chan, char digit)
  	if ((idx != SUB_REAL) || !pvt->owner)
  		goto out;
  
@@ -525,7 +527,7 @@ index e50c4d5..7e194fd 100644
  	if ((dtmf = digit_to_dtmfindex(digit)) == -1)
  		goto out;
  
-@@ -4683,6 +4955,13 @@ static int dahdi_digit_end(struct ast_channel *chan, char digit, unsigned int du
+@@ -4683,6 +4957,13 @@ static int dahdi_digit_end(struct ast_channel *chan, char digit, unsigned int du
  	}
  #endif
  
@@ -539,7 +541,7 @@ index e50c4d5..7e194fd 100644
  	if (pvt->begindigit) {
  		x = -1;
  		ast_debug(1, "Channel %s ending VLDTMF digit '%c'\n",
-@@ -5560,6 +5839,14 @@ static int dahdi_call(struct ast_channel *ast, const char *rdest, int timeout)
+@@ -5560,6 +5841,14 @@ static int dahdi_call(struct ast_channel *ast, const char *rdest, int timeout)
  	}
  #endif	/* defined(HAVE_SS7) */
  
@@ -554,7 +556,7 @@ index e50c4d5..7e194fd 100644
  	/* If this is analog signalling we can exit here */
  	if (analog_lib_handles(p->sig, p->radio, p->oprmode)) {
  		p->callwaitrings = 0;
-@@ -5926,6 +6213,11 @@ static void destroy_dahdi_pvt(struct dahdi_pvt *pvt)
+@@ -5926,6 +6215,11 @@ static void destroy_dahdi_pvt(struct dahdi_pvt *pvt)
  			sig_ss7_chan_delete(p->sig_pvt);
  			break;
  #endif	/* defined(HAVE_SS7) */
@@ -566,7 +568,7 @@ index e50c4d5..7e194fd 100644
  		default:
  			break;
  		}
-@@ -6390,6 +6682,43 @@ static int dahdi_hangup(struct ast_channel *ast)
+@@ -6390,6 +6684,43 @@ static int dahdi_hangup(struct ast_channel *ast)
  	}
  #endif	/* defined(HAVE_PRI) */
  
@@ -610,7 +612,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  	if (p->sig == SIG_SS7) {
  		x = 1;
-@@ -6744,6 +7073,11 @@ static int dahdi_answer(struct ast_channel *ast)
+@@ -6744,6 +7075,11 @@ static int dahdi_answer(struct ast_channel *ast)
  		res = sig_pri_answer(p->sig_pvt, ast);
  		break;
  #endif	/* defined(HAVE_PRI) */
@@ -622,7 +624,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  	case SIG_SS7:
  		res = sig_ss7_answer(p->sig_pvt, ast);
-@@ -9974,7 +10308,7 @@ static struct ast_channel *dahdi_new(struct dahdi_pvt *i, int state, int startpb
+@@ -9974,7 +10310,7 @@ static struct ast_channel *dahdi_new(struct dahdi_pvt *i, int state, int startpb
  
  	/* Don't use ast_set_callerid() here because it will
  	 * generate a needless NewCallerID event */
@@ -631,7 +633,7 @@ index e50c4d5..7e194fd 100644
  	if (!ast_strlen_zero(i->cid_ani)) {
  		ast_channel_caller(tmp)->ani.number.valid = 1;
  		ast_channel_caller(tmp)->ani.number.str = ast_strdup(i->cid_ani);
-@@ -12543,9 +12877,10 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+@@ -12543,9 +12879,10 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
  	struct dahdi_bufferinfo bi;
  
  	int res;
@@ -644,7 +646,7 @@ index e50c4d5..7e194fd 100644
  	int here = 0;/*!< TRUE if the channel interface already exists. */
  	int x;
  	struct analog_pvt *analog_p = NULL;
-@@ -12557,6 +12892,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+@@ -12557,6 +12894,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
  #if defined(HAVE_SS7)
  	struct sig_ss7_chan *ss7_chan = NULL;
  #endif	/* defined(HAVE_SS7) */
@@ -654,7 +656,7 @@ index e50c4d5..7e194fd 100644
  
  	/* Search channel interface list to see if it already exists. */
  	for (tmp = iflist; tmp; tmp = tmp->next) {
-@@ -12637,9 +12975,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+@@ -12637,9 +12977,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
  				tmp->law_default = p.curlaw;
  				tmp->law = p.curlaw;
  				tmp->span = p.spanno;
@@ -666,7 +668,7 @@ index e50c4d5..7e194fd 100644
  			} else {
  				chan_sig = 0;
  			}
-@@ -12654,6 +12992,59 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+@@ -12654,6 +12994,61 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
  				}
  				tmp->sig_pvt = analog_p;
  			}
@@ -712,6 +714,8 @@ index e50c4d5..7e194fd 100644
 +
 +						wats[span].wat.pvt = tmp->sig_pvt;
 +						wats[span].wat.pvt->use_callerid = conf->chan.use_callerid;
++						wats[span].wat.sms_storage = conf->wat.wat.sms_storage;
++						ast_copy_string(wats[span].wat.sms_storage_key, conf->wat.wat.sms_storage_key, sizeof(conf->wat.wat.sms_storage_key));
 +						ast_copy_string(wats[span].wat.pvt->context, conf->chan.context, sizeof(wats[span].wat.pvt->context));
 +						ast_copy_string(wats[span].wat.pvt->mohinterpret, conf->chan.mohinterpret, sizeof(wats[span].wat.pvt->context));
 +
@@ -726,7 +730,19 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  			if (chan_sig == SIG_SS7) {
  				struct dahdi_ss7 *ss7;
-@@ -13248,6 +13639,11 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+@@ -12966,8 +13361,11 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+ 			}
+ #endif
+ 		} else {
++/* for GSM(LibWAT) scemario - we dont have to print below errors during "module reload" functionality */
++#ifndef HAVE_WAT
+ 			/* already exists in interface list */
+ 			ast_log(LOG_WARNING, "Attempt to configure channel %d with signaling %s ignored because it is already configured to be %s.\n", tmp->channel, dahdi_sig2str(chan_sig), dahdi_sig2str(tmp->sig));
++#endif
+ 			chan_sig = tmp->sig;
+ 			if (tmp->subs[SUB_REAL].dfd > -1) {
+ 				memset(&p, 0, sizeof(p));
+@@ -13248,6 +13646,11 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
  					sig_ss7_set_alarm(tmp->sig_pvt, 1);
  					break;
  #endif	/* defined(HAVE_SS7) */
@@ -738,7 +754,7 @@ index e50c4d5..7e194fd 100644
  				default:
  					/* The only sig submodule left should be sig_analog. */
  					analog_p = tmp->sig_pvt;
-@@ -13318,6 +13714,17 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
+@@ -13318,6 +13721,17 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
  		}
  
  		switch (tmp->sig) {
@@ -756,7 +772,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_PRI)
  		case SIG_PRI_LIB_HANDLE_CASES:
  			if (pri_chan) {
-@@ -13501,6 +13908,10 @@ static int available(struct dahdi_pvt **pvt, int is_specific_channel)
+@@ -13501,6 +13915,10 @@ static int available(struct dahdi_pvt **pvt, int is_specific_channel)
  	case SIG_SS7:
  		return sig_ss7_available(p->sig_pvt);
  #endif	/* defined(HAVE_SS7) */
@@ -767,7 +783,7 @@ index e50c4d5..7e194fd 100644
  	default:
  		break;
  	}
-@@ -14345,6 +14756,59 @@ static void *mfcr2_monitor(void *data)
+@@ -14345,6 +14763,59 @@ static void *mfcr2_monitor(void *data)
  }
  #endif /* HAVE_OPENR2 */
  
@@ -827,7 +843,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_PRI)
  static void dahdi_pri_message(struct pri *pri, char *s)
  {
-@@ -15350,8 +15814,11 @@ retry:
+@@ -15350,8 +15821,11 @@ retry:
  static int setup_dahdi(int reload);
  static int dahdi_restart(void)
  {
@@ -840,7 +856,7 @@ index e50c4d5..7e194fd 100644
  #endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) */
  	int cancel_code;
  	struct dahdi_pvt *p;
-@@ -15376,6 +15843,18 @@ static int dahdi_restart(void)
+@@ -15376,6 +15850,18 @@ static int dahdi_restart(void)
  	}
  #endif
  
@@ -859,7 +875,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  	for (i = 0; i < NUM_SPANS; i++) {
  		if (linksets[i].ss7.master && (linksets[i].ss7.master != AST_PTHREADT_NULL)) {
-@@ -16908,6 +17387,17 @@ static struct ast_cli_entry dahdi_ss7_cli[] = {
+@@ -16908,6 +17394,17 @@ static struct ast_cli_entry dahdi_ss7_cli[] = {
  };
  #endif	/* defined(HAVE_SS7) */
  
@@ -877,7 +893,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_PRI)
  #if defined(HAVE_PRI_CCSS)
  /*!
-@@ -17015,10 +17505,15 @@ static struct ast_cc_monitor_callbacks dahdi_pri_cc_monitor_callbacks = {
+@@ -17015,10 +17512,15 @@ static struct ast_cc_monitor_callbacks dahdi_pri_cc_monitor_callbacks = {
  static int __unload_module(void)
  {
  	struct dahdi_pvt *p;
@@ -894,7 +910,7 @@ index e50c4d5..7e194fd 100644
  #ifdef HAVE_PRI
  	for (i = 0; i < NUM_SPANS; i++) {
  		if (pris[i].pri.master != AST_PTHREADT_NULL)
-@@ -17054,6 +17549,16 @@ static int __unload_module(void)
+@@ -17054,6 +17556,16 @@ static int __unload_module(void)
  #if defined(HAVE_PRI)
  	ast_manager_unregister("PRIShowSpans");
  #endif	/* defined(HAVE_PRI) */
@@ -911,7 +927,7 @@ index e50c4d5..7e194fd 100644
  	ast_data_unregister(NULL);
  	ast_channel_unregister(&dahdi_tech);
  
-@@ -17092,6 +17597,19 @@ static int __unload_module(void)
+@@ -17092,6 +17604,19 @@ static int __unload_module(void)
  	sig_pri_unload();
  #endif
  
@@ -931,7 +947,7 @@ index e50c4d5..7e194fd 100644
  #if defined(HAVE_SS7)
  	for (i = 0; i < NUM_SPANS; i++) {
  		if (linksets[i].ss7.master && (linksets[i].ss7.master != AST_PTHREADT_NULL))
-@@ -17109,9 +17627,9 @@ static int __unload_module(void)
+@@ -17109,9 +17634,9 @@ static int __unload_module(void)
  
  static int unload_module(void)
  {
@@ -943,7 +959,7 @@ index e50c4d5..7e194fd 100644
  #ifdef HAVE_PRI
  	for (y = 0; y < NUM_SPANS; y++)
  		ast_mutex_destroy(&pris[y].pri.lock);
-@@ -17120,6 +17638,10 @@ static int unload_module(void)
+@@ -17120,6 +17645,10 @@ static int unload_module(void)
  	for (y = 0; y < NUM_SPANS; y++)
  		ast_mutex_destroy(&linksets[y].ss7.lock);
  #endif	/* defined(HAVE_SS7) */
@@ -954,7 +970,7 @@ index e50c4d5..7e194fd 100644
  	return __unload_module();
  }
  
-@@ -17843,6 +18365,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+@@ -17843,6 +18372,10 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
  				} else if (!strcasecmp(v->value, "mfcr2")) {
  					confp->chan.sig = SIG_MFCR2;
  #endif
@@ -965,7 +981,7 @@ index e50c4d5..7e194fd 100644
  				} else if (!strcasecmp(v->value, "auto")) {
  					confp->is_sig_auto = 1;
  				} else {
-@@ -17887,6 +18413,40 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+@@ -17887,6 +18420,44 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s' at line %d.\n", v->value, v->lineno);
  				}
@@ -1002,11 +1018,36 @@ index e50c4d5..7e194fd 100644
 +				confp->wat.wat.wat_cfg.incoming_sms_encoding = wat_encode_sms_content_encoding(v->value);
 +			} else if (!strcasecmp(v->name, "wat_debug")) {
 +				confp->wat.wat.wat_cfg.debug_mask = wat_str2debug(v->value);
++			} else if (!strcasecmp(v->name, "wat_sms_storage")) {
++				confp->wat.wat.sms_storage = ast_true(v->value) ? 1 : 0;
++			} else if (!strcasecmp(v->name, "wat_sms_storage_key")) {
++				ast_copy_string(confp->wat.wat.sms_storage_key, v->value, sizeof(confp->wat.wat.sms_storage_key));
 +#endif
  #ifdef HAVE_PRI
  			} else if (!strcasecmp(v->name, "pridialplan")) {
  				if (!strcasecmp(v->value, "national")) {
-@@ -18894,6 +19454,21 @@ static int setup_dahdi_int(int reload, struct dahdi_chan_conf *default_conf, str
+@@ -18527,8 +19098,19 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct
+ 			   else if (!strcasecmp(v->value, "spans"))
+ 					report_alarms = REPORT_SPAN_ALARMS;
+ 			 }
+-		} else if (!(options & PROC_DAHDI_OPT_NOWARN) )
++		} else if (!(options & PROC_DAHDI_OPT_NOWARN) ) {
++#ifdef HAVE_WAT
++			if ((!strcasecmp(v->name, "wat_moduletype")) ||
++					 (!strcasecmp(v->name, "signalling") ||
++					  !strcasecmp(v->name, "signaling"))) {
++				/* ignore reload functionality for libwat */
++			} else {
++				ast_log(LOG_WARNING, "Ignoring any changes to '%s' (on reload) at line %d.\n", v->name, v->lineno);
++			}
++#else
+ 			ast_log(LOG_WARNING, "Ignoring any changes to '%s' (on reload) at line %d.\n", v->name, v->lineno);
++#endif
++		}
+ 	}
+ 
+ 	/* Since confp has already filled invidual dahdi_pvt objects with channels at this point, clear the variables in confp's pvt. */
+@@ -18894,6 +19476,21 @@ static int setup_dahdi_int(int reload, struct dahdi_chan_conf *default_conf, str
  		}
  	}
  #endif
@@ -1028,7 +1069,7 @@ index e50c4d5..7e194fd 100644
  	/* And start the monitor for the first time */
  	restart_monitor();
  	return 0;
-@@ -19088,7 +19663,7 @@ static int load_module(void)
+@@ -19088,7 +19685,7 @@ static int load_module(void)
  {
  	int res;
  	struct ast_format tmpfmt;
@@ -1037,7 +1078,7 @@ index e50c4d5..7e194fd 100644
  	int y;
  #endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) */
  
-@@ -19136,6 +19711,13 @@ static int load_module(void)
+@@ -19136,6 +19733,13 @@ static int load_module(void)
  	ss7_set_error(dahdi_ss7_error);
  	ss7_set_message(dahdi_ss7_message);
  #endif	/* defined(HAVE_SS7) */
@@ -1051,7 +1092,7 @@ index e50c4d5..7e194fd 100644
  	res = setup_dahdi(0);
  	/* Make sure we can register our DAHDI channel type */
  	if (res)
-@@ -19151,6 +19733,9 @@ static int load_module(void)
+@@ -19151,6 +19755,9 @@ static int load_module(void)
  #if defined(HAVE_SS7)
  	ast_cli_register_multiple(dahdi_ss7_cli, ARRAY_LEN(dahdi_ss7_cli));
  #endif	/* defined(HAVE_SS7) */
@@ -1061,7 +1102,7 @@ index e50c4d5..7e194fd 100644
  #ifdef HAVE_OPENR2
  	ast_cli_register_multiple(dahdi_mfcr2_cli, ARRAY_LEN(dahdi_mfcr2_cli));
  	ast_register_application_xml(dahdi_accept_r2_call_app, dahdi_accept_r2_call_exec);
-@@ -19170,6 +19755,11 @@ static int load_module(void)
+@@ -19170,6 +19777,11 @@ static int load_module(void)
  #if defined(HAVE_PRI)
  	ast_manager_register_xml("PRIShowSpans", 0, action_prishowspans);
  #endif	/* defined(HAVE_PRI) */
@@ -1075,10 +1116,10 @@ index e50c4d5..7e194fd 100644
  
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..c53dff7
+index 0000000..ced4fcf
 --- /dev/null
 +++ b/channels/sig_wat.c
-@@ -0,0 +1,1849 @@
+@@ -0,0 +1,1954 @@
 +/*
 + * Asterisk -- An open source telephony toolkit.
 + *
@@ -1112,6 +1153,7 @@ index 0000000..c53dff7
 +#include <ctype.h>
 +#include <signal.h>
 +
++#include "asterisk/paths.h"  /* use ast_config_AST_SPOOL_DIR and LOG_DIR */
 +#include "asterisk/cli.h"
 +#include "asterisk/stringfields.h"
 +#include "asterisk/callerid.h"
@@ -1134,6 +1176,8 @@ index 0000000..c53dff7
 +#undef ASTERISK_VERSION_NUM
 +#define ASTERISK_VERSION_NUM 20000
 +#endif
++
++static char WAT_SPOOL_DIR[PATH_MAX];
 +
 +void *sig_wat_malloc(size_t size);
 +void *sig_wat_calloc(size_t nmemb, size_t size);
@@ -1162,6 +1206,8 @@ index 0000000..c53dff7
 +static int sig_wat_set_echocanceller(struct sig_wat_chan *p, int enable);
 +static void sig_wat_open_media(struct sig_wat_chan *p);
 +static struct ast_channel *sig_wat_new_ast_channel(struct sig_wat_chan *p, int state, int startpbx, int sub, const struct ast_channel *requestor);
++static void sig_wat_store_sms(unsigned char span_id, char *recvd_from, char *sms_buffer);
++static int get_date(char *s, int len);
 +
 +struct sig_wat_span **wat_spans = NULL;
 +
@@ -1529,6 +1575,99 @@ index 0000000..c53dff7
 +	return;
 +}
 +
++static int get_date(char *s, int len)
++{
++	struct ast_tm tm;
++	struct timeval now = ast_tvnow();
++
++	ast_localtime(&now, &tm, NULL);
++	return ast_strftime(s, len, "%a %b %e %r %Z %Y", &tm);
++}
++
++static void sig_wat_store_sms(unsigned char span_id, char* recvd_from, char *sms_buffer)
++{
++	const wat_sim_info_t 	*sim_info 	= NULL;
++	FILE           		*fp       	= NULL;
++	struct sig_wat_span   	*wat 		= NULL;
++	struct timeval 		now 		= ast_tvnow();
++	char           		file[PATH_MAX];
++	char           		dir[PATH_MAX];
++	struct         		ast_tm tm;
++	char           		timebuf[30];
++	char           		logbuf[BUFSIZ];
++	char           		date[256];
++
++	memset(&file[0], 0, sizeof(file));
++	memset(&logbuf[0], 0, sizeof(logbuf));
++
++	/* Get Date and Time */
++	get_date(date, sizeof(date));
++	ast_localtime(&now, &tm, NULL);
++	ast_strftime(timebuf, sizeof(timebuf), "%H:%M:%S", &tm);
++
++	/* check if WAT is enable on requested span */
++	if (!wats[span_id-1].wat.wat_span_id) {
++		ast_log(LOG_WARNING, "No WAT running on span %d\n", span_id);
++		return;
++	}
++
++	wat = &wats[span_id-1].wat;
++
++	/* Get Subscriber information */
++	sim_info = wat_span_get_sim_info(wat->wat_span_id);
++	if (sim_info == NULL) {
++		ast_log(LOG_WARNING, "Span %d:Failed to get SIM information\n", wat->span +1);
++		return;
++	} else {
++		ast_log(LOG_DEBUG, " Subscriber[%s], type[%d] , plan[%d <%s>] \n",
++				((sim_info->subscriber.digits[0] != '\0')?sim_info->subscriber.digits:"No subscriber digits found"),
++				sim_info->subscriber.type,
++				sim_info->subscriber.plan,
++				sim_info->subscriber_type);
++
++		ast_log(LOG_DEBUG," IMSI: %s\n\n", sim_info->imsi);
++	}
++
++	ast_log(LOG_DEBUG, "SMS Storage[%d], sms_storage_key[%s]\n",
++			wat->sms_storage, wat->sms_storage_key);
++
++	if (!wat->sms_storage) {
++		ast_log(LOG_WARNING, "SMS Storage not allowed by configuration \n");
++		return;
++	}
++
++	/* Directory structure will be :
++	 *  WAT_SPOOL_DIR/<imsi/subsciber_num>/<received_from_date_time> */
++
++	if ((!strcasecmp(wat->sms_storage_key, "imsi"))) {
++		snprintf(dir, sizeof(dir), "%s/%s", WAT_SPOOL_DIR, sim_info->imsi);
++		snprintf(file, sizeof(dir), "%s/%s/%s_%s_%s", WAT_SPOOL_DIR, sim_info->imsi, recvd_from, date, timebuf);
++	} else if ((!strcasecmp(wat->sms_storage_key, "subscriber"))) {
++		if ((sim_info->subscriber.digits[0] == '\0')) {
++			ast_log(LOG_DEBUG, "No subscriber digits specified by network for sms storage key, defaulting to IMSI \n");
++			snprintf(dir, sizeof(dir), "%s/%s", WAT_SPOOL_DIR, sim_info->imsi);
++			snprintf(file, sizeof(file), "%s/%s/%s_%s_%s", WAT_SPOOL_DIR, sim_info->imsi, recvd_from, date, timebuf);
++		} else {
++			snprintf(dir, sizeof(dir), "%s/%s", WAT_SPOOL_DIR, sim_info->subscriber.digits);
++			snprintf(file, sizeof(file), "%s/%s/%s_%s_%s", WAT_SPOOL_DIR, sim_info->subscriber.digits, recvd_from, date, timebuf);
++		}
++	}
++
++	/* create dir (if not already exists) */
++	ast_mkdir(dir, 0755);
++
++	if (!(fp = fopen(file, "w+"))) {
++		ast_log(LOG_WARNING, "Failed to open file: %s: %s\n", file, strerror(errno));
++		return ;
++	}
++
++	snprintf(logbuf, sizeof(logbuf),"%s",sms_buffer);
++	fprintf(fp, "%s", logbuf);
++	fclose(fp);
++
++	return;
++}
++
 +void sig_wat_sms_ind(unsigned char span_id, wat_sms_event_t *sms_event)
 +{
 +	struct sig_wat_span *wat = wat_spans[span_id];
@@ -1607,6 +1746,8 @@ index 0000000..c53dff7
 +		event_len += sprintf(&event[event_len], "%c", sms_event->content.data[i]);
 +	}
 +	event_len += sprintf(&event[event_len], "\r\n\r\n");
++
++	sig_wat_store_sms(span_id, sms_event->from.digits, event);
 +
 +	manager_event(EVENT_FLAG_CALL, "WATIncomingSms", "%s", event);
 +}
@@ -1801,10 +1942,12 @@ index 0000000..c53dff7
 +		return -1;
 +	}
 +
++	/* Resetting owner to NULL once call hangup is received */
++	wat->pvt->owner = NULL;
++
 +	if (wat->pvt->remotehangup) {
 +		wat_rel_cfm(wat->wat_span_id, wat->pvt->subs[WAT_CALL_SUB_REAL].wat_call_id);
 +		memset(&wat->pvt->subs[WAT_CALL_SUB_REAL], 0, sizeof(wat->pvt->subs[0]));
-+		wat->pvt->owner = NULL;
 +	} else {
 +		wat_rel_req(wat->wat_span_id, wat->pvt->subs[WAT_CALL_SUB_REAL].wat_call_id);
 +	}
@@ -2091,6 +2234,9 @@ index 0000000..c53dff7
 +	wat_intf.wat_rel_cfm = sig_wat_rel_cfm;
 +	wat_intf.wat_sms_ind = sig_wat_sms_ind;
 +	wat_intf.wat_sms_sts = sig_wat_sms_sts;
++
++	/* compute the location of the SMS spool directory */
++	snprintf(WAT_SPOOL_DIR, sizeof(WAT_SPOOL_DIR), "%s/sms/", ast_config_AST_SPOOL_DIR);
 +
 +	if (wat_register(&wat_intf)) {
 +		ast_log(LOG_ERROR, "Unable to register to libwat\n");
@@ -2930,10 +3076,10 @@ index 0000000..c53dff7
 +#endif /* HAVE_WAT */
 diff --git a/channels/sig_wat.h b/channels/sig_wat.h
 new file mode 100644
-index 0000000..1cbbe06
+index 0000000..6ae3852
 --- /dev/null
 +++ b/channels/sig_wat.h
-@@ -0,0 +1,224 @@
+@@ -0,0 +1,227 @@
 +#ifndef _SIG_WAT_H
 +#define _SIG_WAT_H
 +/*
@@ -3105,6 +3251,9 @@ index 0000000..1cbbe06
 +	int wat_span_id;			/*!< Identifier used by libwat for this span */
 +
 +	wat_span_config_t wat_cfg;
++
++	int  sms_storage;			/*!< enable/disable sms storage */
++	char sms_storage_key[AST_MAX_EXTENSION];	/*!< SMS storage key(IMSI/SUBSCRIBER) */
 +
 +	struct sig_wat_callback *calls;	
 +
