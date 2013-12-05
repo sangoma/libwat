@@ -598,7 +598,6 @@ static wat_status_t wat_tokenize_line(wat_span_t *span, char *tokens[], char *li
 	int i;
 	int token_index = 0;
 	uint8_t has_token = 0;
-	unsigned token_start_index = 0;
 	unsigned consumed_index = 0;
 
 	char *token_str = NULL;
@@ -647,7 +646,6 @@ static wat_status_t wat_tokenize_line(wat_span_t *span, char *tokens[], char *li
 				if (!has_token) {
 					/* This is the start of a new token */
 					has_token = 1;
-					token_start_index = i;
 
 					token_str = wat_calloc(1, WAT_MAX_CMD_SZ);
 					wat_assert_return(token_str, WAT_FAIL, "Failed to allocate new token\n");
@@ -904,7 +902,6 @@ WAT_RESPONSE_FUNC(wat_response_cpin)
 /* Get Module Revision Identification */
 WAT_RESPONSE_FUNC(wat_response_cgmr)
 {
-	unsigned start = 0;
 	WAT_RESPONSE_FUNC_DBG_START
 	if (success != WAT_TRUE) {
 		wat_log_span(span, WAT_LOG_ERROR, "Failed to obtain module revision identification (%s)\n", error);
@@ -912,11 +909,7 @@ WAT_RESPONSE_FUNC(wat_response_cgmr)
 		return 1;
 	}
 
-	if (!strncmp(tokens[0], "Revision:", 9)) {
-		start = 6;
-	}
-
-	strncpy(span->chip_info.revision, tokens[0], sizeof(span->chip_info.revision));
+	snprintf(span->chip_info.revision, sizeof(span->chip_info.revision), "%s", tokens[0]);
 	WAT_FUNC_DBG_END
 	return 2;
 }
@@ -971,7 +964,7 @@ WAT_RESPONSE_FUNC(wat_response_clip)
 WAT_RESPONSE_FUNC(wat_response_creg)
 {
 	char *cmdtokens[10];
-	unsigned mode = 0;
+	/*unsigned mode = 0;*/
 	unsigned stat = 0;
 	unsigned lac = 0;
 	unsigned ci = 0;
@@ -994,7 +987,7 @@ WAT_RESPONSE_FUNC(wat_response_creg)
 			span->net_info.ci = ci;
 			/* Fall-through */
 		case 2: /* Format: <mode>, <stat> */
-			mode = atoi(cmdtokens[0]);
+			/*mode = atoi(cmdtokens[0]);*/
 			stat = atoi(cmdtokens[1]);
 			wat_span_update_net_status(span, stat);
 			break;	
