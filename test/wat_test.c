@@ -836,7 +836,7 @@ call_control:
 			gsm_span.make_call = 0;
 			memset(&con_event, 0, sizeof(con_event));
 			
-			sprintf(con_event.called_num.digits, g_called_number);
+			snprintf(con_event.called_num.digits, sizeof(con_event.called_num.digits), "%s", g_called_number);
 			gsm_span.wat_call_id = (g_outbound_call_id++) | 0x8;
 			test_log("Dialing number %s\n", g_called_number);
 			wat_con_req(gsm_span.wat_span_id, gsm_span.wat_call_id, &con_event);
