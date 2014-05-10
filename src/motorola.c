@@ -1,9 +1,6 @@
 /*
  * libwat: Wireless AT commands library
  *
- * David Yat Sin <dyatsin@sangoma.com>
- * Copyright (C) 2011, Sangoma Technologies.
- *
  * Jasper van der Neut - Stulen <jasper@speakup.nl>
  * Copyright (C) 2013, SpeakUp BV
  *
