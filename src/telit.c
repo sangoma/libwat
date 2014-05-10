@@ -30,6 +30,9 @@
 #include "wat_internal.h"
 #include "telit.h"
 
+#define TELIT_GC864 0
+#define TELIT_HE910 1
+
 wat_status_t telit_start(wat_span_t *span);
 wat_status_t telit_restart(wat_span_t *span);
 wat_status_t telit_shutdown(wat_span_t *span);
@@ -48,17 +51,34 @@ WAT_RESPONSE_FUNC(wat_response_set_codec);
 WAT_RESPONSE_FUNC(wat_response_qss);
 WAT_NOTIFY_FUNC(wat_notify_qss);
 
-static wat_module_t telit_interface = {
+static wat_module_t telit_gc864_interface = {
 	.start = telit_start,
 	.restart = telit_restart,
 	.shutdown = telit_shutdown,
 	.set_codec = telit_set_codec,
 	.wait_sim = telit_wait_sim,
+	.model = TELIT_GC864,
+	.name = "Telit GC864",
 };
 
-wat_status_t telit_init(wat_span_t *span)
+static wat_module_t telit_he910_interface = {
+	.start = telit_start,
+	.restart = telit_restart,
+	.shutdown = telit_shutdown,
+	.set_codec = telit_set_codec,
+	.wait_sim = telit_wait_sim,
+	.model = TELIT_HE910,
+	.name = "Telit HE910",
+};
+
+wat_status_t telit_gc864_init(wat_span_t *span)
 {
-	return wat_module_register(span, &telit_interface);
+	return wat_module_register(span, &telit_gc864_interface);
+}
+
+wat_status_t telit_he910_init(wat_span_t *span)
+{
+	return wat_module_register(span, &telit_he910_interface);
 }
 
 WAT_NOTIFY_FUNC(wat_notify_codec_info)
@@ -87,7 +107,7 @@ WAT_NOTIFY_FUNC(wat_notify_codec_info)
 
 wat_status_t telit_start(wat_span_t *span)
 {
-	wat_log_span(span, WAT_LOG_DEBUG, "Starting Telit module\n");
+	wat_log_span(span, WAT_LOG_DEBUG, "Starting %s module\n", span->module.name);
 
 	/* Section 2.1 of Telit AT Commands reference Guide recommends these options to be enabled */
 	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL, span->config.timeout_command);
@@ -97,7 +117,18 @@ wat_status_t telit_start(wat_span_t *span)
 	/* From Telit AT commands reference guide, page 105: Set AT#REGMODE=1
 	 * makes CREG behavior more formal */
 	wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL, span->config.timeout_command);
-	wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL, span->config.timeout_command);
+
+	if (span->module.model == TELIT_HE910) {
+		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT#DVIEXT=1,0,0,1,0", NULL, NULL, span->config.timeout_command);
+	} else if (span->module.model == TELIT_GC864) {
+		wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL, span->config.timeout_command);
+		/* I guess we want full CPU power */
+		wat_cmd_enqueue(span, "AT#CPUMODE=1", NULL, NULL, span->config.timeout_command);
+	} else {
+		wat_log_span(span, WAT_LOG_ERROR, "Invalid telit module %s (%d)\n", span->module.name, span->module.model);
+		return WAT_FAIL;
+	}
 
 	/* Enable Echo cancellation */
 	wat_cmd_enqueue(span, "AT#SHFEC=1", NULL, NULL, span->config.timeout_command);
@@ -105,9 +136,6 @@ wat_status_t telit_start(wat_span_t *span)
 
 	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
 	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL, span->config.timeout_command);
-
-	/* I guess we want full CPU power! */
-	wat_cmd_enqueue(span, "AT#CPUMODE=1", NULL, NULL, span->config.timeout_command);
 
 	/* Enable codec notifications 
 	 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */

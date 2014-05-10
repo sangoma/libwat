@@ -175,7 +175,9 @@ void on_con_ind(unsigned char span_id, uint8_t call_id, wat_con_event_t *con_eve
 
 void on_con_sts(unsigned char span_id, uint8_t call_id, wat_con_status_t *status)
 {
+	test_log("s%d: Call Status %d Received\n", span_id, status->type);
 	if (status->type == WAT_CON_STATUS_TYPE_ANSWER) {
+		test_log("s%d: Call Answered\n", span_id);
 		gsm_span.call_answered = 1;
 	}
 }
@@ -746,7 +748,7 @@ int main (int argc, char *argv[])
 			}
 #endif
 			if (res < 0) {
-				fprintf(stdout, "Failed to read from b-channel: %s\n", strerror(errno));
+				fprintf(stderr, "Failed to read from b-channel: %s\n", strerror(errno));
 				break;
 			}
 			fwrite(rx_iobuf, 1, res, gsm_span.outfile);
@@ -816,7 +818,9 @@ int main (int argc, char *argv[])
 		goto call_control; /* stupid compiler ... */
 call_control:
 		if (gsm_span.answer_call) {
+			test_log("Answering call\n");
 			gsm_span.answer_call = 0;
+			gsm_span.call_answered = 1;
 			wat_con_cfm(gsm_span.wat_span_id, gsm_span.wat_call_id);
 		}
 

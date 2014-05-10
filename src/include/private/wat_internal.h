@@ -49,7 +49,7 @@
 	} while (0);
 #define WAT_EVENT_QUEUE_SZ				20
 #define WAT_CMD_QUEUE_SZ				100
-#define WAT_BUFFER_SZ					500
+#define WAT_BUFFER_SZ					10000
 #define WAT_TOKENS_SZ					20
 #define WAT_TIMEOUTS_SZ					30
 #define WAT_ERROR_SZ					50
@@ -139,6 +139,8 @@ struct wat_module {
 	wat_module_shutdown_func 	shutdown;
 	wat_module_set_codec_func 	set_codec;
 	wat_module_wat_sim_func 	wait_sim;
+	int32_t model;
+	const char *name;
 };
 
 wat_status_t wat_module_register(wat_span_t *, wat_module_t *module);

@@ -743,6 +743,7 @@ int wat_cmd_entry_tokenize(char *token, char *tokens[], wat_size_t len)
 	char *previous_token = NULL;
 	int token_count = 0;
 	char *p = NULL;
+	char *saveptr = NULL;
 	char *entry = wat_strdup(token);
 
 	/* since the array is null-terminated, at least 2 elements are required */
@@ -757,14 +758,14 @@ int wat_cmd_entry_tokenize(char *token, char *tokens[], wat_size_t len)
 	}
 
 	if (token_count == (len - 1)) {
-		wat_log(WAT_LOG_ERROR, "No space left in token array, ignoring the rest of the entry ...\n");
+		wat_log(WAT_LOG_ERROR, "No space left in token array, ignoring the rest of the entry (token=%s)\n", token);
 		goto done;
 	}
 
-	for (p = strtok(entry, ","); p; p = strtok(NULL, ",")) {
+	for (p = strtok_r(entry, ",", &saveptr); p; p = strtok_r(NULL, ",", &saveptr)) {
 
 		if (token_count == (len - 1)) {
-			wat_log(WAT_LOG_ERROR, "No space left in token array, ignoring the rest of the entry ...\n");
+			wat_log(WAT_LOG_ERROR, "No space left in token array, ignoring the rest of the entry (token=%s)\n", p);
 			break;
 		}
 
@@ -1021,7 +1022,7 @@ WAT_RESPONSE_FUNC(wat_response_cops)
 
 	if (wat_match_prefix(tokens[0], "+COPS: ") == WAT_TRUE) {
 		/* This is a response to AT+COPS? */
-		char *cmdtokens[4];
+		char *cmdtokens[5];
 		/* Format: +COPS: X,X,<operator name> */
 
 		consumed_tokens = 2;

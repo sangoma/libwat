@@ -111,11 +111,13 @@ typedef enum {
 WAT_STR2ENUM_P(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t);
 
 typedef enum {
-	WAT_MODULE_TELIT,
+	WAT_MODULE_TELIT = 0,
+	WAT_MODULE_TELIT_GC864 = 1,
+	WAT_MODULE_TELIT_HE910 = 2,
 	WAT_MODULE_INVALID,
 } wat_moduletype_t;
 
-#define WAT_MODULETYPE_STRINGS "telit", "invalid"
+#define WAT_MODULETYPE_STRINGS "telit", "telit-gc864", "telit-he910", "invalid"
 WAT_STR2ENUM_P(wat_str2wat_moduletype, wat_moduletype2str, wat_moduletype_t);
 
 typedef enum {
