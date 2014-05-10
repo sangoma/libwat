@@ -26,6 +26,7 @@
 #include "libwat.h"
 #include "wat_internal.h"
 #include "telit.h"
+#include "motorola.h"
 
 static uint32_t _wat_str2debug(const char *str)
 {
@@ -243,6 +244,11 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 			break;
 		case WAT_MODULE_TELIT_HE910:
 			if (telit_he910_init(span) != WAT_SUCCESS) {
+				goto failed;
+			}
+			break;
+		case WAT_MODULE_MOTOROLA:
+			if (motorola_init(span) != WAT_SUCCESS) {
 				goto failed;
 			}
 			break;

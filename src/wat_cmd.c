@@ -27,6 +27,7 @@
 #include "libwat.h"
 #include "wat_internal.h"
 #include "telit.h"
+#include "motorola.h"
 
 
 typedef enum {

@@ -38,6 +38,7 @@ SET(wat_SOURCES
 		wat_buffer.c
 		wat_sms_pdu.c
 		telit.c
+		motorola.c
 		base64/base64.c)
 
 SET(wat_PUBLIC_HEADERS
