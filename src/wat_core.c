@@ -344,13 +344,13 @@ char *wat_string_clean(char *string)
 {
 	if (string[0] == '\"') {
 		int len = strlen(string);
-		memmove(string, &string[1], len - 1);
-		string[len - 1]='\0';
+		memmove(&string[0], &string[1], len - 1);
+		string[len - 1] = '\0';
 	}
 	if (string[strlen(string) - 1] == '\"') {
 		string[strlen(string) - 1] = '\0';
 	}
-	while(string[strlen(string) - 1] == ' ') {
+	while (strlen(string) > 0 && string[strlen(string) - 1] == ' ') {
 		string[strlen(string) - 1] = '\0';
 	}
 	return string;
