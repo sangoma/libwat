@@ -446,7 +446,7 @@ wat_status_t wat_cmd_process(wat_span_t *span)
 	}
 
 	if (wat_buffer_peep(span->buffer, data, &len) == WAT_SUCCESS) {
-		wat_size_t consumed;
+		wat_size_t consumed = 0;
 		char *tokens[WAT_TOKENS_SZ];
 		int tokens_consumed = 0;
 		int tokens_unused = 0;
