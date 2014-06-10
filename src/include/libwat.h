@@ -114,11 +114,12 @@ typedef enum {
 	WAT_MODULE_TELIT = 0,
 	WAT_MODULE_TELIT_GC864,
 	WAT_MODULE_TELIT_HE910,
+	WAT_MODULE_TELIT_CC864,
 	WAT_MODULE_MOTOROLA,
 	WAT_MODULE_INVALID,
 } wat_moduletype_t;
 
-#define WAT_MODULETYPE_STRINGS "telit", "telit-gc864", "telit-he910", "motorola", "invalid"
+#define WAT_MODULETYPE_STRINGS "telit", "telit-gc864", "telit-he910", "telit-cc864", "motorola", "invalid"
 
 WAT_STR2ENUM_P(wat_str2wat_moduletype, wat_moduletype2str, wat_moduletype_t);
 

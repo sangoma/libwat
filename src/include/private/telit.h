@@ -27,6 +27,7 @@
 
 wat_status_t telit_gc864_init(wat_span_t *span);
 wat_status_t telit_he910_init(wat_span_t *span);
+wat_status_t telit_cc864_init(wat_span_t *span);
 WAT_NOTIFY_FUNC(wat_notify_codec_info);
 
 typedef enum {

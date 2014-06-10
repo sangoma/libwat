@@ -235,7 +235,8 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 		return WAT_FAIL;
 	}
 
-	switch(span_config->moduletype) {
+	/* TODO: We should call function pointers based on string module type instead of having this switch */
+	switch (span_config->moduletype) {
 		case WAT_MODULE_TELIT:
 		case WAT_MODULE_TELIT_GC864:
 			if (telit_gc864_init(span) != WAT_SUCCESS) {
@@ -244,6 +245,11 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 			break;
 		case WAT_MODULE_TELIT_HE910:
 			if (telit_he910_init(span) != WAT_SUCCESS) {
+				goto failed;
+			}
+			break;
+		case WAT_MODULE_TELIT_CC864:
+			if (telit_cc864_init(span) != WAT_SUCCESS) {
 				goto failed;
 			}
 			break;

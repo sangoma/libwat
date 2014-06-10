@@ -281,7 +281,10 @@ wat_status_t wat_span_update_sig_status(wat_span_t *span, wat_bool_t up)
 		}
 	}
 
-	if (span->sigstatus == WAT_SIGSTATUS_UP) {
+	if (span->module.handle_sig_status) {
+		/* If the module provides a method to take care of signaling status, use it instead */
+		span->module.handle_sig_status(span, up);
+	} else if (span->sigstatus == WAT_SIGSTATUS_UP) {
 		/* Get the Operator Name */
 		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL, 30000);
 
@@ -474,15 +477,9 @@ WAT_RESPONSE_FUNC(wat_response_post_start_complete)
 /* This function is executed once the SIM is Inserted and ready */
 static wat_status_t wat_span_perform_post_start(wat_span_t *span)
 {
-	/* Enable New Message Indications To TE */
-	wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL, span->config.timeout_command);
-
 	/* Enable Calling Line Presentation */
 	wat_cmd_enqueue(span, "AT+CLIP=1", wat_response_clip, NULL, span->config.timeout_command);
 	
-	/* Set Operator mode */
-	wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL, span->config.timeout_command);
-
 	/* Set the Call Class to voice  */
 	/* TODO: The FCLASS should be set before sending ATD command for each call */
 	wat_cmd_enqueue(span, "AT+FCLASS=8", NULL, NULL, span->config.timeout_command);
@@ -491,9 +488,6 @@ static wat_status_t wat_span_perform_post_start(wat_span_t *span)
 	span->module.start(span);
 
 	span->module.set_codec(span, span->config.codec_mask);
-
-	/* Check the PIN status, this will also report if there is no SIM inserted */
-	wat_cmd_enqueue(span, "AT+CPIN?", wat_response_cpin, NULL, 15000);
 
 	/* Get some information about the chip */
 	

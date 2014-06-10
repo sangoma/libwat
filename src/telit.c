@@ -32,12 +32,14 @@
 
 #define TELIT_GC864 0
 #define TELIT_HE910 1
+#define TELIT_CC864 2
 
 wat_status_t telit_start(wat_span_t *span);
 wat_status_t telit_restart(wat_span_t *span);
 wat_status_t telit_shutdown(wat_span_t *span);
 wat_status_t telit_wait_sim(wat_span_t *span);
 wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask);
+wat_status_t telit_handle_sig_status(wat_span_t *span, wat_bool_t up);
 
 WAT_RESPONSE_FUNC(wat_response_atz);
 WAT_RESPONSE_FUNC(wat_response_ate);
@@ -57,6 +59,7 @@ static wat_module_t telit_gc864_interface = {
 	.shutdown = telit_shutdown,
 	.set_codec = telit_set_codec,
 	.wait_sim = telit_wait_sim,
+	.handle_sig_status = telit_handle_sig_status,
 	.model = TELIT_GC864,
 	.name = "Telit GC864",
 };
@@ -67,8 +70,20 @@ static wat_module_t telit_he910_interface = {
 	.shutdown = telit_shutdown,
 	.set_codec = telit_set_codec,
 	.wait_sim = telit_wait_sim,
+	.handle_sig_status = telit_handle_sig_status,
 	.model = TELIT_HE910,
 	.name = "Telit HE910",
+};
+
+static wat_module_t telit_cc864_interface = {
+	.start = telit_start,
+	.restart = telit_restart,
+	.shutdown = telit_shutdown,
+	.set_codec = telit_set_codec,
+	.wait_sim = telit_wait_sim,
+	.handle_sig_status = telit_handle_sig_status,
+	.model = TELIT_CC864,
+	.name = "Telit CC864",
 };
 
 wat_status_t telit_gc864_init(wat_span_t *span)
@@ -79,6 +94,11 @@ wat_status_t telit_gc864_init(wat_span_t *span)
 wat_status_t telit_he910_init(wat_span_t *span)
 {
 	return wat_module_register(span, &telit_he910_interface);
+}
+
+wat_status_t telit_cc864_init(wat_span_t *span)
+{
+	return wat_module_register(span, &telit_cc864_interface);
 }
 
 WAT_NOTIFY_FUNC(wat_notify_codec_info)
@@ -112,11 +132,21 @@ wat_status_t telit_start(wat_span_t *span)
 	/* Section 2.1 of Telit AT Commands reference Guide recommends these options to be enabled */
 	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL, span->config.timeout_command);
 
-	wat_cmd_enqueue(span, "AT#SMSMODE=1", wat_response_smsmode, NULL, span->config.timeout_command);
+	/* Enable New Message Indications To TE */
+	if (span->module.model == TELIT_CC864) {
+		wat_cmd_enqueue(span, "AT+CNMI=2", wat_response_cnmi, NULL, span->config.timeout_command);
+	} else {
+		/* Set Operator mode */
+		wat_cmd_enqueue(span, "AT+COPS=3,0", wat_response_cops, NULL, span->config.timeout_command);
 
-	/* From Telit AT commands reference guide, page 105: Set AT#REGMODE=1
-	 * makes CREG behavior more formal */
-	wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT+CNMI=2,2", wat_response_cnmi, NULL, span->config.timeout_command);
+
+		wat_cmd_enqueue(span, "AT#SMSMODE=1", wat_response_smsmode, NULL, span->config.timeout_command);
+
+		/* From Telit AT commands reference guide, page 105: Set AT#REGMODE=1
+		 * makes CREG behavior more formal */
+		wat_cmd_enqueue(span, "AT#REGMODE=1", NULL, NULL, span->config.timeout_command);
+	}
 
 	if (span->module.model == TELIT_HE910) {
 		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
@@ -125,6 +155,8 @@ wat_status_t telit_start(wat_span_t *span)
 		wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL, span->config.timeout_command);
 		/* I guess we want full CPU power */
 		wat_cmd_enqueue(span, "AT#CPUMODE=1", NULL, NULL, span->config.timeout_command);
+	} else if (span->module.model == TELIT_CC864) {
+		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "Invalid telit module %s (%d)\n", span->module.name, span->module.model);
 		return WAT_FAIL;
@@ -137,10 +169,12 @@ wat_status_t telit_start(wat_span_t *span)
 	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
 	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL, span->config.timeout_command);
 
-	/* Enable codec notifications 
-	 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
-	wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL, span->config.timeout_command);
-	wat_cmd_register(span, "#CODECINFO", wat_notify_codec_info);
+	if (span->module.model != TELIT_CC864) {
+		/* Enable codec notifications 
+		 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
+		wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL, span->config.timeout_command);
+		wat_cmd_register(span, "#CODECINFO", wat_notify_codec_info);
+	}
 	
 	/* Make sure the DIALMODE is set to 0 to receive an OK code as soon as possible
 	 * the option of using DIALMODE=2 is tempting as provides progress status 
@@ -148,27 +182,33 @@ wat_status_t telit_start(wat_span_t *span)
 	 * will not accept any further commands in the meantime, which is not convenient */
 	wat_cmd_enqueue(span, "AT#DIALMODE=0", NULL, NULL, span->config.timeout_command);
 
-	/* Enable automatic Band selection */
-	wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL, span->config.timeout_command);
+	if (span->module.model != TELIT_CC864) {
+		wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL, span->config.timeout_command);
 
-	switch (span->config.band) {
-		case WAT_BAND_900_1800:
-			wat_cmd_enqueue(span, "AT#BND=0", NULL, NULL, span->config.timeout_command);
-			break;
-		case WAT_BAND_900_1900:
-			wat_cmd_enqueue(span, "AT#BND=1", NULL, NULL, span->config.timeout_command);
-			break;
-		case WAT_BAND_850_1800:
-			wat_cmd_enqueue(span, "AT#BND=2", NULL, NULL, span->config.timeout_command);
-			break;
-		case WAT_BAND_850_1900:
-			wat_cmd_enqueue(span, "AT#BND=3", NULL, NULL, span->config.timeout_command);
-			break;
-		default:
-			wat_log_span(span, WAT_LOG_CRIT, "Unsupported band value:%d\n", span->config.band);
-		case WAT_BAND_AUTO:
-			wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL, span->config.timeout_command);
-			break;
+		/* Check the PIN status, this will also report if there is no SIM inserted */
+		wat_cmd_enqueue(span, "AT+CPIN?", wat_response_cpin, NULL, 15000);
+
+		switch (span->config.band) {
+			case WAT_BAND_900_1800:
+				wat_cmd_enqueue(span, "AT#BND=0", NULL, NULL, span->config.timeout_command);
+				break;
+			case WAT_BAND_900_1900:
+				wat_cmd_enqueue(span, "AT#BND=1", NULL, NULL, span->config.timeout_command);
+				break;
+			case WAT_BAND_850_1800:
+				wat_cmd_enqueue(span, "AT#BND=2", NULL, NULL, span->config.timeout_command);
+				break;
+			case WAT_BAND_850_1900:
+				wat_cmd_enqueue(span, "AT#BND=3", NULL, NULL, span->config.timeout_command);
+				break;
+			default:
+				wat_log_span(span, WAT_LOG_CRIT, "Unsupported band value: %d\n", span->config.band);
+			case WAT_BAND_AUTO:
+				/* Enable automatic Band selection */
+				wat_cmd_enqueue(span, "AT#AUTOBND=2", NULL, NULL, span->config.timeout_command);
+				break;
+		}
+
 	}
 
 	return WAT_SUCCESS;
@@ -205,10 +245,33 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 
 wat_status_t telit_wait_sim(wat_span_t *span)
 {
-	wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
-	wat_cmd_register(span, "#QSS", wat_notify_qss);
-	wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL, span->config.timeout_command);
-	wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL, span->config.timeout_command);
+	if (span->module.model == TELIT_CC864) {
+		/* This is a CDMA module, no SIM here */
+		wat_log_span(span, WAT_LOG_DEBUG, "CDMA module does not require waiting for SIM ...\n");
+		if (span->state < WAT_SPAN_STATE_POST_START) {
+			wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
+		}
+	} else {
+		wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
+		wat_cmd_register(span, "#QSS", wat_notify_qss);
+		wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL, span->config.timeout_command);
+	}
+	return WAT_SUCCESS;
+}
+
+wat_status_t telit_handle_sig_status(wat_span_t *span, wat_bool_t up)
+{
+	/* Own Number */
+	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL, 5000); /* Could not find timeout value for CNUM */
+
+	if (span->module.model != TELIT_CC864) {
+		/* Get the Operator Name */
+		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL, 30000);
+
+		/* SMSC information */
+		wat_cmd_enqueue(span, "AT+CSCA?", wat_response_csca, NULL, 5000);
+	}
 	return WAT_SUCCESS;
 }
 

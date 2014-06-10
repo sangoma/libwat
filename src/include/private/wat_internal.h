@@ -130,15 +130,17 @@ typedef enum {
 typedef wat_status_t (*wat_module_start_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_restart_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_shutdown_func)(wat_span_t *span);
-typedef wat_status_t (*wat_module_wat_sim_func)(wat_span_t *span);
+typedef wat_status_t (*wat_module_wait_sim_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_set_codec_func)(wat_span_t *span, wat_codec_t codec_mask);
+typedef wat_status_t (*wat_module_handle_sig_status)(wat_span_t *span, wat_bool_t up);
 
 struct wat_module {
 	wat_module_start_func    	start;
 	wat_module_restart_func  	restart;
 	wat_module_shutdown_func 	shutdown;
 	wat_module_set_codec_func 	set_codec;
-	wat_module_wat_sim_func 	wait_sim;
+	wat_module_wait_sim_func 	wait_sim;
+	wat_module_handle_sig_status    handle_sig_status;
 	int32_t model;
 	const char *name;
 };
