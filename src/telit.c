@@ -33,6 +33,7 @@
 #define TELIT_GC864 0
 #define TELIT_HE910 1
 #define TELIT_CC864 2
+#define TELIT_DE910 3
 
 wat_status_t telit_start(wat_span_t *span);
 wat_status_t telit_restart(wat_span_t *span);
@@ -62,6 +63,7 @@ static wat_module_t telit_gc864_interface = {
 	.handle_sig_status = telit_handle_sig_status,
 	.model = TELIT_GC864,
 	.name = "Telit GC864",
+	.flags = WAT_MODFLAG_NONE,
 };
 
 static wat_module_t telit_he910_interface = {
@@ -73,6 +75,7 @@ static wat_module_t telit_he910_interface = {
 	.handle_sig_status = telit_handle_sig_status,
 	.model = TELIT_HE910,
 	.name = "Telit HE910",
+	.flags = WAT_MODFLAG_NONE,
 };
 
 static wat_module_t telit_cc864_interface = {
@@ -84,6 +87,19 @@ static wat_module_t telit_cc864_interface = {
 	.handle_sig_status = telit_handle_sig_status,
 	.model = TELIT_CC864,
 	.name = "Telit CC864",
+	.flags = WAT_MODFLAG_NONE,
+};
+
+static wat_module_t telit_de910_interface = {
+	.start = telit_start,
+	.restart = telit_restart,
+	.shutdown = telit_shutdown,
+	.set_codec = telit_set_codec,
+	.wait_sim = telit_wait_sim,
+	.handle_sig_status = telit_handle_sig_status,
+	.model = TELIT_DE910,
+	.name = "Telit DE910",
+	.flags = WAT_MODFLAG_NONE,
 };
 
 wat_status_t telit_gc864_init(wat_span_t *span)
@@ -98,7 +114,16 @@ wat_status_t telit_he910_init(wat_span_t *span)
 
 wat_status_t telit_cc864_init(wat_span_t *span)
 {
-	return wat_module_register(span, &telit_cc864_interface);
+	wat_status_t status = wat_module_register(span, &telit_cc864_interface);
+	wat_set_flag(&span->module, WAT_MODFLAG_IS_CDMA);
+	return status;
+}
+
+wat_status_t telit_de910_init(wat_span_t *span)
+{
+	wat_status_t status = wat_module_register(span, &telit_de910_interface);
+	wat_set_flag(&span->module, WAT_MODFLAG_IS_CDMA);
+	return status;
 }
 
 WAT_NOTIFY_FUNC(wat_notify_codec_info)
@@ -133,7 +158,7 @@ wat_status_t telit_start(wat_span_t *span)
 	wat_cmd_enqueue(span, "AT#SELINT=2", wat_response_selint, NULL, span->config.timeout_command);
 
 	/* Enable New Message Indications To TE */
-	if (span->module.model == TELIT_CC864) {
+	if (span->module.model == TELIT_CC864 || span->module.model == TELIT_DE910) {
 		wat_cmd_enqueue(span, "AT+CNMI=2", wat_response_cnmi, NULL, span->config.timeout_command);
 	} else {
 		/* Set Operator mode */
@@ -151,6 +176,12 @@ wat_status_t telit_start(wat_span_t *span)
 	if (span->module.model == TELIT_HE910) {
 		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
 		wat_cmd_enqueue(span, "AT#DVIEXT=1,0,0,1,0", NULL, NULL, span->config.timeout_command);
+	} else if (span->module.model == TELIT_DE910) {
+		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT#DVICFG=1,0,2,0,2", NULL, NULL, span->config.timeout_command);
+		/* For whatever reason the default for the DE910 in verizon/sprint networks is to ignore ATH commands for hangup,
+		 * we change that here so we can actually hangup a call without waiting for the other end to hangup  */
+		wat_cmd_enqueue(span, "AT+CVHU=2", NULL, NULL, span->config.timeout_command);
 	} else if (span->module.model == TELIT_GC864) {
 		wat_cmd_enqueue(span, "AT#DVI=1,1,0", wat_response_dvi, NULL, span->config.timeout_command);
 		/* I guess we want full CPU power */
@@ -169,7 +200,7 @@ wat_status_t telit_start(wat_span_t *span)
 	/* Disable Sidetone as it sounds like echo on calls with long delay (e.g SIP calls) */
 	wat_cmd_enqueue(span, "AT#SHSSD=0", wat_response_shssd, NULL, span->config.timeout_command);
 
-	if (span->module.model != TELIT_CC864) {
+	if (span->module.model != TELIT_CC864 && span->module.model != TELIT_DE910) {
 		/* Enable codec notifications 
 		 * (format = 1 is text, mode 2 is short mode to get notifications only including the codec in use) */
 		wat_cmd_enqueue(span, "AT#CODECINFO=1,2", wat_response_codecinfo, NULL, span->config.timeout_command);
@@ -182,7 +213,7 @@ wat_status_t telit_start(wat_span_t *span)
 	 * will not accept any further commands in the meantime, which is not convenient */
 	wat_cmd_enqueue(span, "AT#DIALMODE=0", NULL, NULL, span->config.timeout_command);
 
-	if (span->module.model != TELIT_CC864) {
+	if (span->module.model != TELIT_CC864 && span->module.model != TELIT_DE910) {
 		wat_cmd_enqueue(span, "AT+COPS=0", NULL, NULL, span->config.timeout_command);
 
 		/* Check the PIN status, this will also report if there is no SIM inserted */
@@ -245,7 +276,7 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 
 wat_status_t telit_wait_sim(wat_span_t *span)
 {
-	if (span->module.model == TELIT_CC864) {
+	if (wat_test_flag(&span->module, WAT_MODFLAG_IS_CDMA)) {
 		/* This is a CDMA module, no SIM here */
 		wat_log_span(span, WAT_LOG_DEBUG, "CDMA module does not require waiting for SIM ...\n");
 		if (span->state < WAT_SPAN_STATE_POST_START) {
@@ -265,7 +296,7 @@ wat_status_t telit_handle_sig_status(wat_span_t *span, wat_bool_t up)
 	/* Own Number */
 	wat_cmd_enqueue(span, "AT+CNUM", wat_response_cnum, NULL, 5000); /* Could not find timeout value for CNUM */
 
-	if (span->module.model != TELIT_CC864) {
+	if (span->module.model != TELIT_CC864 && span->module.model != TELIT_DE910) {
 		/* Get the Operator Name */
 		wat_cmd_enqueue(span, "AT+COPS?", wat_response_cops, NULL, 30000);
 

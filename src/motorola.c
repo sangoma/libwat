@@ -43,6 +43,9 @@ static wat_module_t motorola_interface = {
 	.shutdown = motorola_shutdown,
 	.set_codec = motorola_set_codec,
 	.wait_sim = motorola_wait_sim,
+	.model =  0,
+	.name = "motorola",
+	.flags = WAT_MODFLAG_NONE,
 };
 
 wat_status_t motorola_init(wat_span_t *span)

@@ -253,6 +253,11 @@ WAT_DECLARE(wat_status_t) wat_span_config(uint8_t span_id, wat_span_config_t *sp
 				goto failed;
 			}
 			break;
+		case WAT_MODULE_TELIT_DE910:
+			if (telit_de910_init(span) != WAT_SUCCESS) {
+				goto failed;
+			}
+			break;
 		case WAT_MODULE_MOTOROLA:
 			if (motorola_init(span) != WAT_SUCCESS) {
 				goto failed;

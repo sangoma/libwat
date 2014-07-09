@@ -134,6 +134,11 @@ typedef wat_status_t (*wat_module_wait_sim_func)(wat_span_t *span);
 typedef wat_status_t (*wat_module_set_codec_func)(wat_span_t *span, wat_codec_t codec_mask);
 typedef wat_status_t (*wat_module_handle_sig_status)(wat_span_t *span, wat_bool_t up);
 
+typedef enum {
+	WAT_MODFLAG_NONE,
+	WAT_MODFLAG_IS_CDMA,
+} wat_module_flags_t;
+
 struct wat_module {
 	wat_module_start_func    	start;
 	wat_module_restart_func  	restart;
@@ -143,6 +148,7 @@ struct wat_module {
 	wat_module_handle_sig_status    handle_sig_status;
 	int32_t model;
 	const char *name;
+	wat_module_flags_t flags;
 };
 
 wat_status_t wat_module_register(wat_span_t *, wat_module_t *module);
