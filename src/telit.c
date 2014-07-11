@@ -126,6 +126,33 @@ wat_status_t telit_de910_init(wat_span_t *span)
 	return status;
 }
 
+static WAT_NOTIFY_FUNC(wat_notify_dtmf_info)
+{
+	unsigned count;
+	char *cmdtokens[10];
+	int consumed_tokens = 0;
+
+	WAT_NOTIFY_FUNC_DBG_START
+
+	wat_match_prefix(tokens[0], "#DTMFEV: ");
+
+	count = wat_cmd_entry_tokenize(tokens[0], cmdtokens, wat_array_len(cmdtokens));
+
+	if (count < 0) {
+		wat_log_span(span, WAT_LOG_ERROR, "Failed to parse #DTMFEV event '%s'\n", tokens[0]);
+		consumed_tokens = 1;
+	} else {
+		wat_log_span(span, WAT_LOG_DEBUG, "Received DTMF: %s\n", tokens[0]);
+		consumed_tokens = 1;
+	}
+	if (g_interface.wat_dtmf_ind) {
+		g_interface.wat_dtmf_ind(span->id, tokens[0]);
+	}
+
+	wat_free_tokens(cmdtokens);
+	return consumed_tokens;
+}
+
 WAT_NOTIFY_FUNC(wat_notify_codec_info)
 {
 	unsigned count;
@@ -191,6 +218,17 @@ wat_status_t telit_start(wat_span_t *span)
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "Invalid telit module %s (%d)\n", span->module.name, span->module.model);
 		return WAT_FAIL;
+	}
+
+	/* DTMF enable */
+	if (span->config.hardware_dtmf == WAT_TRUE) {
+		if (span->module.model == TELIT_DE910) {
+			wat_log_span(span, WAT_LOG_INFO, "Enabling hardware DTMF for telit module %s (%d)\n", span->module.name, span->module.model);
+			wat_cmd_register(span, "#DTMFEV", wat_notify_dtmf_info);
+			wat_cmd_enqueue(span, "AT#DTMF=1", NULL, NULL, span->config.timeout_command);
+		} else {
+			wat_log_span(span, WAT_LOG_ERROR, "Hardware DTMF unavailable for telit module %s (%d)\n", span->module.name, span->module.model);
+		}
 	}
 
 	/* Enable Echo cancellation */

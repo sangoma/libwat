@@ -561,6 +561,7 @@ typedef struct _wat_span_config_t {
 	wat_codec_t codec_mask; /* Which codecs to advertise */
 	wat_sms_content_encoding_t incoming_sms_encoding; /* Encoding to use on received SMS when not in ASCII */
 	uint32_t debug_mask; /* Initial debug mask, should be set via wat_str2debug */
+	wat_bool_t hardware_dtmf; /* Enable hardware DTMF if available */
 } wat_span_config_t;
 
 typedef void (*wat_span_sts_func_t)(uint8_t span_id, wat_span_status_t *status);
@@ -578,6 +579,7 @@ typedef void (*wat_sms_ind_func_t)(uint8_t span_id, wat_sms_event_t *sms_event);
 typedef void (*wat_sms_sts_func_t)(uint8_t span_id, uint8_t sms_id, wat_sms_status_t *sms_status);
 typedef void (*wat_cmd_sts_func_t)(uint8_t span_id, wat_cmd_status_t *status);
 typedef int (*wat_span_write_func_t)(uint8_t span_id, void *data, uint32_t len);
+typedef void (*wat_dtmf_ind_func_t)(uint8_t span_id, const char *dtmf);
 
 typedef struct _wat_interface {
 	/* Call-backs */
@@ -603,6 +605,7 @@ typedef struct _wat_interface {
 	wat_rel_cfm_func_t wat_rel_cfm;
 	wat_sms_ind_func_t wat_sms_ind;
 	wat_sms_sts_func_t wat_sms_sts;
+	wat_dtmf_ind_func_t wat_dtmf_ind;
 
 	wat_span_write_func_t wat_span_write;
 } wat_interface_t;

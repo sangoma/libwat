@@ -26,7 +26,6 @@
 #define _MOTOROLA_H
 
 wat_status_t motorola_init(wat_span_t *span);
-WAT_NOTIFY_FUNC(wat_notify_codec_info);
 
 typedef enum {
 	WAT_MOTOROLA_SIM_NOT_INSERTED = 0,
