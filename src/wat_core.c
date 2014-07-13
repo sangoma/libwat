@@ -460,9 +460,17 @@ static wat_status_t wat_span_perform_start(wat_span_t *span)
 	/* Enable extended format reporting */
 	wat_cmd_enqueue(span, "AT+CRC=1", NULL, NULL, span->config.timeout_command);
 
-	span->module.wait_sim(span);
+	if (wat_test_flag(&span->module, WAT_MODFLAG_IS_CDMA)) {
+		/* This is a CDMA module, no SIM here */
+		wat_log_span(span, WAT_LOG_DEBUG, "CDMA module does not require waiting for SIM ...\n");
+		if (span->state < WAT_SPAN_STATE_POST_START) {
+			wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
+		}
+	} else {
+		span->module.wait_sim(span);
+		wat_sched_timer(span->sched, "wait_sim", span->config.timeout_wait_sim, wat_scheduled_wait_sim, (void *) span, &span->timeouts[WAT_TIMEOUT_WAIT_SIM]);
+	}
 	
-	wat_sched_timer(span->sched, "wait_sim", span->config.timeout_wait_sim, wat_scheduled_wait_sim, (void *) span, &span->timeouts[WAT_TIMEOUT_WAIT_SIM]);
 	return WAT_SUCCESS;
 }
 

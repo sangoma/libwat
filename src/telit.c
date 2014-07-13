@@ -314,18 +314,10 @@ wat_status_t telit_set_codec(wat_span_t *span, wat_codec_t codec_mask)
 
 wat_status_t telit_wait_sim(wat_span_t *span)
 {
-	if (wat_test_flag(&span->module, WAT_MODFLAG_IS_CDMA)) {
-		/* This is a CDMA module, no SIM here */
-		wat_log_span(span, WAT_LOG_DEBUG, "CDMA module does not require waiting for SIM ...\n");
-		if (span->state < WAT_SPAN_STATE_POST_START) {
-			wat_span_set_state(span, WAT_SPAN_STATE_POST_START);
-		}
-	} else {
-		wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
-		wat_cmd_register(span, "#QSS", wat_notify_qss);
-		wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL, span->config.timeout_command);
-		wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL, span->config.timeout_command);
-	}
+	wat_log_span(span, WAT_LOG_INFO, "Waiting for SIM acccess...\n");
+	wat_cmd_register(span, "#QSS", wat_notify_qss);
+	wat_cmd_enqueue(span, "AT#QSS=2", wat_response_qss, NULL, span->config.timeout_command);
+	wat_cmd_enqueue(span, "AT#QSS?", wat_response_qss, NULL, span->config.timeout_command);
 	return WAT_SUCCESS;
 }
 
