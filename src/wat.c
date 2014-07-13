@@ -644,7 +644,7 @@ WAT_DECLARE(wat_status_t) wat_send_dtmf(uint8_t span_id, uint8_t call_id, const 
 	if (!dtmf) {
 		return WAT_EINVAL;
 	}
-	snprintf(dtmf_cmd, sizeof(dtmf_cmd), "AT+VTS=\"%s\"", dtmf);
+	snprintf(dtmf_cmd, sizeof(dtmf_cmd), "AT+VTS=%s", dtmf);
 	return wat_cmd_req(span_id, dtmf_cmd, cb, obj);
 }
 
