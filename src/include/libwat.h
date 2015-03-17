@@ -605,9 +605,10 @@ typedef struct _wat_interface {
 	wat_rel_cfm_func_t wat_rel_cfm;
 	wat_sms_ind_func_t wat_sms_ind;
 	wat_sms_sts_func_t wat_sms_sts;
-	wat_dtmf_ind_func_t wat_dtmf_ind;
-
 	wat_span_write_func_t wat_span_write;
+	/* adding this parameter to the last of structure due to
+	 * compatibility issues */
+	wat_dtmf_ind_func_t wat_dtmf_ind;
 } wat_interface_t;
 
 /* Functions  *********************************************************************/
