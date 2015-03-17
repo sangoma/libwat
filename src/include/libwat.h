@@ -87,10 +87,10 @@ typedef enum {
 	WAT_ALARM_NO_SIGNAL,
 	WAT_ALARM_LO_SIGNAL,
 	WAT_ALARM_SIM_ACCESS_FAIL,
-	WAT_ALARM_INVALID,
+	WAT_ALARM_INVALID = 0xff,
 } wat_alarm_t;
 
-#define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "SIM access failure", "Invalid"
+#define WAT_ALARM_STRINGS "Alarm Cleared", "No Signal", "Lo Signal", "SIM access failure"
 WAT_STR2ENUM_P(wat_str2wat_alarm, wat_alarm2str, wat_alarm_t);
 
 typedef enum {	
@@ -104,9 +104,9 @@ typedef enum {
 	WAT_SMS_CAUSE_NO_RESPONSE,
 	WAT_SMS_CAUSE_NO_NETWORK,
 	WAT_SMS_CAUSE_NETWORK_REFUSE,
-	WAT_SMS_CAUSE_UNKNOWN,
+	WAT_SMS_CAUSE_UNKNOWN = 0xff,
 } wat_sms_cause_t;
-#define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response", "No network",  "Network Refused", "Unknown"
+#define WAT_SMS_CAUSE_STRINGS "Queue full", "Mode not supported", "No response", "No network",  "Network Refused"
 
 WAT_STR2ENUM_P(wat_str2wat_sms_cause, wat_sms_cause2str, wat_sms_cause_t);
 
@@ -117,10 +117,10 @@ typedef enum {
 	WAT_MODULE_TELIT_CC864,
 	WAT_MODULE_TELIT_DE910,
 	WAT_MODULE_MOTOROLA,
-	WAT_MODULE_INVALID,
+	WAT_MODULE_INVALID = 0xff,
 } wat_moduletype_t;
 
-#define WAT_MODULETYPE_STRINGS "telit", "telit-gc864", "telit-he910", "telit-cc864", "telit-de910", "motorola", "invalid"
+#define WAT_MODULETYPE_STRINGS "telit", "telit-gc864", "telit-he910", "telit-cc864", "telit-de910", "motorola"
 
 WAT_STR2ENUM_P(wat_str2wat_moduletype, wat_moduletype2str, wat_moduletype_t);
 
@@ -133,10 +133,10 @@ typedef enum {
 	WAT_NUMBER_TYPE_ALPHANUMERIC, /* Coded according to GSM TS 03.38 7-bit default alphabet */
 	WAT_NUMBER_TYPE_ABBREVIATED,
 	WAT_NUMBER_TYPE_RESERVED,
-	WAT_NUMBER_TYPE_INVALID,
+	WAT_NUMBER_TYPE_INVALID = 0xff,
 } wat_number_type_t;
 
-#define WAT_NUMBER_TYPE_STRINGS "unknown", "international" , "national", "network specific", "subscriber", "alphanumeric", "abbreviated", "reserved", "invalid"
+#define WAT_NUMBER_TYPE_STRINGS "unknown", "international" , "national", "network specific", "subscriber", "alphanumeric", "abbreviated", "reserved"
 
 WAT_STR2ENUM_P(wat_str2wat_number_type, wat_number_type2str, wat_number_type_t);
 
@@ -149,10 +149,10 @@ typedef enum {
 	WAT_NUMBER_PLAN_PRIVATE,
 	WAT_NUMBER_PLAN_ERMES,	/* ETSI DE/PS 3 01-3 */
 	WAT_NUMBER_PLAN_RESERVED,
-	WAT_NUMBER_PLAN_INVALID,
+	WAT_NUMBER_PLAN_INVALID = 0xff,
 } wat_number_plan_t;
 
-#define WAT_NUMBER_PLAN_STRINGS "unknown", "ISDN", "data", "telex", "national", "private", "ermes", "reserved", "invalid"
+#define WAT_NUMBER_PLAN_STRINGS "unknown", "ISDN", "data", "telex", "national", "private", "ermes", "reserved"
 
 WAT_STR2ENUM_P(wat_str2wat_number_plan, wat_number_plan2str, wat_number_plan_t);
 
@@ -160,10 +160,10 @@ typedef enum {
 	WAT_NUMBER_VALIDITY_VALID,			/* CLI Number is valid */
 	WAT_NUMBER_VALIDITY_WITHELD,		/* CLI has been withheld by originator */
 	WAT_NUMBER_VALIDITY_UNAVAILABLE,	/* CLI unavailable due to interworking problems or limitation of originating network */
-	WAT_NUMBER_VALIDITY_INVALID,
+	WAT_NUMBER_VALIDITY_INVALID = 0xff,
 } wat_number_validity_t;
 
-#define WAT_NUMBER_VALIDITY_STRINGS "valid", "witheld" ,"unavailable", "invalid"
+#define WAT_NUMBER_VALIDITY_STRINGS "valid", "witheld" ,"unavailable"
 
 WAT_STR2ENUM_P(wat_str2wat_number_validity, wat_number_validity2str, wat_number_validity_t);
 
@@ -178,20 +178,20 @@ typedef enum {
 	WAT_CALL_TYPE_VOICE,
 	WAT_CALL_TYPE_DATA,
 	WAT_CALL_TYPE_FAX,
-	WAT_CALL_TYPE_INVALID,
+	WAT_CALL_TYPE_INVALID = 0xff,
 } wat_call_type_t;
 
-#define WAT_CALL_TYPE_STRINGS "voice", "data", "fax", "invalid"
+#define WAT_CALL_TYPE_STRINGS "voice", "data", "fax"
 WAT_STR2ENUM_P(wat_str2wat_call_type, wat_call_type2str, wat_call_type_t);
 
 typedef enum {
 	WAT_CALL_SUB_REAL,		/* Regular call */
 	WAT_CALL_SUB_CALLWAIT,	/* Call Waiting */
 	WAT_CALL_SUB_THREEWAY,	/* Three-way call */
-	WAT_CALL_SUB_INVALID, 
+	WAT_CALL_SUB_INVALID = 0xff,
 } wat_call_sub_t;
 
-#define WAT_CALL_SUB_STRINGS "real", "call waiting", "three-way", "invalid"
+#define WAT_CALL_SUB_STRINGS "real", "call waiting", "three-way"
 WAT_STR2ENUM_P(wat_str2wat_call_sub, wat_call_sub2str, wat_call_sub_t);
 
 typedef enum {
@@ -226,10 +226,10 @@ typedef enum {
 	WAT_NET_REGISTRATION_DENIED,            /* Registration denied */
 	WAT_NET_UNKNOWN,                        /* Unknown */
 	WAT_NET_REGISTERED_ROAMING,             /* Registered, roaming */
-	WAT_NET_INVALID,
+	WAT_NET_INVALID = 0xff,
 } wat_net_stat_t;
 
-#define WAT_NET_STAT_STRINGS "Not Registered", "Registered Home", "Not Registered, Searching", "Registration Denied", "Unknown", "Registered Roaming", "Invalid"
+#define WAT_NET_STAT_STRINGS "Not Registered", "Registered Home", "Not Registered, Searching", "Registration Denied", "Unknown", "Registered Roaming"
 WAT_STR2ENUM_P(wat_str2wat_net_stat, wat_net_stat2str, wat_net_stat_t);
 
 typedef enum {
@@ -250,7 +250,7 @@ typedef enum {
 	WAT_PIN_PH_CORP_PIN,			/* ME is waiting corporate personalization password to be given */
 	WAT_PIN_PH_CORP_PUK,			/* ME is waiting corporate personalization unblocking password to be given */
 	WAT_PIN_PH_MCL_PIN,  			/* ME is waiting for Multi Country Lock password to be given */
-	WAT_PIN_INVALID,				/* Invalid Response */
+	WAT_PIN_INVALID = 0xff,				/* Invalid Response */
 } wat_pin_stat_t;
 
 #define WAT_PIN_STAT_STRINGS "Ready", "SIM PIN required", "SIM PUK required", "PH-SIM PIN required", \
@@ -260,7 +260,7 @@ typedef enum {
 						"PH-NETSUB PIN required", "PH-NETSUB PUK required", \
 						"PH-SP PIN required", "PH-SP PUK required" \
 						"PH-CORP PIN required", "PH-CORP PUK required" \
-						"PH-MCL PIN required", "Invalid"
+						"PH-MCL PIN required"
 WAT_STR2ENUM_P(wat_str2wat_pin_stat, wat_pin_stat2str, wat_pin_stat_t);
 
 #define WAT_PIN_CHIP_STAT_STRINGS "READY", "SIM PIN", "SIM PUK", "PH-SIM PIN", \
@@ -296,10 +296,10 @@ typedef struct _wat_con_event {
 typedef enum {
 	WAT_SMS_PDU_MTI_SMS_DELIVER,
 	WAT_SMS_PDU_MTI_SMS_SUBMIT,
-	WAT_SMS_PDU_MTI_INVALID,
+	WAT_SMS_PDU_MTI_INVALID = 0xff,
 } wat_sms_pdu_mti_t;
 
-#define WAT_SMS_PDU_MTI_STRINGS "SMS-DELIVER", "SMS-SUBMIT", "Invalid"
+#define WAT_SMS_PDU_MTI_STRINGS "SMS-DELIVER", "SMS-SUBMIT"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_mti, wat_sms_pdu_mti2str, wat_sms_pdu_mti_t);
 
 /* Defined in GSM 03.38 */
@@ -310,10 +310,10 @@ typedef enum {
 	WAT_SMS_PDU_DCS_GRP_MWI_STORE_MSG_1,	/* Message Waiting Indication Group: Store Message (type #1) */
 	WAT_SMS_PDU_DCS_GRP_MWI_STORE_MSG_2,	/* Message Waiting Indication Group: Store Message (type #1) */
 	WAT_SMS_PDU_DCS_GRP_DATA_CODING,		/* Data coding/Message class */
-	WAT_SMS_PDU_DCS_GRP_INVALID,
+	WAT_SMS_PDU_DCS_GRP_INVALID = 0xff,
 } wat_sms_pdu_dcs_grp_t;
 
-#define WAT_SMS_PDU_DCS_GRP_STRINGS "General", "Reserved", "MWI-Discard Message", "MWI-Store Message", "MWI-Store Message", "Data coding", "Invalid"
+#define WAT_SMS_PDU_DCS_GRP_STRINGS "General", "Reserved", "MWI-Discard Message", "MWI-Store Message", "MWI-Store Message", "Data coding"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_grp, wat_sms_pdu_dcs_grp2str, wat_sms_pdu_dcs_grp_t);
 
 typedef enum {
@@ -321,10 +321,10 @@ typedef enum {
 	WAT_SMS_PDU_DCS_MSG_CLASS_ME_SPECIFIC,
 	WAT_SMS_PDU_DCS_MSG_CLASS_SIM_SPECIFIC,
 	WAT_SMS_PDU_DCS_MSG_CLASS_TE_SPECIFIC, /* See GSM TS 07.05 */
-	WAT_SMS_PDU_DCS_MSG_CLASS_INVALID,
+	WAT_SMS_PDU_DCS_MSG_CLASS_INVALID = 0xff,
 } wat_sms_pdu_dcs_msg_cls_t;
 
-#define WAT_SMS_PDU_DCS_MESSAGE_CLASS_STRINGS "General", "ME-Specific", "SIM-Specific", "TE-Specific", "Invalid"
+#define WAT_SMS_PDU_DCS_MESSAGE_CLASS_STRINGS "General", "ME-Specific", "SIM-Specific", "TE-Specific"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_msg_cls, wat_sms_pdu_dcs_msg_cls2str, wat_sms_pdu_dcs_msg_cls_t);
 
 typedef enum {
@@ -332,7 +332,7 @@ typedef enum {
 	WAT_SMS_PDU_DCS_IND_TYPE_FAX_MSG_WAITING,
 	WAT_SMS_PDU_DCS_IND_TYPE_ELECTRONIC_MAIL_MSG_WAITING,
 	WAT_SMS_PDU_DCS_IND_TYPE_OTHER_MSG_WAITING,
-	WAT_SMS_PDU_DCS_IND_TYPE_INVALID,
+	WAT_SMS_PDU_DCS_IND_TYPE_INVALID = 0xff,
 } wat_sms_pdu_dcs_ind_type_t;
 
 typedef enum {
@@ -340,10 +340,10 @@ typedef enum {
 	WAT_SMS_PDU_DCS_ALPHABET_8BIT,
 	WAT_SMS_PDU_DCS_ALPHABET_UCS2,			/* 16 bit */
 	WAT_SMS_PDU_DCS_ALPHABET_RESERVED,
-	WAT_SMS_PDU_DCS_ALPHABET_INVALID,
+	WAT_SMS_PDU_DCS_ALPHABET_INVALID = 0xff,
 } wat_sms_pdu_dcs_alphabet_t;
 
-#define WAT_SMS_PDU_DCS_ALPHABET_STRINGS "default", "8-bit", "UCS2", "reserved", "Invalid"
+#define WAT_SMS_PDU_DCS_ALPHABET_STRINGS "default", "8-bit", "UCS2", "reserved"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_dcs_alphabet, wat_sms_pdu_dcs_alphabet2str, wat_sms_pdu_dcs_alphabet_t);
 
 typedef enum {
@@ -351,9 +351,9 @@ typedef enum {
 	WAT_SMS_PDU_VP_ABSOLUTE,
 	WAT_SMS_PDU_VP_RELATIVE,
 	WAT_SMS_PDU_VP_ENHANCED,
-	WAT_SMS_PDU_VP_INVALID,
+	WAT_SMS_PDU_VP_INVALID = 0xff,
 } wat_sms_pdu_vp_type_t;
-#define WAT_SMS_PDU_VP_STRINGS "not present", "absolute", "relative", "enhanced", "invalid"
+#define WAT_SMS_PDU_VP_STRINGS "not present", "absolute", "relative", "enhanced"
 WAT_STR2ENUM_P(wat_str2wat_sms_pdu_vp_type, wat_sms_pdu_vp_type2str, wat_sms_pdu_vp_type_t);
 
 typedef struct _wat_sms_pdu_vp {
@@ -415,7 +415,7 @@ typedef enum {
 	WAT_SMS_PDU_UDH_IEI_UDH_SOURCE_INDICATOR, /* UDH source indicator */
 	WAT_SMS_PDU_UDH_IEI_CONCATENATED_SMS_16BIT, /* Concatenated short messages, 16-bit reference number */
 	WAT_SMS_PDU_UDH_IEI_WIRELESS_CONTROL_MESSAGE_PROTOCOL, /* Wireless Control Message Protocol */
-	WAT_SMS_PDU_UDH_IEI_INVALID,
+	WAT_SMS_PDU_UDH_IEI_INVALID = 0xff,
 	/* 0A - 6F: Reserved for future use */
 	/* 70 - 7F: SIM Toolkit Security Headers */
 	/* 80 - 9F:	SME to SME specific use */
@@ -455,20 +455,20 @@ typedef struct _wat_sms_event_pdu {
 typedef enum _wat_sms_content_charset {
 	WAT_SMS_CONTENT_CHARSET_ASCII,
 	WAT_SMS_CONTENT_CHARSET_UTF8,
-	WAT_SMS_CONTENT_CHARSET_INVALID
+	WAT_SMS_CONTENT_CHARSET_INVALID = 0xff,
 } wat_sms_content_charset_t;
 
-#define WAT_SMS_CONTENT_CHARSET_STRINGS "ASCII", "UTF-8", "invalid"
+#define WAT_SMS_CONTENT_CHARSET_STRINGS "ASCII", "UTF-8"
 WAT_STR2ENUM_P(wat_str2wat_sms_content_charset, wat_sms_content_charset2str, wat_sms_content_charset_t);
 
 typedef enum _wat_sms_content_encoding {
 	WAT_SMS_CONTENT_ENCODING_NONE,
 	WAT_SMS_CONTENT_ENCODING_BASE64,
 	WAT_SMS_CONTENT_ENCODING_HEX,	/* Not implement yet */
-	WAT_SMS_CONTENT_ENCODING_INVALID,
+	WAT_SMS_CONTENT_ENCODING_INVALID = 0xff,
 } wat_sms_content_encoding_t;
 
-#define WAT_SMS_CONTENT_ENCODING_STRINGS "none", "base64", "hex", "Invalid"
+#define WAT_SMS_CONTENT_ENCODING_STRINGS "none", "base64", "hex"
 WAT_STR2ENUM_P(wat_str2wat_sms_content_encoding, wat_sms_content_encoding2str, wat_sms_content_encoding_t);
 
 typedef struct _wat_sms_content_t {
@@ -536,10 +536,10 @@ typedef enum {
 	WAT_BAND_900_1900,		/* GSM 900 MHz + PCS 1900 MHz */
 	WAT_BAND_850_1800,		/* GSM 850 MHz + DCS 1800 MHz */
 	WAT_BAND_850_1900,		/* GSM 850 MHz + PCS 1900 MHz */
-	WAT_BAND_INVALID,
+	WAT_BAND_INVALID = 0xff,
 } wat_band_t;
 
-#define WAT_BAND_STRINGS "auto", "900-1800", "900-1900", "850-1800" , "850-1900", "Invalid"
+#define WAT_BAND_STRINGS "auto", "900-1800", "900-1900", "850-1800" , "850-1900"
 WAT_STR2ENUM_P(wat_str2wat_band, wat_band2str, wat_band_t);
 
 typedef struct _wat_span_config_t {
