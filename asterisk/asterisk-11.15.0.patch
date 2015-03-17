@@ -1111,10 +1111,10 @@ index 39f3d2d..3805d41 100644
  
 diff --git a/channels/sig_wat.c b/channels/sig_wat.c
 new file mode 100644
-index 0000000..ced4fcf
+index 0000000..35e3fa1
 --- /dev/null
 +++ b/channels/sig_wat.c
-@@ -0,0 +1,1954 @@
+@@ -0,0 +1,1958 @@
 +/*
 + * Asterisk -- An open source telephony toolkit.
 + *
@@ -1539,7 +1539,11 @@ index 0000000..ced4fcf
 +		ast_softhangup_nolock(wat->pvt->owner, AST_SOFTHANGUP_DEV);
 +	} else {
 +		/* Proceed with the hangup even though we do not have an owner */
-+		wat_rel_cfm(span_id, call_id);
++		/* We might see race condition where Asterisk and GSM both end sending REL
++		 * in that situation if we send REL CFM , it might leads to crash in libwat..
++		 * Hence commenting out rel cfm code as we know that no owner present in asterisk to
++		 * handle this GSM REL request which means Asterisk already released this call leg..*/
++		//wat_rel_cfm(span_id, call_id);
 +		memset(&wat->pvt->subs[WAT_CALL_SUB_REAL], 0, sizeof(wat->pvt->subs[0]));
 +	}
 +	
