@@ -1216,7 +1216,7 @@ WAT_RESPONSE_FUNC(wat_response_ata)
 	} else {
 		wat_log_span(span, WAT_LOG_INFO, "[id:%d] Failed to answer call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
-		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
 	}
 	
 	WAT_FUNC_DBG_END
@@ -1237,7 +1237,7 @@ WAT_RESPONSE_FUNC(wat_response_ath)
 	} else {
 		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to hangup call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
-		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
 	}
 	
 	WAT_FUNC_DBG_END
@@ -1252,7 +1252,7 @@ WAT_RESPONSE_FUNC(wat_response_atd)
 	if (!success) {
 		wat_log_span(span, WAT_LOG_ERROR, "[id:%d] Failed to make outbound call (%s)\n", call->id, error);
 		/* Schedule a CLCC to resync the call state */
-		wat_cmd_enqueue(call->span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT+CLCC", wat_response_clcc, call, span->config.timeout_command);
 	}
 
 	WAT_FUNC_DBG_END
