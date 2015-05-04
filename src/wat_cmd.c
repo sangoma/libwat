@@ -1373,6 +1373,8 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] module call (modid:%d)\n", call->id, call->modid);
 							wat_call_set_state(call, WAT_CALL_STATE_DIALED);
 							matched = WAT_TRUE;
+							/* Keep monitoring the call to find out when the call is anwered */
+							wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
 						}
 					}
 				} else {
@@ -1402,7 +1404,14 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 				break;
 			case WAT_CALL_STATE_DIALED:
 				if (call->dir == WAT_DIRECTION_INCOMING) {
-
+					/* Keep monitoring the call to find out call state */
+					for (i = 0; i < num_clcc_entries; i++) {
+						if (entries[i].id == call->modid && entries[i].stat == WAT_CLCC_STAT_INCOMING) {
+							wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Matched call in CLCC entry (modid:%d)\n", call->id, call->modid);
+							matched = WAT_TRUE;
+							wat_sched_timer(span->sched, "progress_monitor", span->config.progress_poll_interval, wat_scheduled_clcc, (void*) call, &span->timeouts[WAT_PROGRESS_MONITOR]);
+						}
+					}
 				} else {
 					for (i = 0; i < num_clcc_entries; i++) {
 						switch(entries[i].stat) {
