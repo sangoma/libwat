@@ -33,18 +33,18 @@ verify_asterisk ()
 		eval "wget -q downloads.asterisk.org/pub/telephony/asterisk/releases/$asterisk_release.tar.gz" 2>> $logfile >> $logfile
 
 		if [ $? -ne 0 ];then
-			echo "Failed to download $asterisk_release" 2>> $logfile >> $logfile
+			echo "Failed to download $asterisk_release" 
 			asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-			return 1
+			exit 1
 		fi
 	fi	
 
 	echo "Untarring $asterisk_release.tar.gz"
 	eval "tar xfz $asterisk_release.tar.gz" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ];then
-		echo "Failed to untar $asterisk_release" 2>> $logfile >> $logfile
+		echo "Failed to untar $asterisk_release" 
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-		return 1
+		exit 1
 	fi
 
 	eval "echo $asterisk_release |grep \"current\""
@@ -59,44 +59,44 @@ verify_asterisk ()
 	echo "Changing directory to $asterisk_release"
 	eval "cd $asterisk_release" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ];then
-		echo "Failed to change dir $asterisk_release" 2>> $logfile >> $logfile
+		echo "Failed to change dir $asterisk_release" 
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-		return 1
+		exit 1
 	fi
 
 
 	echo "Applying patch $home_dir/../../asterisk/$asterisk_patch"
 	eval "patch -p 1 < $home_dir/../../asterisk/$asterisk_patch" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ];then
-		echo "Failed to apply patch to $asterisk_release" 2>> $logfile >> $logfile
+		echo "Failed to apply patch to $asterisk_release" 
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-		return 1
+		exit 1
 	fi
 
 	echo "Executing bootstrap"
 	eval "./bootstrap.sh" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ]; then
-		echo "Failed to bootstrap $asterisk_release after patch" 2>> $logfile >> $logfile
+		echo "Failed to bootstrap $asterisk_release after patch" 
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-		return 1
+		exit 1
 	fi
 
 	echo "Executing configure"
 	eval "./configure --enable-dev-mode --with-wat=$WORKSPACE/libwat_install" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ]; then
-		echo "Failed to configure $asterisk_release after patch" 2>> $logfile >> $logfile
+		echo "Failed to configure $asterisk_release after patch" 
 		tail -n 20 $logfile
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-		return 1
+		exit 1
 	fi
 
 	echo "Verifying compilation $asterisk_release"
 	eval "make" 2>> $logfile >> $logfile
 	if [ $? -ne 0 ]; then
-		echo "Failed to compile $asterisk_release after patch" 2>> $logfile >> $logfile
+		echo "Failed to compile $asterisk_release after patch" 
 		tail -n 20 $logfile
 		asterisk_releases_failed="$asterisk_releases_failed $asterisk_release"
-		return 1
+		exit 1
 	fi
 
 	eval "cd .."
@@ -209,15 +209,15 @@ if [ $? -eq 0 ]; then
 	fi
 fi
 
-echo "Verifying last Asterisk 10.1 patch vs Asterisk-10-current"
-last_patch=`ls $home_dir/../../asterisk | grep asterisk-10 |tail -n 1`
-verify_asterisk $last_patch "asterisk-10-current"
-if [ $? -eq 0 ]; then
-	if [ ! -e  $home_dir/../../asterisk/$last_tested_asterisk_release.patch ]; then
-		echo "Copying $last_patch to $last_tested_asterisk_release.patch"
-		cp $home_dir/../../asterisk/$last_patch $home_dir/../../asterisk/$last_tested_asterisk_release.patch
-	fi
-fi
+#echo "Verifying last Asterisk 10.1 patch vs Asterisk-10-current"
+#last_patch=`ls $home_dir/../../asterisk | grep asterisk-10 |tail -n 1`
+#verify_asterisk $last_patch "asterisk-10-current"
+#if [ $? -eq 0 ]; then
+#	if [ ! -e  $home_dir/../../asterisk/$last_tested_asterisk_release.patch ]; then
+#		echo "Copying $last_patch to $last_tested_asterisk_release.patch"
+#		cp $home_dir/../../asterisk/$last_patch $home_dir/../../asterisk/$last_tested_asterisk_release.patch
+#	fi
+#fi
 
 echo "==========================================================================="
 echo "Asterisk releases passed:$asterisk_releases_passed"
