@@ -282,7 +282,7 @@ index c756190..1fb343a 100644
 +	}
 +
 +	dahdi_setlaw(p->subs[SUB_REAL].dfd, p->law_default);
-+	return dahdi_new_callid_clean(p, state, startpbx, dahdi_sub, p->law_default, requestor ? ast_channel_linkedid(requestor) : "", callid, callid_created);
++	return dahdi_new_callid_clean(p, state, startpbx, dahdi_sub, p->law_default, NULL, requestor ? ast_channel_linkedid(requestor) : "", callid, callid_created);
 +}
 +#endif /* defined (HAVE_WAT) */
 +
@@ -564,9 +564,9 @@ index c756190..1fb343a 100644
 +
 +		sig_wat_hangup(p->sig_pvt, ast);
 +
-+		dahdi_disable_ec(p);
++		dahdi_ec_disable(p);
 +
-+		update_conf(p);
++		dahdi_conf_update(p);
 +		reset_conf(p);
 +
 +		goto hangup_out;
@@ -1285,7 +1285,7 @@ index 0000000..35e3fa1
 +{
 +	ast_log(LOG_ERROR, "%s\n", message);
 +	ast_assert(0);
-+	ast_backtrace();
++	ast_log_backtrace();
 +}
 +
 +int sig_wat_span_write(unsigned char span_id, void *buffer, unsigned len)
