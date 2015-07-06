@@ -202,7 +202,8 @@ wat_status_t telit_start(wat_span_t *span)
 
 	if (span->module.model == TELIT_HE910) {
 		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
-		wat_cmd_enqueue(span, "AT#DVIEXT=1,0,0,1,0", NULL, NULL, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT#DVICFG=1,0,2,0,2", NULL, NULL, span->config.timeout_command);
+		wat_cmd_enqueue(span, "AT#DVIEXT=0,0,0,0,1", NULL, NULL, span->config.timeout_command);
 	} else if (span->module.model == TELIT_DE910) {
 		wat_cmd_enqueue(span, "AT#DVI=1,2,0", wat_response_dvi, NULL, span->config.timeout_command);
 		wat_cmd_enqueue(span, "AT#DVICFG=1,0,2,0,2", NULL, NULL, span->config.timeout_command);

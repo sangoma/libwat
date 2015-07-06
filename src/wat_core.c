@@ -617,9 +617,6 @@ wat_status_t _wat_span_set_state(const char *func, int line, wat_span_t *span, w
 				status = wat_span_perform_stop(span);
 			}
 			break;
-		case WAT_SPAN_STATE_SHUTDOWN:
-			
-			break;
 		default:
 			wat_log(WAT_LOG_CRIT, "Unhandled state change\n");
 	}

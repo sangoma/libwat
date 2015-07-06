@@ -316,7 +316,6 @@ typedef enum {
 	WAT_SPAN_STATE_POST_START,		/* SIM access is possible, perform SIM or Network dependent chip initialization commands */
 	WAT_SPAN_STATE_RUNNING,			/* Span is running and ready to accept external commands */
 	WAT_SPAN_STATE_STOP,		/* Span is stopping */
-	WAT_SPAN_STATE_SHUTDOWN,		/* Not used yet, will be used when live SIM swapping is implemented */
 	WAT_SPAN_STATE_INVALID,
 } wat_span_state_t;
 
