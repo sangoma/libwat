@@ -1463,7 +1463,11 @@ WAT_RESPONSE_FUNC(wat_response_clcc)
 			if (span->config.debug_mask & WAT_DEBUG_CALL_STATE) {
 				wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] No CLCC entries for call (state:%s), hanging up\n", call->id, wat_call_state2str(call->state));
 			}
-			wat_call_set_state(call, WAT_CALL_STATE_TERMINATING);
+			/* If the call is already being terminated there is no need to move to terminating state
+			 * and it would actually interfere with the current hangup process */
+			if (call->state <= WAT_CALL_STATE_UP) {
+				wat_call_set_state(call, WAT_CALL_STATE_TERMINATING);
+			}
 		}
 	}
 

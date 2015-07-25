@@ -127,7 +127,7 @@ WAT_EVENT_FUNC(wat_event_rel_req)
 	}
 
 	if (call->state >= WAT_CALL_STATE_HANGUP) {
-		wat_log_span(span, WAT_LOG_WARNING, "[id:%d] Call was already hung-up, ignoring\n", event->call_id);
+		wat_log_span(span, WAT_LOG_DEBUG, "[id:%d] Call was already in hangup procedure\n", event->call_id);
 		WAT_FUNC_DBG_END
 		return; 
 	}

@@ -407,12 +407,16 @@ WAT_DECLARE(void) wat_span_run(uint8_t span_id)
 	/* Check if there are pending commands received from the chip */
 	wat_span_run_cmds(span);
 
-	/* Check if there are any timeouts */
-	wat_span_run_sched(span);
+	/* Check if there are pending events requested by the user again, as
+	 * there could be events gathered during wat_span_run_cmds() */
+	wat_span_run_events(span);
 
 	/* Check if there are pending sms's requested by the user */
 	wat_span_run_smss(span);
-	return;
+
+	/* Last, check if there are any timeouts, this gives a chance to the above functions
+	 * to clear any pending timers that must not be run due to call state */
+	wat_span_run_sched(span);
 }
 
 WAT_DECLARE(void) wat_span_process_read(uint8_t span_id, void *data, uint32_t len)
