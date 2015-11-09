@@ -584,7 +584,7 @@ static int wat_cmd_handle_notify(wat_span_t *span, char *tokens[])
 	/* This is not an error, sometimes sometimes we have an incomplete response
 	(terminator not received yet), and we think its a notify  */
 	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
-		wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsollicited notify \"%s\"\n", tokens[0]);
+		wat_log_span(span, WAT_LOG_DEBUG, "No handler for unsolicited notify \"%s\"\n", tokens[0]);
 	}
 done:
 	if (span->config.debug_mask & WAT_DEBUG_AT_HANDLE) {
@@ -1797,7 +1797,7 @@ WAT_NOTIFY_FUNC(wat_notify_creg)
 			consumed_tokens = 1;
 		}
 	} else {
-		/* if count > 1, this is NOT an unsollicited notification, but an response
+		/* if count > 1, this is NOT an unsolicited notification, but an response
 			(and the terminator has not been received yet) return 0, so we do not consume
 			any tokens and wiat for a complete response */
 		consumed_tokens = 0;

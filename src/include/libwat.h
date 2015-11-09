@@ -258,18 +258,18 @@ typedef enum {
 						"SIM PIN 2 required", "SIM PUK 2 required", \
 						"PH-NET PIN required", "PH-NET PUK required", \
 						"PH-NETSUB PIN required", "PH-NETSUB PUK required", \
-						"PH-SP PIN required", "PH-SP PUK required" \
-						"PH-CORP PIN required", "PH-CORP PUK required" \
+						"PH-SP PIN required", "PH-SP PUK required", \
+						"PH-CORP PIN required", "PH-CORP PUK required", \
 						"PH-MCL PIN required", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_pin_stat, wat_pin_stat2str, wat_pin_stat_t);
 
 #define WAT_PIN_CHIP_STAT_STRINGS "READY", "SIM PIN", "SIM PUK", "PH-SIM PIN", \
 						"PH-FSIM PIN", "PH-FSIM PUK", \
-						"SIM PIN2", "SIM PUK2" \
+						"SIM PIN2", "SIM PUK2", \
 						"PH-NET PIN", "PH-NET PUK", \
 						"PH-NETSUB PIN", "PH-NETSUB PUK", \
-						"PH-SP PIN", "PH-SP PUK" \
-						"PH-CORP PIN", "PH-CORP PUK" \
+						"PH-SP PIN", "PH-SP PUK", \
+						"PH-CORP PIN", "PH-CORP PUK", \
 						"PH-MCL PIN", "Invalid"
 WAT_STR2ENUM_P(wat_str2wat_chip_pin_stat, wat_chip_pin_stat2str, wat_pin_stat_t);
 

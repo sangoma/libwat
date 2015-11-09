@@ -119,6 +119,9 @@ extern "C" {
 		_TYPE t = _MAX ;									\
 															\
 		for (i = 0; i < _MAX ; i++) {						\
+			if (!_STRINGS[i]) {                             \
+				break;                                      \
+			}                                               \
 			if (!strcasecmp(name, _STRINGS[i])) {			\
 				t = (_TYPE) i;								\
 				break;										\
